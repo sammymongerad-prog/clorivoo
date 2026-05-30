@@ -1,9 +1,26 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Component } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View } from 'react-native';
+import { Text, View, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+
+class ErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <ScrollView style={{ flex: 1, padding: 24, paddingTop: 60, backgroundColor: '#fff' }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#D14343', marginBottom: 12 }}>Erreur de rendu</Text>
+          <Text style={{ fontSize: 13, color: '#333', fontFamily: 'monospace' }}>{String(this.state.error)}</Text>
+          <Text style={{ fontSize: 11, color: '#999', marginTop: 8, fontFamily: 'monospace' }}>{this.state.error?.stack}</Text>
+        </ScrollView>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 import { SessionProvider, useSession } from './src/hooks/useSession';
 import { registerForPushNotifications } from './src/lib/notifications';
@@ -124,11 +141,13 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <SessionProvider>
-      <NavigationContainer>
-        <StatusBar style="dark" />
-        <AppNavigator />
-      </NavigationContainer>
-    </SessionProvider>
+    <ErrorBoundary>
+      <SessionProvider>
+        <NavigationContainer>
+          <StatusBar style="dark" />
+          <AppNavigator />
+        </NavigationContainer>
+      </SessionProvider>
+    </ErrorBoundary>
   );
 }
