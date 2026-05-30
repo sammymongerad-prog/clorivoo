@@ -4,6 +4,7 @@
 -- ═══════════════════════════════════════════════════════════════
 
 -- ─── CATEGORIES ──────────────────────────────────────────────────
+-- Parent categories with fixed UUIDs
 insert into public.categories (id, name, slug, icon, position) values
   ('11111111-0000-0000-0000-000000000001', 'Maison',   'maison',   '🏠', 1),
   ('11111111-0000-0000-0000-000000000002', 'Mode',     'mode',     '👗', 2),
@@ -13,18 +14,23 @@ insert into public.categories (id, name, slug, icon, position) values
   ('11111111-0000-0000-0000-000000000006', 'Enfants',  'enfants',  '🧸', 6),
   ('11111111-0000-0000-0000-000000000007', 'Jardin',   'jardin',   '🌱', 7),
   ('11111111-0000-0000-0000-000000000008', 'Électro',  'electro',  '🔌', 8)
-on conflict (slug) do nothing;
+on conflict (slug) do update set id = excluded.id, name = excluded.name;
 
-insert into public.categories (name, slug, icon, parent_id, position) values
-  ('Déco',         'deco',         '🕯️',  '11111111-0000-0000-0000-000000000001', 10),
-  ('Cuisine',      'cuisine',      '🍳',  '11111111-0000-0000-0000-000000000001', 11),
-  ('Femme',        'mode-femme',   '👠',  '11111111-0000-0000-0000-000000000002', 20),
-  ('Homme',        'mode-homme',   '👔',  '11111111-0000-0000-0000-000000000002', 21),
-  ('Accessoires',  'accessoires',  '👜',  '11111111-0000-0000-0000-000000000002', 22),
-  ('Smartphones',  'smartphones',  '📱',  '11111111-0000-0000-0000-000000000003', 30),
-  ('Audio',        'audio',        '🎧',  '11111111-0000-0000-0000-000000000003', 31),
-  ('Soin visage',  'soin-visage',  '✨',  '11111111-0000-0000-0000-000000000004', 40),
-  ('Maquillage',   'maquillage',   '💋',  '11111111-0000-0000-0000-000000000004', 41)
+-- Sub-categories: look up parent_id by slug to avoid UUID mismatch
+insert into public.categories (name, slug, icon, parent_id, position)
+select t.name, t.slug, t.icon, c.id, t.pos
+from (values
+  ('Déco',        'deco',        '🕯️',  'maison', 10),
+  ('Cuisine',     'cuisine',     '🍳',  'maison', 11),
+  ('Femme',       'mode-femme',  '👠',  'mode',   20),
+  ('Homme',       'mode-homme',  '👔',  'mode',   21),
+  ('Accessoires', 'accessoires', '👜',  'mode',   22),
+  ('Smartphones', 'smartphones', '📱',  'tech',   30),
+  ('Audio',       'audio',       '🎧',  'tech',   31),
+  ('Soin visage', 'soin-visage', '✨',  'beaute', 40),
+  ('Maquillage',  'maquillage',  '💋',  'beaute', 41)
+) as t(name, slug, icon, parent_slug, pos)
+join public.categories c on c.slug = t.parent_slug
 on conflict (slug) do nothing;
 
 -- ─── HOMEPAGE BANNERS ────────────────────────────────────────────
