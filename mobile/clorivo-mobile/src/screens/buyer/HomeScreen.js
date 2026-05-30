@@ -465,6 +465,75 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
 
+        {/* ── VIDÉOS PRODUITS ──────────────────── */}
+        {featuredProds.length > 0 && (
+          <View style={{ paddingTop: 20 }}>
+            <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: COLORS.ink, letterSpacing: -0.3 }}>Vidéos produits</Text>
+              <Text style={{ fontSize: 12, color: COLORS.mute, marginTop: 2 }}>Découvrez les produits en action</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingBottom: 4 }}>
+              {featuredProds.slice(0, 6).map((p, i) => {
+                const views = ['1.2k','5.6k','3.4k','2.1k','890','4.2k'][i] ?? '1k';
+                const captions = [
+                  'Un article unique\nfait à la main',
+                  'La pièce que\ntout le monde veut',
+                  'Lumière douce pour\nvotre intérieur',
+                  'Sentez la différence\nchaque matin',
+                  'Le sac parfait pour\ntous les jours',
+                  'Le choix des chefs\nà la maison',
+                ];
+                const caption = captions[i] ?? p.title;
+                return (
+                  <TouchableOpacity key={p.id + '_v'} onPress={() => navigation.navigate('Product', { productId: p.id, product: p })}
+                    style={{ width: 148, height: 228, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1a1a2e' }}>
+                    {/* Background image */}
+                    {p.images?.[0]
+                      ? <Image source={{ uri: p.images[0] }} style={{ position: 'absolute', width: 148, height: 228 }} resizeMode="cover" />
+                      : <View style={{ position: 'absolute', width: 148, height: 228, backgroundColor: COLORS.primary, opacity: 0.7 }} />
+                    }
+                    {/* Gradient overlay */}
+                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.28)' }} />
+                    <View style={{ position: 'absolute', bottom: 62, left: 0, right: 0, height: 80, backgroundColor: 'transparent' }} />
+                    <View style={{ position: 'absolute', bottom: 62, left: 0, right: 0, top: '50%', backgroundColor: 'rgba(0,0,0,0.44)' }} />
+                    {/* Play + views */}
+                    <View style={{ position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 8, color: '#fff', marginLeft: 1 }}>▶</Text>
+                      </View>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#fff' }}>{views}</Text>
+                    </View>
+                    {/* Caption */}
+                    <View style={{ position: 'absolute', bottom: 70, left: 8, right: 8 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff', lineHeight: 15 }}>{caption}</Text>
+                    </View>
+                    {/* Product bar */}
+                    <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.96)', padding: 7, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ width: 34, height: 34, borderRadius: 8, overflow: 'hidden', backgroundColor: COLORS.paper }}>
+                        {p.images?.[0]
+                          ? <Image source={{ uri: p.images[0] }} style={{ width: 34, height: 34 }} resizeMode="cover" />
+                          : <Text style={{ fontSize: 18, textAlign: 'center', lineHeight: 34 }}>🛍️</Text>
+                        }
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, color: COLORS.ink }} numberOfLines={1}>{p.title}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                          <Text style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: '700', color: COLORS.ink }}>${Number(p.price ?? 0).toFixed(2)}</Text>
+                          {discountPct(p) && (
+                            <View style={{ backgroundColor: COLORS.success, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
+                              <Text style={{ fontSize: 9, fontWeight: '800', color: '#fff' }}>{discountPct(p)}% OFF</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         {/* ── RIEN QUE POUR VOUS ────────────────── */}
         {forYouProds.length > 0 && (
           <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 24 }}>
