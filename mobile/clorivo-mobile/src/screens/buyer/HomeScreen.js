@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image,
-  TextInput, RefreshControl,
+  TextInput, RefreshControl, Modal, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
 import { ProductCard, SectionHeader, Avatar, Badge } from '../../components/UI';
+import Icon from '../../components/Icon';
 import {
   getProducts, getShops, getNotifications, getBanners,
   getCart, getConversations, getProfile, getProductVideos,
+  updateProfile,
 } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 
@@ -73,6 +76,9 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]         = useState('');
   const [activeChip, setActiveChip] = useState(0);
+  const [addrModal, setAddrModal]   = useState(false);
+  const [addrInput, setAddrInput]   = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const heroBannerCountdown  = useCountdown(7 * 3600 + 14 * 60 + 8);
   const flashDealsCountdown  = useCountdown(1 * 3600 + 42 * 60);
@@ -121,6 +127,31 @@ export default function HomeScreen({ navigation }) {
 
   async function onRefresh() { setRefreshing(true); await load(); setRefreshing(false); }
 
+  async function detectLocation() {
+    setGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setGpsLoading(false); return; }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [place] = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      if (place) {
+        const addr = [place.streetNumber, place.street, place.city].filter(Boolean).join(' ');
+        setAddrInput(addr);
+      }
+    } catch {}
+    setGpsLoading(false);
+  }
+
+  async function saveAddress() {
+    const trimmed = addrInput.trim();
+    if (!trimmed) return;
+    setAddress(trimmed);
+    setAddrModal(false);
+    if (session?.user?.id) {
+      updateProfile(session.user.id, { address: trimmed }).catch(() => {});
+    }
+  }
+
   const filtered = search
     ? products.filter(p => p.title?.toLowerCase().includes(search.toLowerCase()))
     : products;
@@ -159,33 +190,33 @@ export default function HomeScreen({ navigation }) {
             <View style={{ flexDirection: 'row', gap: 2 }}>
               <TouchableOpacity onPress={() => navigation.navigate('Cart')}
                 style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 22 }}>🛒</Text>
+                <Icon name="shoppingBag" size={22} color={COLORS.ink} />
                 {cartCount > 0 && <Badge count={cartCount} />}
               </TouchableOpacity>
               <TouchableOpacity onPress={() => navigation.navigate('Messages')}
                 style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 22 }}>💬</Text>
+                <Icon name="messageSquare" size={22} color={COLORS.ink} />
                 {unreadMsgs > 0 && <Badge count={unreadMsgs} />}
               </TouchableOpacity>
               <TouchableOpacity onPress={() => navigation.navigate('Notifications')}
                 style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 22 }}>🔔</Text>
+                <Icon name="bell" size={22} color={COLORS.ink} />
                 {unreadNotifs > 0 && <Badge count={unreadNotifs} />}
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Address strip */}
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')}
+          {/* Address strip — ouvre modal */}
+          <TouchableOpacity onPress={() => { setAddrInput(address ?? ''); setAddrModal(true); }}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.primarySoft, borderRadius: 10, padding: 8, marginBottom: 10 }}>
-            <Text style={{ fontSize: 15 }}>📍</Text>
+            <Icon name="mapPin" size={15} color={COLORS.primary} />
             <Text style={{ flex: 1, fontSize: 11, color: COLORS.mute }}>
               Livrer à ·{' '}
               <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.primaryDeep }}>
                 {address ?? 'Ajouter une adresse'}
               </Text>
             </Text>
-            <Text style={{ fontSize: 14, color: COLORS.primary }}>›</Text>
+            <Icon name="chevronRight" size={14} color={COLORS.primary} />
           </TouchableOpacity>
 
           {/* Search */}
@@ -549,6 +580,57 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
+
+      {/* ── MODAL ADRESSE ────────────────────── */}
+      <Modal visible={addrModal} transparent animationType="slide" onRequestClose={() => setAddrModal(false)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} activeOpacity={1} onPress={() => setAddrModal(false)} />
+        <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+          {/* Handle */}
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.hairline, alignSelf: 'center', marginBottom: 20 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: COLORS.ink, letterSpacing: -0.5, marginBottom: 4 }}>Adresse de livraison</Text>
+          <Text style={{ fontSize: 13, color: COLORS.mute, marginBottom: 20 }}>Entrez votre adresse ou utilisez votre position</Text>
+
+          {/* GPS button */}
+          <TouchableOpacity onPress={detectLocation} disabled={gpsLoading}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.primarySoft, borderRadius: 12, padding: 14, marginBottom: 14, opacity: gpsLoading ? 0.7 : 1 }}>
+            {gpsLoading
+              ? <ActivityIndicator size="small" color={COLORS.primary} />
+              : <Icon name="mapPin" size={18} color={COLORS.primary} />
+            }
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.primaryDeep }}>
+                {gpsLoading ? 'Détection en cours…' : 'Utiliser ma position actuelle'}
+              </Text>
+              <Text style={{ fontSize: 11, color: COLORS.mute, marginTop: 1 }}>Via GPS</Text>
+            </View>
+            <Icon name="chevronRight" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: COLORS.hairline }} />
+            <Text style={{ fontSize: 12, color: COLORS.mute }}>ou entrez manuellement</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: COLORS.hairline }} />
+          </View>
+
+          {/* Manual input */}
+          <TextInput
+            value={addrInput}
+            onChangeText={setAddrInput}
+            placeholder="Ex: 14 rue de la Roquette, 75011 Paris"
+            placeholderTextColor={COLORS.mute}
+            style={{ borderWidth: 1.5, borderColor: COLORS.hairline, borderRadius: 12, padding: 14, fontSize: 14, color: COLORS.ink, marginBottom: 16, backgroundColor: COLORS.paper }}
+            autoFocus={false}
+            returnKeyType="done"
+            onSubmitEditing={saveAddress}
+          />
+
+          <TouchableOpacity onPress={saveAddress}
+            style={{ backgroundColor: COLORS.primary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Confirmer l'adresse</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

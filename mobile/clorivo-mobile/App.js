@@ -77,13 +77,14 @@ function BuyerTabs() {
         tabBarStyle: { borderTopWidth: 1, borderTopColor: COLORS.hairline, height: 60, paddingBottom: 8, paddingTop: 4 },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.mute,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
-      <Tab.Screen name="Home"     component={HomeScreen}     options={{ title: 'Accueil',    tabBarIcon: ({ focused }) => <TabIcon name="home"          focused={focused} /> }} />
-      <Tab.Screen name="Cart"     component={CartScreen}     options={{ title: 'Panier',     tabBarIcon: ({ focused }) => <TabIcon name="shoppingBag"   focused={focused} /> }} />
-      <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'Messages',   tabBarIcon: ({ focused }) => <TabIcon name="messageSquare" focused={focused} /> }} />
-      <Tab.Screen name="Profile"  component={ProfileScreen}  options={{ title: 'Profil',     tabBarIcon: ({ focused }) => <TabIcon name="user"          focused={focused} /> }} />
+      <Tab.Screen name="Home"       component={HomeScreen}     options={{ title: 'Accueil',    tabBarIcon: ({ focused }) => <TabIcon name="home"      focused={focused} /> }} />
+      <Tab.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Catégories', tabBarIcon: ({ focused }) => <TabIcon name="grid"      focused={focused} /> }} />
+      <Tab.Screen name="Cart"       component={CartScreen}     options={{ title: 'Panier',     tabBarIcon: ({ focused }) => <TabIcon name="shoppingBag" focused={focused} /> }} />
+      <Tab.Screen name="Orders"     component={OrdersScreen}   options={{ title: 'Commandes',  tabBarIcon: ({ focused }) => <TabIcon name="package"   focused={focused} /> }} />
+      <Tab.Screen name="Profile"    component={ProfileScreen}  options={{ title: 'Profil',     tabBarIcon: ({ focused }) => <TabIcon name="user"      focused={focused} /> }} />
     </Tab.Navigator>
   );
 }
@@ -110,6 +111,7 @@ function AppNavigator() {
       <Stack.Screen name="Product"          component={ProductScreen} />
       <Stack.Screen name="Checkout"         component={CheckoutScreen} />
       <Stack.Screen name="Tracking"         component={TrackingScreen} />
+      <Stack.Screen name="Messages"         component={MessagesScreen} />
       <Stack.Screen name="Chat"             component={ChatScreen} />
       <Stack.Screen name="Notifications"    component={NotificationsScreen} />
       <Stack.Screen name="Orders"           component={OrdersScreen} />
