@@ -2,13 +2,26 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, RADIUS } from '../../lib/tokens';
 import { Btn, Input } from '../../components/UI';
-import { signIn } from '../../lib/supabase';
+import { signIn, signInWithOAuth } from '../../lib/supabase';
+
+// Logos SVG Google et Apple en inline (web-compatible)
+function GoogleLogo() {
+  return (
+    <View style={{ width: 18, height: 18 }}>
+      {/* Cercles colorés simplifiés */}
+      <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E8E6F0', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 12, lineHeight: 14 }}>G</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [loading, setLoading]   = useState(false);
+  const [oauthLoading, setOAuthLoading] = useState(null); // 'google' | 'apple'
   const [error, setError]       = useState('');
 
   async function handleLogin() {
@@ -22,7 +35,16 @@ export default function LoginScreen({ navigation }) {
       else if (err.message.includes('Email not confirmed'))  setError('Confirmez votre email avant de vous connecter.');
       else setError(err.message);
     }
-    // SessionProvider redirige automatiquement
+  }
+
+  async function handleOAuth(provider) {
+    setError('');
+    setOAuthLoading(provider);
+    const { error: err } = await signInWithOAuth(provider);
+    setOAuthLoading(null);
+    if (err) setError(err.message);
+    // Sur web : Supabase redirige automatiquement vers le provider
+    // La session est récupérée au retour via onAuthStateChange
   }
 
   return (
@@ -30,8 +52,7 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60 }} keyboardShouldPersistTaps="handled">
 
         {/* Back */}
-        <TouchableOpacity onPress={() => navigation.goBack()}
-          style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginBottom: 24 }}>
           <Text style={{ fontSize: 22, color: COLORS.mute }}>←</Text>
         </TouchableOpacity>
 
@@ -39,6 +60,41 @@ export default function LoginScreen({ navigation }) {
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 28, fontWeight: '800', color: COLORS.ink, letterSpacing: -0.5, marginBottom: 6 }}>Bon retour 👋</Text>
           <Text style={{ fontSize: 15, color: COLORS.mute }}>Connectez-vous pour continuer</Text>
+        </View>
+
+        {/* Boutons sociaux EN PREMIER */}
+        <View style={{ gap: 12, marginBottom: 20 }}>
+          {/* Google */}
+          <TouchableOpacity
+            onPress={() => handleOAuth('google')}
+            disabled={!!oauthLoading}
+            style={{ height: 52, borderWidth: 1.5, borderColor: COLORS.hairline, borderRadius: 14, backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: oauthLoading === 'google' ? 0.6 : 1 }}>
+            {/* Logo Google */}
+            <View style={{ width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#4285F4' }}>G</Text>
+            </View>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: COLORS.ink }}>
+              {oauthLoading === 'google' ? 'Redirection…' : 'Continuer avec Google'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Apple */}
+          <TouchableOpacity
+            onPress={() => handleOAuth('apple')}
+            disabled={!!oauthLoading}
+            style={{ height: 52, borderRadius: 14, backgroundColor: '#000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: oauthLoading === 'apple' ? 0.6 : 1 }}>
+            <Text style={{ fontSize: 20, color: '#fff', lineHeight: 24 }}></Text>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>
+              {oauthLoading === 'apple' ? 'Redirection…' : 'Continuer avec Apple'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Divider */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: COLORS.hairline }} />
+          <Text style={{ fontSize: 12, color: COLORS.mute }}>ou avec un email</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: COLORS.hairline }} />
         </View>
 
         {/* Error */}
@@ -51,8 +107,7 @@ export default function LoginScreen({ navigation }) {
         {/* Fields */}
         <View style={{ gap: 14 }}>
           <Input label="Adresse e-mail" value={email} onChangeText={setEmail}
-            placeholder="vous@mail.com" keyboardType="email-address"
-            iconLeft="✉️" />
+            placeholder="vous@mail.com" keyboardType="email-address" iconLeft="✉️" />
           <Input label="Mot de passe" value={password} onChangeText={setPassword}
             placeholder="••••••••" secureTextEntry iconLeft="🔒" />
         </View>
@@ -77,27 +132,6 @@ export default function LoginScreen({ navigation }) {
         <Btn size="lg" onPress={handleLogin} disabled={loading}>
           {loading ? 'Connexion…' : 'Se connecter'}
         </Btn>
-
-        {/* Divider */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 }}>
-          <View style={{ flex: 1, height: 1, backgroundColor: COLORS.hairline }} />
-          <Text style={{ fontSize: 12, color: COLORS.mute }}>ou continuer avec</Text>
-          <View style={{ flex: 1, height: 1, backgroundColor: COLORS.hairline }} />
-        </View>
-
-        {/* Social */}
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {[
-            { label: 'Google', icon: '🔵' },
-            { label: 'Apple',  icon: '⬛' },
-          ].map((s, i) => (
-            <TouchableOpacity key={i}
-              style={{ flex: 1, height: 48, borderWidth: 1.5, borderColor: COLORS.hairline, borderRadius: 12, backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 16 }}>{s.icon}</Text>
-              <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.ink }}>{s.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
 
         <View style={{ alignItems: 'center', marginTop: 24 }}>
           <Text style={{ fontSize: 14, color: COLORS.mute }}>

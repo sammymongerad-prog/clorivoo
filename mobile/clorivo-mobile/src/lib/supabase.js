@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const SUPABASE_URL      = 'https://vcptpgmsxwynbobsmmdd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjcHRwZ21zeHd5bmJvYnNtbWRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzg4MjMsImV4cCI6MjA5NTcxNDgyM30.QrmdCraB77J3A6U3IBlZX-ZqzTuTbc-GkcdOFMXvCUk';
@@ -9,7 +10,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
 
@@ -29,6 +30,17 @@ export async function signIn(email, password) {
 
 export async function signOut() {
   await supabase.auth.signOut();
+}
+
+export async function signInWithOAuth(provider) {
+  const redirectTo = Platform.OS === 'web'
+    ? window.location.origin
+    : 'clorivo://auth/callback';
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo },
+  });
+  return { data, error };
 }
 
 export async function getSession() {
