@@ -4,7 +4,6 @@ import {
   TextInput, RefreshControl, Modal, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
 import { ProductCard, SectionHeader, Avatar, Badge } from '../../components/UI';
 import Icon from '../../components/Icon';
@@ -130,6 +129,21 @@ export default function HomeScreen({ navigation }) {
   async function detectLocation() {
     setGpsLoading(true);
     try {
+      if (Platform.OS === 'web') {
+        // Web : API navigateur standard
+        navigator.geolocation.getCurrentPosition(async pos => {
+          try {
+            const { latitude, longitude } = pos.coords;
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+            const data = await res.json();
+            const addr = data.display_name?.split(',').slice(0, 3).join(',').trim() ?? '';
+            if (addr) setAddrInput(addr);
+          } catch {}
+          setGpsLoading(false);
+        }, () => setGpsLoading(false));
+        return;
+      }
+      const Location = await import('expo-location');
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') { setGpsLoading(false); return; }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
