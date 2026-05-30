@@ -54,6 +54,10 @@ import AddProductScreen      from './src/screens/seller/AddProductScreen';
 import SellerOrdersScreen    from './src/screens/seller/SellerOrdersScreen';
 import ShopSetupScreen       from './src/screens/seller/ShopSetupScreen';
 import ManageVideosScreen    from './src/screens/seller/ManageVideosScreen';
+import AdminConsoleScreen   from './src/screens/admin/AdminConsoleScreen';
+import AddressScreen        from './src/screens/buyer/AddressScreen';
+import SettingsScreen       from './src/screens/buyer/SettingsScreen';
+import HelpScreen           from './src/screens/buyer/HelpScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -121,6 +125,10 @@ function AppNavigator() {
       <Stack.Screen name="SellerOrders"     component={SellerOrdersScreen} />
       <Stack.Screen name="ShopSetup"        component={ShopSetupScreen} />
       <Stack.Screen name="ManageVideos"     component={ManageVideosScreen} />
+      <Stack.Screen name="AdminConsole"    component={AdminConsoleScreen} />
+      <Stack.Screen name="Address"         component={AddressScreen} />
+      <Stack.Screen name="Settings"        component={SettingsScreen} />
+      <Stack.Screen name="Help"            component={HelpScreen} />
     </Stack.Navigator>
   );
 }

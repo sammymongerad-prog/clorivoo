@@ -242,8 +242,8 @@ export default function ProfileScreen({ navigation }) {
         {/* ── MENU GROUP 1 ──────────────────────── */}
         <MenuGroup>
           <MenuItem icon="package"    label="Mes commandes"  detail={`${ordersCount} commande${ordersCount !== 1 ? 's' : ''}`} onPress={() => navigation.navigate('Orders')} />
-          <MenuItem icon="mapPin"     label="Adresses"       detail="Gérer mes adresses"  onPress={() => {}} />
-          <MenuItem icon="creditCard" label="Paiements"      detail="Visa, PayPal"         onPress={() => {}} />
+          <MenuItem icon="mapPin"     label="Adresses"       detail="Gérer mes adresses"  onPress={() => navigation.navigate('Address')} />
+          <MenuItem icon="creditCard" label="Paiements"      detail="Visa, PayPal"         onPress={() => navigation.navigate('Settings')} />
           <MenuItem icon="messageSquare" label="Messages"    detail=""                     onPress={() => navigation.navigate('Messages')} />
         </MenuGroup>
 
@@ -259,9 +259,11 @@ export default function ProfileScreen({ navigation }) {
         {/* ── MENU GROUP 3 ──────────────────────── */}
         <MenuGroup>
           <MenuItem icon="bell"      label="Notifications"   onPress={() => navigation.navigate('Notifications')} />
-          <MenuItem icon="help"      label="Aide & Support"  onPress={() => {}} />
-          <MenuItem icon="settings"  label="Paramètres"      onPress={() => {}} />
-          <MenuItem icon="lock"      label="Console admin"   onPress={() => {}} />
+          <MenuItem icon="help"      label="Aide & Support"  onPress={() => navigation.navigate('Help')} />
+          <MenuItem icon="settings"  label="Paramètres"      onPress={() => navigation.navigate('Settings')} />
+          {profile?.role === 'admin' && (
+            <MenuItem icon="lock"    label="Console admin"   onPress={() => navigation.navigate('AdminConsole')} />
+          )}
           <MenuItem icon="logOut"    label="Se déconnecter"  onPress={handleSignOut} danger />
         </MenuGroup>
 
