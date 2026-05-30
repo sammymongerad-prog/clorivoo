@@ -21,9 +21,11 @@ create table if not exists public.profiles (
   role        text not null default 'buyer' check (role in ('buyer','seller','admin')),
   shop_id     uuid,
   address     jsonb default '{}',
+  push_token  text,
   created_at  timestamptz default now(),
   updated_at  timestamptz default now()
 );
+alter table public.profiles add column if not exists push_token text;
 
 drop trigger if exists profiles_updated_at on public.profiles;
 create trigger profiles_updated_at before update on public.profiles
@@ -98,7 +100,9 @@ create table if not exists public.shop_banners (
 create table if not exists public.products (
   id            uuid primary key default uuid_generate_v4(),
   shop_id       uuid not null references public.shops(id) on delete cascade,
+  seller_id     uuid references public.profiles(id),
   category_id   uuid references public.categories(id),
+  category      text,
   title         text not null,
   description   text,
   price         numeric(10,2) not null,
@@ -118,6 +122,8 @@ create table if not exists public.products (
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
+alter table public.products add column if not exists seller_id uuid references public.profiles(id);
+alter table public.products add column if not exists category   text;
 
 drop trigger if exists products_updated_at on public.products;
 create trigger products_updated_at before update on public.products
@@ -126,6 +132,7 @@ create trigger products_updated_at before update on public.products
 create index if not exists products_shop_id_idx     on public.products(shop_id);
 create index if not exists products_category_id_idx on public.products(category_id);
 create index if not exists products_status_idx      on public.products(status);
+create index if not exists products_seller_id_idx   on public.products(seller_id);
 
 -- ─── CARTS ───────────────────────────────────────────────────────
 create table if not exists public.carts (
@@ -146,10 +153,17 @@ create table if not exists public.cart_items (
   product_id  uuid not null references public.products(id) on delete cascade,
   variant     jsonb default '{}',
   quantity    int not null default 1 check (quantity > 0),
-  price       numeric(10,2) not null,
+  unit_price  numeric(10,2) not null,
   created_at  timestamptz default now(),
   unique(cart_id, product_id, variant)
 );
+-- backward compat: rename price → unit_price if old column exists
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_name='cart_items' and column_name='price' and table_schema='public') then
+    alter table public.cart_items rename column price to unit_price;
+  end if;
+exception when others then null; end $$;
+alter table public.cart_items add column if not exists unit_price numeric(10,2);
 
 -- ─── ORDERS ──────────────────────────────────────────────────────
 create table if not exists public.orders (
@@ -157,10 +171,10 @@ create table if not exists public.orders (
   buyer_id         uuid not null references public.profiles(id),
   status           text not null default 'pending'
                      check (status in ('pending','confirmed','processing','shipped','delivered','cancelled','refunded')),
-  subtotal         numeric(10,2) not null,
+  subtotal         numeric(10,2) not null default 0,
   discount         numeric(10,2) default 0,
   shipping_fee     numeric(10,2) default 0,
-  total            numeric(10,2) not null,
+  total_amount     numeric(10,2) not null default 0,
   promo_code       text,
   shipping_address jsonb not null default '{}',
   shipping_method  text default 'standard',
@@ -171,6 +185,15 @@ create table if not exists public.orders (
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
 );
+-- backward compat: add total_amount if only old total column exists
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_name='orders' and column_name='total' and table_schema='public')
+  and not exists (select 1 from information_schema.columns where table_name='orders' and column_name='total_amount' and table_schema='public') then
+    alter table public.orders rename column total to total_amount;
+  end if;
+exception when others then null; end $$;
+alter table public.orders add column if not exists total_amount numeric(10,2) not null default 0;
+alter table public.orders add column if not exists subtotal     numeric(10,2) not null default 0;
 
 drop trigger if exists orders_updated_at on public.orders;
 create trigger orders_updated_at before update on public.orders
@@ -184,13 +207,25 @@ create table if not exists public.order_items (
   order_id    uuid not null references public.orders(id) on delete cascade,
   product_id  uuid references public.products(id),
   shop_id     uuid references public.shops(id),
+  seller_id   uuid references public.profiles(id),
   title       text not null,
   image_url   text,
   variant     jsonb default '{}',
   quantity    int not null,
-  price       numeric(10,2) not null,
+  unit_price  numeric(10,2) not null default 0,
   created_at  timestamptz default now()
 );
+alter table public.order_items add column if not exists seller_id  uuid references public.profiles(id);
+alter table public.order_items add column if not exists unit_price numeric(10,2) not null default 0;
+-- backward compat: if old column was named price, rename it
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_name='order_items' and column_name='price' and table_schema='public')
+  and not exists (select 1 from information_schema.columns where table_name='order_items' and column_name='unit_price' and table_schema='public') then
+    alter table public.order_items rename column price to unit_price;
+  end if;
+exception when others then null; end $$;
+
+create index if not exists order_items_seller_id_idx on public.order_items(seller_id);
 
 -- ─── CONVERSATIONS & MESSAGES ─────────────────────────────────────
 create table if not exists public.conversations (
@@ -363,6 +398,8 @@ select _create_policy_if_not_exists('Sellers can manage their banners','shop_ban
 select _create_policy_if_not_exists('Active products are public','products','select','status = ''active''');
 select _create_policy_if_not_exists('Sellers can manage their products','products','all',
   'shop_id in (select id from public.shops where seller_id = auth.uid())');
+select _create_policy_if_not_exists('Sellers can manage own products by seller_id','products','all',
+  'seller_id = auth.uid()');
 select _create_policy_if_not_exists('Admins can manage all products','products','all',
   '(select role from public.profiles where id = auth.uid()) = ''admin''');
 
@@ -374,8 +411,12 @@ select _create_policy_if_not_exists('Users can manage their cart items','cart_it
 -- orders
 select _create_policy_if_not_exists('Buyers see their orders','orders','select','buyer_id = auth.uid()');
 select _create_policy_if_not_exists('Buyers can create orders','orders','insert',null,'buyer_id = auth.uid()');
+select _create_policy_if_not_exists('Sellers can update order status','orders','update',
+  'id in (select order_id from public.order_items where seller_id = auth.uid())');
 select _create_policy_if_not_exists('Admins see all orders','orders','all',
   '(select role from public.profiles where id = auth.uid()) = ''admin''');
+select _create_policy_if_not_exists('Sellers see orders for their items','order_items','select',
+  'seller_id = auth.uid()');
 select _create_policy_if_not_exists('Sellers see orders for their shop','order_items','select',
   'shop_id in (select id from public.shops where seller_id = auth.uid())');
 select _create_policy_if_not_exists('Buyers see their order items','order_items','select',
@@ -400,6 +441,7 @@ select _create_policy_if_not_exists('Participants can send messages','messages',
 -- notifications
 select _create_policy_if_not_exists('Users see their notifications','notifications','select','user_id = auth.uid()');
 select _create_policy_if_not_exists('Users can update their notifications','notifications','update','user_id = auth.uid()');
+select _create_policy_if_not_exists('Service role can insert notifications','notifications','insert',null,'true');
 
 -- kyc_requests
 select _create_policy_if_not_exists('Sellers see their KYC','kyc_requests','select','seller_id = auth.uid()');
@@ -415,20 +457,23 @@ select _create_policy_if_not_exists('Admins manage banners','banners','all',
 -- ─── Storage buckets ──────────────────────────────────────────────
 insert into storage.buckets (id, name, public)
 values
-  ('product-images', 'product-images', true),
+  ('products',       'products',       true),
   ('shop-assets',    'shop-assets',    true),
   ('kyc-documents',  'kyc-documents',  false),
   ('avatars',        'avatars',        true)
 on conflict (id) do nothing;
 
--- Storage policies (idempotent via helper)
 do $$ begin
-  if not exists (select 1 from pg_policies where policyname = 'Product images are public' and tablename = 'objects') then
-    create policy "Product images are public" on storage.objects for select using (bucket_id = 'product-images');
+  if not exists (select 1 from pg_policies where policyname = 'Products bucket public read' and tablename = 'objects') then
+    create policy "Products bucket public read" on storage.objects for select using (bucket_id = 'products');
   end if;
-  if not exists (select 1 from pg_policies where policyname = 'Sellers can upload product images' and tablename = 'objects') then
-    create policy "Sellers can upload product images" on storage.objects for insert
-      with check (bucket_id = 'product-images' and auth.role() = 'authenticated');
+  if not exists (select 1 from pg_policies where policyname = 'Authenticated users upload products' and tablename = 'objects') then
+    create policy "Authenticated users upload products" on storage.objects for insert
+      with check (bucket_id = 'products' and auth.role() = 'authenticated');
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'Authenticated users update products' and tablename = 'objects') then
+    create policy "Authenticated users update products" on storage.objects for update
+      using (bucket_id = 'products' and auth.role() = 'authenticated');
   end if;
   if not exists (select 1 from pg_policies where policyname = 'Shop assets are public' and tablename = 'objects') then
     create policy "Shop assets are public" on storage.objects for select using (bucket_id = 'shop-assets');
@@ -436,14 +481,6 @@ do $$ begin
   if not exists (select 1 from pg_policies where policyname = 'Sellers can upload shop assets' and tablename = 'objects') then
     create policy "Sellers can upload shop assets" on storage.objects for insert
       with check (bucket_id = 'shop-assets' and auth.role() = 'authenticated');
-  end if;
-  if not exists (select 1 from pg_policies where policyname = 'KYC docs only by owner' and tablename = 'objects') then
-    create policy "KYC docs only by owner" on storage.objects for insert
-      with check (bucket_id = 'kyc-documents' and auth.role() = 'authenticated');
-  end if;
-  if not exists (select 1 from pg_policies where policyname = 'KYC docs visible to owner and admins' and tablename = 'objects') then
-    create policy "KYC docs visible to owner and admins" on storage.objects for select
-      using (bucket_id = 'kyc-documents' and auth.role() = 'authenticated');
   end if;
   if not exists (select 1 from pg_policies where policyname = 'Avatars are public' and tablename = 'objects') then
     create policy "Avatars are public" on storage.objects for select using (bucket_id = 'avatars');

@@ -52,17 +52,19 @@ export async function savePushToken(userId, token) {
 }
 
 // ─── PRODUCTS ─────────────────────────────────────────────────────
-export async function getProducts({ categorySlug, shopId, limit = 20, offset = 0 } = {}) {
+export async function getProducts({ categorySlug, shopId, seller_id, limit = 20, offset = 0 } = {}) {
   let q = supabase
     .from('products')
     .select('*, shops(id,name,is_verified,brand_color), categories(id,name,slug)')
     .eq('status', 'active')
     .range(offset, offset + limit - 1)
     .order('created_at', { ascending: false });
-  if (shopId) q = q.eq('shop_id', shopId);
+  if (shopId)    q = q.eq('shop_id', shopId);
+  if (seller_id) q = q.eq('seller_id', seller_id);
   if (categorySlug) {
-    const { data: cat } = await supabase.from('categories').select('id').eq('slug', categorySlug).single();
+    const { data: cat } = await supabase.from('categories').select('id').eq('slug', categorySlug).maybeSingle();
     if (cat) q = q.eq('category_id', cat.id);
+    else q = q.eq('category', categorySlug);
   }
   const { data, error } = await q;
   return { data: data ?? [], error };
@@ -142,7 +144,7 @@ export async function upsertCartItem(userId, productId, variant, quantity, price
     return;
   }
   await supabase.from('cart_items').upsert(
-    { cart_id: cart.id, product_id: productId, variant, quantity, price },
+    { cart_id: cart.id, product_id: productId, variant, quantity, unit_price: price },
     { onConflict: 'cart_id,product_id,variant' }
   );
 }
