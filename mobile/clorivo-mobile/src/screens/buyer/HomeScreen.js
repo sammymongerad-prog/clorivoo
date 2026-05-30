@@ -8,7 +8,7 @@ import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
 import { ProductCard, SectionHeader, Avatar, Badge } from '../../components/UI';
 import {
   getProducts, getShops, getNotifications, getBanners,
-  getCategories, getCart, getConversations, getProfile,
+  getCart, getConversations, getProfile,
 } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 
@@ -36,7 +36,14 @@ const SHORTCUTS = [
   { emoji: '💳', label: 'Paiements',  badge: 'NOUVEAU', badgeBg: '#2563EB' },
 ];
 
-const CHIP_CATS = ['Tout', 'Maison', 'Tech', 'Beauté', 'Mode', 'Enfants'];
+const CHIP_CATS = [
+  { label: 'Tout',    slug: null },
+  { label: 'Maison',  slug: 'maison' },
+  { label: 'Tech',    slug: 'tech' },
+  { label: 'Beauté',  slug: 'beaute' },
+  { label: 'Mode',    slug: 'mode' },
+  { label: 'Enfants', slug: 'enfants' },
+];
 
 // ── Category tile emoji fallbacks ──────────────────────────────────
 const CAT_EMOJI = { maison: '🏠', mode: '👗', tech: '📱', beaute: '💄', enfants: '🧸', sport: '⚽', jardin: '🌿' };
@@ -51,7 +58,6 @@ export default function HomeScreen({ navigation }) {
   const [products, setProducts]     = useState([]);
   const [shops, setShops]           = useState([]);
   const [banners, setBanners]       = useState([]);
-  const [categories, setCategories] = useState([]);
   const [cartCount, setCartCount]   = useState(0);
   const [unreadMsgs, setUnreadMsgs] = useState(0);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
@@ -71,16 +77,14 @@ export default function HomeScreen({ navigation }) {
     try {
       const userId = session?.user?.id;
 
-      const [{ data: prods }, sh, cats, bnrs] = await Promise.all([
+      const [{ data: prods }, sh, bnrs] = await Promise.all([
         getProducts({ limit: 16 }),
         getShops(10),
-        getCategories(),
         getBanners(),
       ]);
 
       if (prods?.length)  setProducts(prods);
       if (sh?.length)     setShops(sh.filter(s => s?.name));
-      if (cats?.length)   setCategories(cats.slice(0, 4));
       if (bnrs?.length)   setBanners(bnrs);
 
       if (userId) {
@@ -187,11 +191,14 @@ export default function HomeScreen({ navigation }) {
           {/* Category chips */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
             {CHIP_CATS.map((c, i) => (
-              <TouchableOpacity key={i} onPress={() => setActiveChip(i)}
+              <TouchableOpacity key={i} onPress={() => {
+                setActiveChip(i);
+                if (i > 0) navigation.navigate('Categories', { categorySlug: c.slug });
+              }}
                 style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: RADIUS.full,
                   backgroundColor: activeChip === i ? COLORS.primary : COLORS.paper,
                   borderWidth: 1.5, borderColor: activeChip === i ? COLORS.primary : COLORS.hairline }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: activeChip === i ? '#fff' : COLORS.ink }}>{c}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: activeChip === i ? '#fff' : COLORS.ink }}>{c.label}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -364,30 +371,24 @@ export default function HomeScreen({ navigation }) {
         )}
 
         {/* ── CATÉGORIES POPULAIRES ─────────────── */}
-        {categories.length > 0 && (
-          <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
-            <SectionHeader title="Catégories populaires" onSeeAll={() => navigation.navigate('Categories')} />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              {categories.map((cat, i) => {
-                const slug  = cat.slug ?? '';
-                const color = cat.color ?? CAT_COLOR[slug] ?? COLORS.primary;
-                const emoji = cat.icon  ?? CAT_EMOJI[slug]  ?? '🛍️';
-                return (
-                  <TouchableOpacity key={cat.id ?? i}
-                    onPress={() => navigation.navigate('Categories', { categorySlug: slug })}
-                    style={{ width: '47%', height: 110, borderRadius: 14, overflow: 'hidden', backgroundColor: color, ...SHADOW.sm }}>
-                    <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.22)' }} />
-                    <View style={{ position: 'absolute', right: -15, top: -15, width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                    <Text style={{ position: 'absolute', right: 12, top: 10, fontSize: 36 }}>{emoji}</Text>
-                    <View style={{ position: 'absolute', bottom: 10, left: 12 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{cat.name}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+        <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
+          <SectionHeader title="Catégories populaires" onSeeAll={() => navigation.navigate('Categories')} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {CATEGORIES_TILES.map((cat, i) => (
+              <TouchableOpacity key={i}
+                onPress={() => navigation.navigate('Categories', { categorySlug: cat.slug })}
+                style={{ width: '47%', height: 110, borderRadius: 14, overflow: 'hidden', backgroundColor: cat.color, ...SHADOW.sm }}>
+                <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.22)' }} />
+                <View style={{ position: 'absolute', right: -15, top: -15, width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                <Text style={{ position: 'absolute', right: 12, top: 10, fontSize: 36 }}>{cat.emoji}</Text>
+                <View style={{ position: 'absolute', bottom: 10, left: 12 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{cat.label}</Text>
+                  <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>{cat.sub}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
-        )}
+        </View>
 
         {/* ── OFFRES EXCLUSIVES (banners Supabase) ─ */}
         {banners.length > 0 && (
