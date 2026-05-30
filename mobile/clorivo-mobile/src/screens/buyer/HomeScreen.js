@@ -68,31 +68,35 @@ export default function HomeScreen({ navigation }) {
     ?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? 'AM';
 
   async function load() {
-    const userId = session?.user?.id;
+    try {
+      const userId = session?.user?.id;
 
-    const [{ data: prods }, sh, cats, bnrs] = await Promise.all([
-      getProducts({ limit: 16 }),
-      getShops(10),
-      getCategories(),
-      getBanners(),
-    ]);
-
-    if (prods?.length)  setProducts(prods);
-    if (sh?.length)     setShops(sh);
-    if (cats?.length)   setCategories(cats.slice(0, 4));
-    if (bnrs?.length)   setBanners(bnrs);
-
-    if (userId) {
-      const [cartItems, convs, notifs, profile] = await Promise.all([
-        getCart(userId),
-        getConversations(userId),
-        getNotifications(userId),
-        getProfile(userId),
+      const [{ data: prods }, sh, cats, bnrs] = await Promise.all([
+        getProducts({ limit: 16 }),
+        getShops(10),
+        getCategories(),
+        getBanners(),
       ]);
-      setCartCount(cartItems?.length ?? 0);
-      setUnreadMsgs(convs?.filter(c => c.last_message_at && !c.read_at)?.length ?? 0);
-      setUnreadNotifs(notifs?.filter(n => !n.read_at)?.length ?? 0);
-      if (profile?.address) setAddress(profile.address);
+
+      if (prods?.length)  setProducts(prods);
+      if (sh?.length)     setShops(sh.filter(s => s?.name));
+      if (cats?.length)   setCategories(cats.slice(0, 4));
+      if (bnrs?.length)   setBanners(bnrs);
+
+      if (userId) {
+        const [cartItems, convs, notifs, profile] = await Promise.all([
+          getCart(userId).catch(() => []),
+          getConversations(userId).catch(() => []),
+          getNotifications(userId).catch(() => []),
+          getProfile(userId).catch(() => null),
+        ]);
+        setCartCount(cartItems?.length ?? 0);
+        setUnreadMsgs(convs?.filter(c => c.last_message_at)?.length ?? 0);
+        setUnreadNotifs(notifs?.filter(n => !n.read_at)?.length ?? 0);
+        if (profile?.address) setAddress(profile.address);
+      }
+    } catch (e) {
+      console.warn('HomeScreen load error:', e);
     }
   }
 
@@ -259,7 +263,7 @@ export default function HomeScreen({ navigation }) {
                     <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: shop.brand_color ?? COLORS.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.hairline }}>
                       {shop.logo_url
                         ? <Image source={{ uri: shop.logo_url }} style={{ width: 50, height: 50, borderRadius: 25 }} />
-                        : <Text style={{ fontWeight: '800', fontSize: 22, color: '#fff' }}>{shop.name[0].toUpperCase()}</Text>
+                        : <Text style={{ fontWeight: '800', fontSize: 22, color: '#fff' }}>{(shop.name?.[0] ?? '?').toUpperCase()}</Text>
                       }
                     </View>
                     {shop.is_verified && (
