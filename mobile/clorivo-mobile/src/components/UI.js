@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, TextInput, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Image } from 'react-native';
 import { COLORS, RADIUS, SHADOW } from '../lib/tokens';
 
 // ─── Button ───────────────────────────────────────────────────────
@@ -12,7 +12,6 @@ export function Btn({ children, variant = 'primary', onPress, disabled, style, s
     : variant === 'ghost' ? COLORS.ink
     : variant === 'secondary' ? COLORS.primary
     : COLORS.primaryDeep;
-  const border = variant === 'secondary' ? `1px solid ${COLORS.primary}` : undefined;
   const h = size === 'lg' ? 52 : size === 'sm' ? 36 : 44;
   const px = size === 'sm' ? 14 : 20;
 
@@ -56,7 +55,7 @@ export function Input({ label, value, onChangeText, placeholder, secureTextEntry
         paddingHorizontal: 14,
         height: 48,
       }}>
-        {iconLeft && (
+        {iconLeft != null && (
           typeof iconLeft === 'string'
             ? <Text style={{ fontSize: 16, marginRight: 8 }}>{iconLeft}</Text>
             : <View style={{ marginRight: 8 }}>{iconLeft}</View>
@@ -102,7 +101,6 @@ export function Badge({ count }) {
 
 // ─── Avatar ───────────────────────────────────────────────────────
 export function Avatar({ size = 40, initials = '?', bg, uri }) {
-  const { Image } = require('react-native');
   if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg ?? COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
@@ -116,7 +114,7 @@ export function Divider({ style }) {
   return <View style={[{ height: 1, backgroundColor: COLORS.hairline }, style]} />;
 }
 
-// ─── LoadingSpinner ───────────────────────────────────────────────
+// ─── Spinner ──────────────────────────────────────────────────────
 export function Spinner({ color = COLORS.primary }) {
   return <ActivityIndicator color={color} />;
 }
@@ -135,10 +133,10 @@ export function SectionHeader({ title, onSeeAll }) {
   );
 }
 
-// ─── ProductCard ─────────────────────────────────────────────────
+// ─── ProductCard ──────────────────────────────────────────────────
 export function ProductCard({ product, onPress }) {
-  const img = product?.images?.[0];
   if (!product) return null;
+  const img = product.images?.[0];
   const discount = product.compare_price && product.price && product.price < product.compare_price
     ? Math.round((1 - product.price / product.compare_price) * 100) : null;
 
@@ -162,9 +160,13 @@ export function ProductCard({ product, onPress }) {
         <Text style={{ fontSize: 12, color: COLORS.mute, marginBottom: 2 }} numberOfLines={1}>{product.shops?.name ?? ''}</Text>
         <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.ink, marginBottom: 6 }} numberOfLines={2}>{product.title}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.primary }}>${product.price != null ? Number(product.price).toFixed(2) : '—'}</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.primary }}>
+            ${product.price != null ? Number(product.price).toFixed(2) : '—'}
+          </Text>
           {product.compare_price && (
-            <Text style={{ fontSize: 12, color: COLORS.mute, textDecorationLine: 'line-through' }}>${Number(product.compare_price).toFixed(2)}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.mute, textDecorationLine: 'line-through' }}>
+              ${Number(product.compare_price).toFixed(2)}
+            </Text>
           )}
         </View>
       </View>

@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SessionProvider, useSession } from './src/hooks/useSession';
 import { registerForPushNotifications } from './src/lib/notifications';
 import { COLORS } from './src/lib/tokens';
+import Icon from './src/components/Icon';
 
 // Auth screens
 import SplashScreen      from './src/screens/auth/SplashScreen';
@@ -39,11 +40,14 @@ import ShopSetupScreen       from './src/screens/seller/ShopSetupScreen';
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
 
-function TabIcon({ emoji, focused }) {
+function TabIcon({ name, focused }) {
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', opacity: focused ? 1 : 0.5 }}>
-      <Text style={{ fontSize: 22 }}>{emoji}</Text>
-    </View>
+    <Icon
+      name={name}
+      size={22}
+      color={focused ? COLORS.primary : COLORS.mute}
+      strokeWidth={focused ? 2 : 1.5}
+    />
   );
 }
 
@@ -52,16 +56,16 @@ function BuyerTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { borderTopWidth: 1, borderTopColor: '#F0EDE8', height: 60, paddingBottom: 8 },
+        tabBarStyle: { borderTopWidth: 1, borderTopColor: COLORS.hairline, height: 60, paddingBottom: 8, paddingTop: 4 },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.mute,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Accueil', tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} /> }} />
-      <Tab.Screen name="Cart" component={CartScreen} options={{ title: 'Panier', tabBarIcon: ({ focused }) => <TabIcon emoji="🛒" focused={focused} /> }} />
-      <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'Messages', tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} /> }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profil', tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} /> }} />
+      <Tab.Screen name="Home"     component={HomeScreen}     options={{ title: 'Accueil',    tabBarIcon: ({ focused }) => <TabIcon name="home"          focused={focused} /> }} />
+      <Tab.Screen name="Cart"     component={CartScreen}     options={{ title: 'Panier',     tabBarIcon: ({ focused }) => <TabIcon name="shoppingBag"   focused={focused} /> }} />
+      <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'Messages',   tabBarIcon: ({ focused }) => <TabIcon name="messageSquare" focused={focused} /> }} />
+      <Tab.Screen name="Profile"  component={ProfileScreen}  options={{ title: 'Profil',     tabBarIcon: ({ focused }) => <TabIcon name="user"          focused={focused} /> }} />
     </Tab.Navigator>
   );
 }
