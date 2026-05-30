@@ -134,6 +134,11 @@ export async function getCategories() {
   return data ?? [];
 }
 
+export async function getSubCategories(parentId) {
+  const { data } = await supabase.from('categories').select('*').eq('parent_id', parentId).order('position');
+  return data ?? [];
+}
+
 // ─── CART ─────────────────────────────────────────────────────────
 export async function getCart(userId) {
   const { data: cart } = await supabase.from('carts').select('id').eq('user_id', userId).single();
