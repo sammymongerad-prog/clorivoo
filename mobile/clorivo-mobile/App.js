@@ -86,7 +86,13 @@ function AppNavigator() {
     }
   }, [session?.user?.id]);
 
-  if (session === undefined) return null; // loading
+  if (session === undefined) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 30, fontWeight: '800', color: '#6C4DFF', letterSpacing: -1 }}>clorivo</Text>
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
