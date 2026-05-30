@@ -1,25 +1,28 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
-const SessionContext = createContext(null);
+const SessionContext = createContext(undefined);
 
 export function SessionProvider({ children }) {
-  const [session, setSession] = useState(undefined); // undefined = chargement initial
+  const [session, setSession] = useState(undefined);
+  const loaded = useRef(false);
 
   useEffect(() => {
-    // Charge la session existante une seule fois au démarrage
+    // Charge la session une seule fois au démarrage
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session ?? null);
+      loaded.current = true;
     });
 
-    // Écoute uniquement les vrais changements d'état auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
-      if (event === 'SIGNED_OUT') {
-        setSession(null);
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      // N'agit qu'après le chargement initial pour éviter les races
+      if (!loaded.current && event !== 'SIGNED_IN') return;
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         if (s) setSession(s);
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
       }
-      // INITIAL_SESSION ignoré — getSession() s'en charge déjà
     });
 
     return () => subscription.unsubscribe();
