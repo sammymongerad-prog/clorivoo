@@ -78,6 +78,8 @@ export default function HomeScreen({ navigation }) {
   const [addrModal, setAddrModal]   = useState(false);
   const [addrInput, setAddrInput]   = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [imgSearch, setImgSearch]   = useState(null); // uri de l'image cherchée
+  const [imgLoading, setImgLoading] = useState(false);
 
   const heroBannerCountdown  = useCountdown(7 * 3600 + 14 * 60 + 8);
   const flashDealsCountdown  = useCountdown(1 * 3600 + 42 * 60);
@@ -154,6 +156,67 @@ export default function HomeScreen({ navigation }) {
       }
     } catch {}
     setGpsLoading(false);
+  }
+
+  async function handleImageSearch() {
+    setImgLoading(true);
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) { setImgLoading(false); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.6,
+        allowsEditing: false,
+      });
+      if (result.canceled || !result.assets?.[0]) { setImgLoading(false); return; }
+      const uri = result.assets[0].uri;
+      setImgSearch(uri);
+      // Analyse côté web : extraire couleur dominante via canvas
+      if (Platform.OS === 'web') {
+        const category = await analyzeImageWeb(uri);
+        setSearch(category);
+      } else {
+        // Sur mobile : utiliser le nom de fichier ou simplement afficher l'image
+        setSearch('');
+      }
+    } catch (e) { console.warn(e); }
+    setImgLoading(false);
+  }
+
+  async function analyzeImageWeb(uri) {
+    return new Promise(resolve => {
+      const img = new window.Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 50; canvas.height = 50;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 50, 50);
+        const d = ctx.getImageData(0, 0, 50, 50).data;
+        let r = 0, g = 0, b = 0, n = d.length / 4;
+        for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; }
+        r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+        // Map couleur dominante → catégorie produit
+        const h = rgbToHue(r, g, b);
+        if (r > 180 && g < 100 && b < 100) resolve('rouge');
+        else if (g > r && g > b) resolve('maison');
+        else if (b > r && b > g) resolve('tech');
+        else if (r > 180 && g > 100 && b < 80) resolve('mode');
+        else if (r > 200 && g > 150 && b > 100) resolve('beaute');
+        else resolve('');
+      };
+      img.onerror = () => resolve('');
+      img.src = uri;
+    });
+  }
+
+  function rgbToHue(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    if (max === min) return 0;
+    let h = max === r ? (g - b) / (max - min) : max === g ? 2 + (b - r) / (max - min) : 4 + (r - g) / (max - min);
+    return ((h * 60) + 360) % 360;
   }
 
   async function saveAddress() {
@@ -234,16 +297,33 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
 
           {/* Search */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.paper, borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: COLORS.hairline, paddingHorizontal: 14, height: 44, marginBottom: 10, gap: 8 }}>
-            <Text style={{ fontSize: 18 }}>🔍</Text>
-            <TextInput
-              value={search} onChangeText={setSearch}
-              placeholder="Rechercher sur Clorivo…"
-              placeholderTextColor={COLORS.mute}
-              style={{ flex: 1, fontSize: 14, color: COLORS.ink }}
-            />
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.paper, borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: imgSearch ? COLORS.primary : COLORS.hairline, paddingHorizontal: 14, height: 44, marginBottom: 10, gap: 8 }}>
+            <Icon name="search" size={18} color={COLORS.mute} />
+            {imgSearch ? (
+              <TouchableOpacity onPress={() => { setImgSearch(null); setSearch(''); }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                <Image source={{ uri: imgSearch }} style={{ width: 28, height: 28, borderRadius: 6 }} />
+                <Text style={{ fontSize: 13, color: COLORS.primary, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                  Recherche par image · {search || 'tous'}
+                </Text>
+                <Icon name="x" size={14} color={COLORS.mute} />
+              </TouchableOpacity>
+            ) : (
+              <TextInput
+                value={search} onChangeText={setSearch}
+                placeholder="Rechercher sur Clorivo…"
+                placeholderTextColor={COLORS.mute}
+                style={{ flex: 1, fontSize: 14, color: COLORS.ink }}
+              />
+            )}
             <View style={{ width: 1, height: 16, backgroundColor: COLORS.hairline }} />
-            <Text style={{ fontSize: 18 }}>📷</Text>
+            <TouchableOpacity onPress={handleImageSearch} disabled={imgLoading}
+              style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+              {imgLoading
+                ? <ActivityIndicator size="small" color={COLORS.primary} />
+                : <Icon name="camera" size={18} color={imgSearch ? COLORS.primary : COLORS.mute} />
+              }
+            </TouchableOpacity>
           </View>
 
           {/* Category chips */}
