@@ -5,16 +5,50 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
+// Capture global JS errors (module-level crashes not caught by React)
+if (typeof window !== 'undefined') {
+  window.__CLORIVO_ERRORS__ = window.__CLORIVO_ERRORS__ || [];
+  const _onerror = window.onerror;
+  window.onerror = (msg, src, line, col, err) => {
+    window.__CLORIVO_ERRORS__.push({ msg: String(msg), src, line, col, stack: err?.stack });
+    if (_onerror) _onerror(msg, src, line, col, err);
+  };
+  const _onunhandled = window.onunhandledrejection;
+  window.onunhandledrejection = (e) => {
+    window.__CLORIVO_ERRORS__.push({ msg: String(e.reason), stack: e.reason?.stack });
+    if (_onunhandled) _onunhandled(e);
+  };
+}
+
 class ErrorBoundary extends Component {
-  state = { error: null };
+  state = { error: null, globalErrors: [] };
   static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidMount() {
+    this._interval = setInterval(() => {
+      const ge = (typeof window !== 'undefined' && window.__CLORIVO_ERRORS__) ? [...window.__CLORIVO_ERRORS__] : [];
+      if (ge.length > 0) this.setState({ globalErrors: ge });
+    }, 500);
+  }
+  componentWillUnmount() { clearInterval(this._interval); }
   render() {
-    if (this.state.error) {
+    const { error, globalErrors } = this.state;
+    if (error || globalErrors.length > 0) {
       return (
         <ScrollView style={{ flex: 1, padding: 24, paddingTop: 60, backgroundColor: '#fff' }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#D14343', marginBottom: 12 }}>Erreur de rendu</Text>
-          <Text style={{ fontSize: 13, color: '#333', fontFamily: 'monospace' }}>{String(this.state.error)}</Text>
-          <Text style={{ fontSize: 11, color: '#999', marginTop: 8, fontFamily: 'monospace' }}>{this.state.error?.stack}</Text>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#D14343', marginBottom: 12 }}>🔴 Erreur détectée</Text>
+          {error && <>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#555', marginBottom: 4 }}>RENDER ERROR:</Text>
+            <Text style={{ fontSize: 12, color: '#333', fontFamily: 'monospace', marginBottom: 4 }}>{String(error)}</Text>
+            <Text style={{ fontSize: 10, color: '#999', fontFamily: 'monospace', marginBottom: 16 }}>{error?.stack}</Text>
+          </>}
+          {globalErrors.map((e, i) => (
+            <View key={i} style={{ marginBottom: 12, borderLeftWidth: 3, borderLeftColor: '#D14343', paddingLeft: 10 }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#555', marginBottom: 2 }}>JS ERROR {i + 1}:</Text>
+              <Text style={{ fontSize: 12, color: '#333', fontFamily: 'monospace', marginBottom: 2 }}>{e.msg}</Text>
+              {e.src ? <Text style={{ fontSize: 10, color: '#888', fontFamily: 'monospace' }}>{e.src}:{e.line}:{e.col}</Text> : null}
+              {e.stack ? <Text style={{ fontSize: 10, color: '#999', fontFamily: 'monospace', marginTop: 2 }}>{e.stack}</Text> : null}
+            </View>
+          ))}
         </ScrollView>
       );
     }
