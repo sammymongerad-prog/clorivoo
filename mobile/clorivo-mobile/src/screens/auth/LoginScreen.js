@@ -69,23 +69,11 @@ export default function LoginScreen({ navigation }) {
             onPress={() => handleOAuth('google')}
             disabled={!!oauthLoading}
             style={{ height: 52, borderWidth: 1.5, borderColor: COLORS.hairline, borderRadius: 14, backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: oauthLoading === 'google' ? 0.6 : 1 }}>
-            {/* Logo Google */}
             <View style={{ width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: '#4285F4' }}>G</Text>
             </View>
             <Text style={{ fontSize: 15, fontWeight: '600', color: COLORS.ink }}>
               {oauthLoading === 'google' ? 'Redirection…' : 'Continuer avec Google'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Apple */}
-          <TouchableOpacity
-            onPress={() => handleOAuth('apple')}
-            disabled={!!oauthLoading}
-            style={{ height: 52, borderRadius: 14, backgroundColor: '#000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: oauthLoading === 'apple' ? 0.6 : 1 }}>
-            <Text style={{ fontSize: 20, color: '#fff', lineHeight: 24 }}></Text>
-            <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>
-              {oauthLoading === 'apple' ? 'Redirection…' : 'Continuer avec Apple'}
             </Text>
           </TouchableOpacity>
         </View>
