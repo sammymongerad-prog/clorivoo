@@ -193,7 +193,7 @@ export default function AdminConsoleScreen({ navigation }) {
                 ))}
               </View>
               <DarkCard>
-                <View style={{ padding: '10px 14px', borderBottomWidth: 1, borderBottomColor: DARK.border, padding: 12 }}>
+                <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }}>Comptes récents</Text>
                 </View>
                 {users.map((u, i) => (
