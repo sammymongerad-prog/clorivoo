@@ -4,7 +4,6 @@ import {
   ActivityIndicator, Image, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
 import { useSession } from '../../hooks/useSession';
 import {
@@ -45,29 +44,19 @@ export default function ManageVideosScreen({ navigation }) {
   }, [userId]);
 
   async function pickVideo() {
+    const ImagePicker = await import('expo-image-picker');
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { showAlert('Permission requise', 'Autorisez l\'accès à la galerie.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      setVideoUri(result.assets[0].uri);
-    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 0.8 });
+    if (!result.canceled && result.assets?.[0]) setVideoUri(result.assets[0].uri);
   }
 
   async function pickThumbnail() {
+    const ImagePicker = await import('expo-image-picker');
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [3, 4],
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      setThumbUri(result.assets[0].uri);
-    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsEditing: true, aspect: [3, 4] });
+    if (!result.canceled && result.assets?.[0]) setThumbUri(result.assets[0].uri);
   }
 
   async function handleUpload() {

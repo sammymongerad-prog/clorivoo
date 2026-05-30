@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
 import { COLORS, RADIUS } from '../../lib/tokens';
 import { Btn, Input } from '../../components/UI';
 import { getShopBySeller, createShop, updateShop, uploadFile } from '../../lib/supabase';
@@ -36,9 +35,10 @@ export default function ShopSetupScreen({ navigation }) {
   }, [session]);
 
   async function pickLogo() {
+    const ImagePicker = await import('expo-image-picker');
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission refusée'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true, aspect: [1, 1] });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsEditing: true, aspect: [1, 1] });
     if (result.canceled) return;
     setLogoUri(result.assets[0].uri);
     setUploading(true);

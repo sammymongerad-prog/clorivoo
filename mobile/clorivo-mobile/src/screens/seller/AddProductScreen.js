@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
 import { COLORS, RADIUS } from '../../lib/tokens';
 import { Btn, Input } from '../../components/UI';
 import { supabase, uploadFile, getShops } from '../../lib/supabase';
@@ -34,9 +33,10 @@ export default function AddProductScreen({ route, navigation }) {
   }, [session]);
 
   async function pickImage() {
+    const ImagePicker = await import('expo-image-picker');
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission refusée', 'Accès à la galerie requis.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (result.canceled) return;
     setUploading(true);
     try {
