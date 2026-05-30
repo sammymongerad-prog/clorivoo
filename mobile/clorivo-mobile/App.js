@@ -22,6 +22,8 @@ import TrackingScreen      from './src/screens/buyer/TrackingScreen';
 import MessagesScreen      from './src/screens/buyer/MessagesScreen';
 import ChatScreen          from './src/screens/buyer/ChatScreen';
 import ProfileScreen       from './src/screens/buyer/ProfileScreen';
+import OrdersScreen        from './src/screens/buyer/OrdersScreen';
+import CategoriesScreen    from './src/screens/buyer/CategoriesScreen';
 
 // Notifications
 import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
@@ -29,6 +31,8 @@ import NotificationsScreen from './src/screens/notifications/NotificationsScreen
 // Seller screens
 import SellerDashboardScreen from './src/screens/seller/SellerDashboardScreen';
 import AddProductScreen      from './src/screens/seller/AddProductScreen';
+import SellerOrdersScreen    from './src/screens/seller/SellerOrdersScreen';
+import ShopSetupScreen       from './src/screens/seller/ShopSetupScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -92,8 +96,12 @@ function AppNavigator() {
           <Stack.Screen name="Tracking"         component={TrackingScreen} />
           <Stack.Screen name="Chat"             component={ChatScreen} />
           <Stack.Screen name="Notifications"    component={NotificationsScreen} />
+          <Stack.Screen name="Orders"           component={OrdersScreen} />
+          <Stack.Screen name="Categories"       component={CategoriesScreen} />
           <Stack.Screen name="SellerDashboard"  component={SellerDashboardScreen} />
           <Stack.Screen name="AddProduct"       component={AddProductScreen} />
+          <Stack.Screen name="SellerOrders"     component={SellerOrdersScreen} />
+          <Stack.Screen name="ShopSetup"        component={ShopSetupScreen} />
         </>
       )}
     </Stack.Navigator>

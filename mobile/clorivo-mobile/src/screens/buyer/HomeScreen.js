@@ -135,7 +135,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* Category shortcuts */}
         <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <SectionHeader title="Catégories" onSeeAll={() => {}} />
+          <SectionHeader title="Catégories" onSeeAll={() => navigation.navigate('Categories')} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {[
               { label: 'Maison', emoji: '🏠', color: '#C97B5A', slug: 'maison' },
@@ -144,7 +144,7 @@ export default function HomeScreen({ navigation }) {
               { label: 'Beauté', emoji: '💄', color: '#E67E22', slug: 'beaute' },
             ].map((cat, i) => (
               <TouchableOpacity key={i}
-                onPress={() => navigation.navigate('Home', { categorySlug: cat.slug })}
+                onPress={() => navigation.navigate('Categories', { categorySlug: cat.slug })}
                 style={{ flex: 1, minWidth: '45%', backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, ...SHADOW.sm }}>
                 <Text style={{ fontSize: 24 }}>{cat.emoji}</Text>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.ink }}>{cat.label}</Text>

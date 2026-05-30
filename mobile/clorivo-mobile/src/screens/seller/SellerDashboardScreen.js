@@ -72,8 +72,7 @@ export default function SellerDashboardScreen({ navigation }) {
         <View style={{ backgroundColor: COLORS.white, borderRadius: RADIUS.md, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.hairline }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.ink }}>Dernières commandes</Text>
-            <TouchableOpacity onPress={() => {}}>
-
+            <TouchableOpacity onPress={() => navigation.navigate('SellerOrders')}>
               <Text style={{ fontSize: 13, color: COLORS.primary }}>Voir tout</Text>
             </TouchableOpacity>
           </View>

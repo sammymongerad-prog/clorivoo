@@ -27,12 +27,15 @@ export default function ProfileScreen({ navigation }) {
   const isSeller = profile?.role === 'seller';
 
   const menuItems = [
-    { icon: '📦', label: 'Mes commandes',       onPress: () => {} },
+    { icon: '📦', label: 'Mes commandes',       onPress: () => navigation.navigate('Orders') },
     { icon: '🔔', label: 'Notifications',        onPress: () => navigation.navigate('Notifications') },
     { icon: '💬', label: 'Messages',             onPress: () => navigation.navigate('Messages') },
     { icon: '❤️', label: 'Favoris',              onPress: () => {} },
     { icon: '🏠', label: 'Adresses sauvegardées', onPress: () => {} },
-    ...(isSeller ? [{ icon: '🏪', label: 'Mon espace vendeur', onPress: () => navigation.navigate('SellerDashboard') }] : []),
+    ...(isSeller ? [
+      { icon: '🏪', label: 'Mon espace vendeur', onPress: () => navigation.navigate('SellerDashboard') },
+      { icon: '🏬', label: 'Ma boutique',         onPress: () => navigation.navigate('ShopSetup') },
+    ] : [{ icon: '🏪', label: 'Devenir vendeur', onPress: () => navigation.navigate('ShopSetup') }]),
     { icon: '⚙️', label: 'Paramètres',           onPress: () => {} },
   ];
 
