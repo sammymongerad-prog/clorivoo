@@ -52,6 +52,13 @@ const CAT_COLOR = { maison: '#C97B5A', mode: '#9B59B6', tech: '#4A6FD4', beaute:
 // ── Promo banner emoji ─────────────────────────────────────────────
 const BANNER_EMOJI = ['🏺', '☕', '💡', '🕯️', '👜', '🧴'];
 
+const CATEGORIES_TILES = [
+  { label: 'Maison & Déco',  sub: '1 200+ articles', slug: 'maison',  emoji: '🏠', color: '#C97B5A' },
+  { label: 'Mode & Style',   sub: '3 400+ articles', slug: 'mode',    emoji: '👗', color: '#9B59B6' },
+  { label: 'Tech & Gadgets', sub: '890 articles',    slug: 'tech',    emoji: '📱', color: '#4A6FD4' },
+  { label: 'Beauté & Soin',  sub: '560 articles',    slug: 'beaute',  emoji: '💄', color: '#E67E22' },
+];
+
 export default function HomeScreen({ navigation }) {
   const session = useSession();
 
