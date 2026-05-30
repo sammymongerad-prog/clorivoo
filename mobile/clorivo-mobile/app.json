@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Clorivo",
+    "slug": "clorivo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#6C4DFF"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.clorivo.app"
+    },
+    "android": {
+      "package": "com.clorivo.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#6C4DFF",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "permissions": [
+        "NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6C4DFF"
+        }
+      ]
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
