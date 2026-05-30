@@ -88,16 +88,6 @@ function BuyerTabs() {
   );
 }
 
-function AuthStack() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Splash"      component={SplashScreen} />
-      <Stack.Screen name="Onboarding"  component={OnboardingScreen} />
-      <Stack.Screen name="Login"       component={LoginScreen} />
-      <Stack.Screen name="Register"    component={RegisterScreen} />
-    </Stack.Navigator>
-  );
-}
 
 function AppNavigator() {
   const session = useSession();
@@ -108,35 +98,27 @@ function AppNavigator() {
     }
   }, [session?.user?.id]);
 
-  if (session === undefined) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 30, fontWeight: '800', color: '#6C4DFF', letterSpacing: -1 }}>clorivo</Text>
-      </View>
-    );
-  }
-
+  // Un seul Stack avec tous les écrans — Splash toujours en premier
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {session === null ? (
-        <Stack.Screen name="Auth" component={AuthStack} />
-      ) : (
-        <>
-          <Stack.Screen name="Tabs"             component={BuyerTabs} />
-          <Stack.Screen name="Product"          component={ProductScreen} />
-          <Stack.Screen name="Checkout"         component={CheckoutScreen} />
-          <Stack.Screen name="Tracking"         component={TrackingScreen} />
-          <Stack.Screen name="Chat"             component={ChatScreen} />
-          <Stack.Screen name="Notifications"    component={NotificationsScreen} />
-          <Stack.Screen name="Orders"           component={OrdersScreen} />
-          <Stack.Screen name="Categories"       component={CategoriesScreen} />
-          <Stack.Screen name="SellerDashboard"  component={SellerDashboardScreen} />
-          <Stack.Screen name="AddProduct"       component={AddProductScreen} />
-          <Stack.Screen name="SellerOrders"     component={SellerOrdersScreen} />
-          <Stack.Screen name="ShopSetup"        component={ShopSetupScreen} />
-          <Stack.Screen name="ManageVideos"     component={ManageVideosScreen} />
-        </>
-      )}
+      {/* Splash s'affiche toujours, puis redirige selon session */}
+      <Stack.Screen name="Splash"           component={SplashScreen} />
+      <Stack.Screen name="Onboarding"       component={OnboardingScreen} />
+      <Stack.Screen name="Login"            component={LoginScreen} />
+      <Stack.Screen name="Register"         component={RegisterScreen} />
+      <Stack.Screen name="Tabs"             component={BuyerTabs} />
+      <Stack.Screen name="Product"          component={ProductScreen} />
+      <Stack.Screen name="Checkout"         component={CheckoutScreen} />
+      <Stack.Screen name="Tracking"         component={TrackingScreen} />
+      <Stack.Screen name="Chat"             component={ChatScreen} />
+      <Stack.Screen name="Notifications"    component={NotificationsScreen} />
+      <Stack.Screen name="Orders"           component={OrdersScreen} />
+      <Stack.Screen name="Categories"       component={CategoriesScreen} />
+      <Stack.Screen name="SellerDashboard"  component={SellerDashboardScreen} />
+      <Stack.Screen name="AddProduct"       component={AddProductScreen} />
+      <Stack.Screen name="SellerOrders"     component={SellerOrdersScreen} />
+      <Stack.Screen name="ShopSetup"        component={ShopSetupScreen} />
+      <Stack.Screen name="ManageVideos"     component={ManageVideosScreen} />
     </Stack.Navigator>
   );
 }

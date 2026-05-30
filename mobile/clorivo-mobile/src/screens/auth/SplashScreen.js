@@ -1,19 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Animated } from 'react-native';
+import { View, Text } from 'react-native';
 import { COLORS } from '../../lib/tokens';
+import { useSession } from '../../hooks/useSession';
 
 export default function SplashScreen({ navigation }) {
+  const session = useSession();
   const [dot, setDot] = useState(0);
+  const [ready, setReady] = useState(false);
+
+  // Animate dots
+  useEffect(() => {
+    const t = setInterval(() => setDot(d => (d + 1) % 3), 500);
+    return () => clearInterval(t);
+  }, []);
+
+  // Wait at least 2.6s then redirect once session is known
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 2600);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
-    const t1 = setInterval(() => setDot(d => (d + 1) % 3), 500);
-    const t2 = setTimeout(() => navigation.replace('Onboarding'), 2600);
-    return () => { clearInterval(t1); clearTimeout(t2); };
-  }, []);
+    if (!ready || session === undefined) return;
+    if (session) {
+      navigation.replace('Tabs');
+    } else {
+      navigation.replace('Onboarding');
+    }
+  }, [ready, session]);
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Logo mark */}
       <View style={{
         width: 88, height: 88, borderRadius: 24,
         backgroundColor: COLORS.primary,
@@ -25,13 +42,11 @@ export default function SplashScreen({ navigation }) {
         <Text style={{ fontWeight: '800', fontSize: 52, color: '#fff', letterSpacing: -2, lineHeight: 56 }}>c</Text>
       </View>
 
-      {/* Wordmark */}
       <Text style={{ fontSize: 30, fontWeight: '800', color: COLORS.ink, letterSpacing: -1, marginBottom: 6 }}>clorivo</Text>
       <Text style={{ fontSize: 14, color: COLORS.mute, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 64 }}>
         shop · sell · ship
       </Text>
 
-      {/* Loader dots */}
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {[0, 1, 2].map(i => (
           <View key={i} style={{
