@@ -58,6 +58,25 @@ export default function SellerDashboardScreen({ navigation }) {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
+        {/* Quick actions */}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('AddProduct')}
+            style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: 14, alignItems: 'center', gap: 6, ...SHADOW.sm }}>
+            <Text style={{ fontSize: 24 }}>📦</Text>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.ink }}>Ajouter produit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('ManageVideos')}
+            style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: 14, alignItems: 'center', gap: 6, ...SHADOW.sm }}>
+            <Text style={{ fontSize: 24 }}>🎬</Text>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.ink }}>Gérer les vidéos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('ShopSetup')}
+            style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: 14, alignItems: 'center', gap: 6, ...SHADOW.sm }}>
+            <Text style={{ fontSize: 24 }}>🏪</Text>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.ink }}>Ma boutique</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* KPI cards */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <StatCard emoji="💰" label="Revenus (30j)" value={`$${(stats?.revenue_30d ?? 0).toFixed(0)}`} color={COLORS.primary} />

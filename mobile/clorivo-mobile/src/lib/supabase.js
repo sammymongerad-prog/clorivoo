@@ -342,3 +342,45 @@ export async function uploadImage(bucket, path, uri) {
   const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
   return { url: publicUrl, error: null };
 }
+
+export async function uploadVideo(path, uri) {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  const contentType = blob.type || 'video/mp4';
+  const { data, error } = await supabase.storage.from('videos').upload(path, blob, { upsert: true, contentType });
+  if (error) return { url: null, error };
+  const { data: { publicUrl } } = supabase.storage.from('videos').getPublicUrl(path);
+  return { url: publicUrl, error: null };
+}
+
+// ─── PRODUCT VIDEOS ───────────────────────────────────────────────
+export async function getProductVideos(limit = 10) {
+  const { data } = await supabase.from('product_videos')
+    .select('*, products(id,title,price,compare_price,images), shops(id,name,brand_color)')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+export async function getSellerVideos(sellerId) {
+  const { data } = await supabase.from('product_videos')
+    .select('*, products(id,title,price,images)')
+    .eq('seller_id', sellerId)
+    .order('created_at', { ascending: false });
+  return data ?? [];
+}
+
+export async function createProductVideo(video) {
+  const { data, error } = await supabase.from('product_videos').insert(video).select().single();
+  return { data, error };
+}
+
+export async function deleteProductVideo(id) {
+  const { error } = await supabase.from('product_videos').delete().eq('id', id);
+  return { error };
+}
+
+export async function incrementVideoViews(id) {
+  await supabase.rpc('increment_video_views', { video_id: id }).catch(() => {});
+}

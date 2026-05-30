@@ -490,3 +490,48 @@ do $$ begin
       with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
   end if;
 end $$;
+
+-- ─── PRODUCT VIDEOS ─────────────────────────────────────────────
+create table if not exists public.product_videos (
+  id            uuid primary key default uuid_generate_v4(),
+  seller_id     uuid references auth.users(id) on delete cascade,
+  product_id    uuid references public.products(id) on delete set null,
+  shop_id       uuid references public.shops(id) on delete set null,
+  video_url     text not null,
+  thumbnail_url text,
+  caption       text,
+  views         integer default 0,
+  is_active     boolean default true,
+  created_at    timestamptz default now()
+);
+
+alter table public.product_videos enable row level security;
+
+-- Public can view active videos
+do $$ begin
+  if not exists (select 1 from pg_policies where policyname = 'Videos public read' and tablename = 'product_videos') then
+    create policy "Videos public read" on public.product_videos for select using (is_active = true);
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'Seller manage own videos' and tablename = 'product_videos') then
+    create policy "Seller manage own videos" on public.product_videos for all using (auth.uid() = seller_id);
+  end if;
+end $$;
+
+-- Storage bucket for videos
+insert into storage.buckets (id, name, public)
+  values ('videos', 'videos', true)
+on conflict (id) do nothing;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where policyname = 'Videos bucket public read' and tablename = 'objects') then
+    create policy "Videos bucket public read" on storage.objects for select using (bucket_id = 'videos');
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'Authenticated users upload videos' and tablename = 'objects') then
+    create policy "Authenticated users upload videos" on storage.objects for insert
+      with check (bucket_id = 'videos' and auth.role() = 'authenticated');
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'Authenticated users delete videos' and tablename = 'objects') then
+    create policy "Authenticated users delete videos" on storage.objects for delete
+      using (bucket_id = 'videos' and auth.role() = 'authenticated');
+  end if;
+end $$;

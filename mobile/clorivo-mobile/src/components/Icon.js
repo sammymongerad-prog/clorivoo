@@ -41,6 +41,11 @@ const MAP = {
   logOut:        'log-out',
   mail:          'mail',
   help:          'help-circle',
+  video:         'video',
+  trash2:        'trash-2',
+  image:         'image',
+  upload:        'upload',
+  film:          'film',
 };
 
 export default function Icon({ name, size = 20, color = '#0E0B1F', strokeWidth = 1.5 }) {

@@ -53,6 +53,7 @@ import SellerDashboardScreen from './src/screens/seller/SellerDashboardScreen';
 import AddProductScreen      from './src/screens/seller/AddProductScreen';
 import SellerOrdersScreen    from './src/screens/seller/SellerOrdersScreen';
 import ShopSetupScreen       from './src/screens/seller/ShopSetupScreen';
+import ManageVideosScreen    from './src/screens/seller/ManageVideosScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -133,6 +134,7 @@ function AppNavigator() {
           <Stack.Screen name="AddProduct"       component={AddProductScreen} />
           <Stack.Screen name="SellerOrders"     component={SellerOrdersScreen} />
           <Stack.Screen name="ShopSetup"        component={ShopSetupScreen} />
+          <Stack.Screen name="ManageVideos"     component={ManageVideosScreen} />
         </>
       )}
     </Stack.Navigator>
