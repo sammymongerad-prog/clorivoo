@@ -2,8 +2,8 @@
 // Configure your project URL and anon key below.
 // Get them from: https://supabase.com/dashboard → your project → Settings → API
 
-const SUPABASE_URL      = '';   // e.g. 'https://xyzabc.supabase.co'
-const SUPABASE_ANON_KEY = '';   // e.g. 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+const SUPABASE_URL      = 'https://vcptpgmsxwynbobsmmdd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjcHRwZ21zeHd5bmJvYnNtbWRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzg4MjMsImV4cCI6MjA5NTcxNDgyM30.QrmdCraB77J3A6U3IBlZX-ZqzTuTbc-GkcdOFMXvCUk';
 
 // ─── CLIENT INIT ─────────────────────────────────────────────────
 const _isConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
