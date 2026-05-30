@@ -269,6 +269,18 @@ export async function getOrCreateConversation(buyerId, sellerId, shopId, product
   return data;
 }
 
+// ─── BANNERS (homepage CMS) ───────────────────────────────────────
+export async function getBanners() {
+  const now = new Date().toISOString();
+  const { data } = await supabase.from('banners')
+    .select('*')
+    .eq('is_active', true)
+    .or(`starts_at.is.null,starts_at.lte.${now}`)
+    .or(`ends_at.is.null,ends_at.gte.${now}`)
+    .order('position');
+  return data ?? [];
+}
+
 // ─── NOTIFICATIONS ────────────────────────────────────────────────
 export async function getNotifications(userId) {
   const { data } = await supabase.from('notifications').select('*')
