@@ -104,7 +104,10 @@ export default function HomeScreen({ navigation }) {
         setCartCount(cartItems?.length ?? 0);
         setUnreadMsgs(convs?.filter(c => c.last_message_at)?.length ?? 0);
         setUnreadNotifs(notifs?.filter(n => !n.read_at)?.length ?? 0);
-        if (profile?.address) setAddress(profile.address);
+        if (profile?.address) {
+          const addr = profile.address;
+          setAddress(typeof addr === 'string' ? addr : (addr?.city ?? addr?.street ?? null));
+        }
       }
     } catch (e) {
       console.warn('HomeScreen load error:', e);
