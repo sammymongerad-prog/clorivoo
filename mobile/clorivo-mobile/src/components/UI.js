@@ -56,7 +56,11 @@ export function Input({ label, value, onChangeText, placeholder, secureTextEntry
         paddingHorizontal: 14,
         height: 48,
       }}>
-        {iconLeft && <View style={{ marginRight: 8 }}>{iconLeft}</View>}
+        {iconLeft && (
+          typeof iconLeft === 'string'
+            ? <Text style={{ fontSize: 16, marginRight: 8 }}>{iconLeft}</Text>
+            : <View style={{ marginRight: 8 }}>{iconLeft}</View>
+        )}
         <TextInput
           value={value}
           onChangeText={onChangeText}
