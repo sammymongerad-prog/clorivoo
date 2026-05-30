@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, RADIUS } from '../../lib/tokens';
 import { Btn, Input } from '../../components/UI';
 import { signIn } from '../../lib/supabase';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail]     = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
 
   async function handleLogin() {
-    if (!email || !password) { Alert.alert('Erreur', 'Remplissez tous les champs.'); return; }
+    setError('');
+    if (!email || !password) { setError('Remplissez tous les champs.'); return; }
     setLoading(true);
-    const { error } = await signIn(email.trim(), password);
+    const { error: err } = await signIn(email.trim(), password);
     setLoading(false);
-    if (error) Alert.alert('Connexion échouée', error.message);
-    // onAuthStateChange in SessionProvider handles redirect
+    if (err) {
+      if (err.message.includes('Invalid login credentials')) {
+        setError('Email ou mot de passe incorrect.');
+      } else if (err.message.includes('Email not confirmed')) {
+        setError('Confirmez votre email avant de vous connecter.');
+      } else {
+        setError(err.message);
+      }
+    }
+    // onAuthStateChange in SessionProvider handles redirect on success
   }
 
   return (
@@ -30,6 +40,12 @@ export default function LoginScreen({ navigation }) {
           <Text style={{ fontSize: 28, fontWeight: '800', color: COLORS.ink, letterSpacing: -0.5 }}>Bon retour 👋</Text>
           <Text style={{ fontSize: 15, color: COLORS.mute, marginTop: 4 }}>Connectez-vous pour continuer</Text>
         </View>
+
+        {error ? (
+          <View style={{ backgroundColor: '#FEE2E2', borderRadius: RADIUS.md, padding: 12, marginBottom: 16 }}>
+            <Text style={{ color: '#B91C1C', fontSize: 14, fontWeight: '500' }}>⚠️ {error}</Text>
+          </View>
+        ) : null}
 
         <Input label="Adresse e-mail" value={email} onChangeText={setEmail}
           placeholder="vous@mail.com" keyboardType="email-address" />

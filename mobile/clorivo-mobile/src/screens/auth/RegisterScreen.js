@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { COLORS } from '../../lib/tokens';
+import { View, Text, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { COLORS, RADIUS } from '../../lib/tokens';
 import { Btn, Input } from '../../components/UI';
 import { signUp } from '../../lib/supabase';
 
@@ -10,20 +10,44 @@ export default function RegisterScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [agreed, setAgreed]     = useState(false);
   const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [success, setSuccess]   = useState(false);
 
   const strength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3;
   const strengthColors = ['', COLORS.danger, COLORS.warning, COLORS.success];
   const strengthLabels = ['', 'Faible', 'Moyen', 'Fort'];
 
   async function handleRegister() {
-    if (!name || !email || !password) { Alert.alert('Erreur', 'Remplissez tous les champs.'); return; }
-    if (password.length < 6) { Alert.alert('Erreur', 'Mot de passe trop court (6 caractères min.).'); return; }
-    if (!agreed) { Alert.alert('Erreur', 'Acceptez les conditions d\'utilisation.'); return; }
+    setError('');
+    if (!name || !email || !password) { setError('Remplissez tous les champs.'); return; }
+    if (password.length < 6) { setError('Mot de passe trop court (6 caractères min.).'); return; }
+    if (!agreed) { setError('Acceptez les conditions d\'utilisation.'); return; }
     setLoading(true);
-    const { error } = await signUp(email.trim(), password, name.trim());
+    const { error: err } = await signUp(email.trim(), password, name.trim());
     setLoading(false);
-    if (error) Alert.alert('Inscription échouée', error.message);
-    // SessionProvider handles redirect
+    if (err) {
+      if (err.message.includes('already registered') || err.message.includes('already been registered')) {
+        setError('Cet email est déjà utilisé. Connectez-vous.');
+      } else {
+        setError(err.message);
+      }
+    } else {
+      setSuccess(true);
+    }
+    // SessionProvider handles redirect if email confirmation is disabled
+  }
+
+  if (success) {
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>✅</Text>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: COLORS.ink, textAlign: 'center', marginBottom: 8 }}>Compte créé !</Text>
+        <Text style={{ fontSize: 15, color: COLORS.mute, textAlign: 'center', marginBottom: 32 }}>
+          Vérifiez votre boîte mail et confirmez votre adresse pour vous connecter.
+        </Text>
+        <Btn size="lg" onPress={() => navigation.goBack()}>Se connecter</Btn>
+      </View>
+    );
   }
 
   return (
@@ -34,6 +58,12 @@ export default function RegisterScreen({ navigation }) {
           <Text style={{ fontSize: 28, fontWeight: '800', color: COLORS.ink, letterSpacing: -0.5 }}>Créer un compte</Text>
           <Text style={{ fontSize: 15, color: COLORS.mute, marginTop: 4 }}>Rejoignez +2M d'acheteurs</Text>
         </View>
+
+        {error ? (
+          <View style={{ backgroundColor: '#FEE2E2', borderRadius: RADIUS.md, padding: 12, marginBottom: 16 }}>
+            <Text style={{ color: '#B91C1C', fontSize: 14, fontWeight: '500' }}>⚠️ {error}</Text>
+          </View>
+        ) : null}
 
         <Input label="Nom complet" value={name} onChangeText={setName} placeholder="Votre prénom et nom" />
         <Input label="Adresse e-mail" value={email} onChangeText={setEmail}
