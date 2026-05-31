@@ -1,0 +1,24 @@
+{
+  "name": "clorivo-tests",
+  "version": "1.0.0",
+  "description": "Suite de tests Playwright — Clorivo (acheteur, vendeur, admin)",
+  "type": "module",
+  "scripts": {
+    "test":             "playwright test",
+    "test:buyer":       "playwright test --project=buyer",
+    "test:seller":      "playwright test --project=seller",
+    "test:admin":       "playwright test --project=admin",
+    "test:e2e":         "playwright test --project=e2e",
+    "test:ui":          "playwright test --ui",
+    "test:headed":      "playwright test --headed",
+    "test:report":      "playwright show-report report",
+    "test:debug":       "playwright test --debug",
+    "install:browsers": "playwright install chromium"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}
