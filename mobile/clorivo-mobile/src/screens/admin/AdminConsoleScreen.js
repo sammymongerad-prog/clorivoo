@@ -1386,16 +1386,23 @@ export default function AdminConsoleScreen({ navigation }) {
   }
 
   function normalizeCjProduct(p) {
+    // Log raw keys on first call to identify actual field names
+    if (!normalizeCjProduct._logged) {
+      console.log('[CJ] raw product keys:', Object.keys(p).join(','));
+      console.log('[CJ] raw product sample:', JSON.stringify(p).slice(0, 400));
+      normalizeCjProduct._logged = true;
+    }
     // CJ API returns inconsistent field names across versions — normalize here
-    const pid = p.pid ?? p.productSku ?? p.skuId ?? '';
-    const name = p.productNameEn ?? p.productName ?? p.name ?? '';
-    const image = p.productImage ?? p.bigImage ?? p.imageUrl ?? p.imgUrl ?? (Array.isArray(p.productImageSet) ? p.productImageSet[0] : null) ?? null;
-    const price = parseFloat(p.sellPrice ?? p.salePrice ?? p.productPrice ?? p.price ?? 0);
-    const images = Array.isArray(p.productImageSet) ? p.productImageSet : (image ? [image] : []);
+    const pid = p.pid ?? p.productId ?? p.productSku ?? p.skuId ?? p.id ?? p.sku ?? '';
+    const name = p.productNameEn ?? p.productName ?? p.name ?? p.title ?? '';
+    const image = p.productImage ?? p.bigImage ?? p.imageUrl ?? p.imgUrl ?? p.coverImage ?? (Array.isArray(p.productImageSet) ? p.productImageSet[0] : null) ?? (Array.isArray(p.imageList) ? p.imageList[0] : null) ?? null;
+    const price = parseFloat(p.sellPrice ?? p.salePrice ?? p.productPrice ?? p.price ?? p.sellingPrice ?? 0);
+    const images = Array.isArray(p.productImageSet) ? p.productImageSet : Array.isArray(p.imageList) ? p.imageList : (image ? [image] : []);
     return { ...p, pid, productNameEn: name, bigImage: image, sellPrice: price, productImageSet: images };
   }
 
   async function loadCjProducts(catId, page = 1, append = false) {
+    if (!append) normalizeCjProduct._logged = false;
     setCjProductsLoading(true);
     setCjDebug('');
     try {
