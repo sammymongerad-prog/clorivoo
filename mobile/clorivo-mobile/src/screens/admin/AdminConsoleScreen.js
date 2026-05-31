@@ -1372,6 +1372,7 @@ export default function AdminConsoleScreen({ navigation }) {
   }
 
   async function loadCjCategories() {
+    if (cjCatsLoading) return;
     setCjCatsLoading(true);
     try {
       const { getCJCategories } = await import('../../lib/cjapi');

@@ -126,8 +126,8 @@ function normalizeProductList(data) {
   if (!data) return { list: [], total: 0 };
   // Handle both { list, total } and { list, totalCount } and direct arrays
   if (Array.isArray(data)) return { list: data, total: data.length };
-  const list = data.list ?? data.productList ?? data.records ?? [];
-  const total = data.total ?? data.totalCount ?? data.totalRecord ?? list.length;
+  const list = data.list ?? data.content ?? data.productList ?? data.records ?? [];
+  const total = data.total ?? data.totalRecords ?? data.totalCount ?? data.totalRecord ?? list.length;
   return { list, total };
 }
 
