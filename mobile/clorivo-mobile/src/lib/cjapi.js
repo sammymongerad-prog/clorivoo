@@ -127,11 +127,40 @@ export async function searchCJProducts(apiKey, { categoryId, keyWord, page = 1, 
 
 function normalizeProductList(data) {
   if (!data) return { list: [], total: 0 };
-  // Handle both { list, total } and { list, totalCount } and direct arrays
-  if (Array.isArray(data)) return { list: data, total: data.length };
-  const list = data.list ?? data.content ?? data.productList ?? data.records ?? [];
+  if (Array.isArray(data)) return { list: data.map(normalizeCjItem), total: data.length };
+
+  // CJ listV2: content is array of groups, each group has { productList: [...] }
+  if (Array.isArray(data.content)) {
+    const list = [];
+    for (const group of data.content) {
+      if (Array.isArray(group.productList)) {
+        list.push(...group.productList.map(normalizeCjItem));
+      } else {
+        list.push(normalizeCjItem(group));
+      }
+    }
+    const total = data.totalRecords ?? data.totalRecord ?? data.total ?? list.length;
+    return { list, total };
+  }
+
+  const rawList = data.list ?? data.productList ?? data.records ?? [];
+  const list = rawList.map(normalizeCjItem);
   const total = data.total ?? data.totalRecords ?? data.totalCount ?? data.totalRecord ?? list.length;
   return { list, total };
+}
+
+function normalizeCjItem(p) {
+  // Map all known CJ field name variants to a consistent shape
+  return {
+    ...p,
+    pid: p.pid ?? p.id ?? p.productId ?? p.productSku ?? p.sku ?? '',
+    productNameEn: p.productNameEn ?? p.nameEn ?? p.productName ?? p.name ?? p.title ?? '',
+    bigImage: p.bigImage ?? p.productImage ?? p.imageUrl ?? p.coverImage ?? null,
+    sellPrice: parseFloat(p.sellPrice ?? p.salePrice ?? p.nowPrice ?? p.price ?? 0),
+    productImageSet: Array.isArray(p.productImageSet) ? p.productImageSet
+      : Array.isArray(p.imageList) ? p.imageList
+      : (p.bigImage ?? p.productImage) ? [p.bigImage ?? p.productImage] : [],
+  };
 }
 
 export async function getCJProduct(apiKey, pid) {
