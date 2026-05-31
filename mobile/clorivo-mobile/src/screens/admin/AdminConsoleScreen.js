@@ -1391,29 +1391,48 @@ export default function AdminConsoleScreen({ navigation }) {
   // Find or create a category by CJ categoryId + name, returns Supabase category id
   async function resolveCjCategory(cjCatId, cjCatName) {
     if (!cjCatId && !cjCatName) return null;
-    const slug = (cjCatName || cjCatId || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    // Try by cj_category_id first
-    if (cjCatId) {
-      const { data: existing } = await supabase.from('categories').select('id').eq('cj_category_id', cjCatId).maybeSingle();
-      if (existing) return existing.id;
-    }
-    // Try by slug
-    const { data: bySlug } = await supabase.from('categories').select('id').eq('slug', slug).maybeSingle();
-    if (bySlug) {
-      if (cjCatId) await supabase.from('categories').update({ cj_category_id: cjCatId }).eq('id', bySlug.id);
-      return bySlug.id;
-    }
-    // Create it
-    const { data: created } = await supabase.from('categories').insert({ name: cjCatName || slug, slug, cj_category_id: cjCatId ?? null }).select('id').single();
-    return created?.id ?? null;
+    try {
+      const slug = (cjCatName || cjCatId || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      // Try by cj_category_id first (column may not exist yet — catch gracefully)
+      if (cjCatId) {
+        try {
+          const { data: existing } = await supabase.from('categories').select('id').eq('cj_category_id', cjCatId).maybeSingle();
+          if (existing) return existing.id;
+        } catch {}
+      }
+      // Try by slug
+      const { data: bySlug } = await supabase.from('categories').select('id').eq('slug', slug).maybeSingle();
+      if (bySlug) {
+        try { if (cjCatId) await supabase.from('categories').update({ cj_category_id: cjCatId }).eq('id', bySlug.id); } catch {}
+        return bySlug.id;
+      }
+      // Create it — try with cj_category_id, fall back without if column missing
+      try {
+        const { data: created, error } = await supabase.from('categories').insert({ name: cjCatName || slug, slug, cj_category_id: cjCatId ?? null }).select('id').single();
+        if (!error) return created?.id ?? null;
+      } catch {}
+      const { data: created2 } = await supabase.from('categories').insert({ name: cjCatName || slug, slug }).select('id').single();
+      return created2?.id ?? null;
+    } catch { return null; }
   }
 
-  // Get or create the system shop used for CJ imports
+  // Get the system shop id for CJ imports — tries to find an existing shop owned by the current admin
   async function getCjSystemShop() {
-    const { data: existing } = await supabase.from('shops').select('id').eq('name', 'Clorivo').maybeSingle();
-    if (existing) return existing.id;
-    const { data: created } = await supabase.from('shops').insert({ name: 'Clorivo', description: 'Produits CJ Dropshipping' }).select('id').single();
-    return created?.id ?? null;
+    try {
+      // Find any existing CJ-linked shop
+      const { data: existing } = await supabase.from('shops').select('id').ilike('name', 'Clorivo').maybeSingle();
+      if (existing) return existing.id;
+      // Use the current user's shop if they have one
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: myShop } = await supabase.from('shops').select('id').eq('seller_id', user.id).maybeSingle();
+        if (myShop) return myShop.id;
+        // Create a shop for the admin user
+        const { data: created } = await supabase.from('shops').insert({ seller_id: user.id, name: 'Clorivo', description: 'Produits CJ Dropshipping' }).select('id').single();
+        if (created) return created.id;
+      }
+    } catch {}
+    return null;
   }
 
   async function loadCjProducts(catId, page = 1, append = false) {
@@ -1553,14 +1572,23 @@ export default function AdminConsoleScreen({ navigation }) {
                   });
                   imported++;
                 }
-              } catch {}
+              } catch (innerErr) {
+                console.warn('[CJ bulk] insert error:', innerErr?.message);
+              }
               setCjImportProgress(prev => ({ ...prev, current: imported + skipped }));
             }
             page++;
           } while ((page - 1) * 50 < total);
-          Alert.alert('Import terminé', `${imported} produits importés, ${skipped} ignorés (déjà existants).`);
+          if (imported === 0 && skipped === 0) {
+            Alert.alert('Import terminé', 'Aucun produit importé. Vérifiez la console pour les erreurs.');
+          } else {
+            Alert.alert('Import terminé', `${imported} produits importés, ${skipped} ignorés (déjà existants).`);
+          }
           loadCjImported();
-        } catch (e) { Alert.alert('Erreur', e.message); }
+        } catch (e) {
+          console.error('[CJ bulk] fatal error:', e.message);
+          Alert.alert('Erreur import', e.message);
+        }
         finally {
           setCjImportLoading(false);
           setCjImportProgress({ active: false, current: 0, total: 0, label: '' });
