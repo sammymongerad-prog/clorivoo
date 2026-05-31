@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Switch,
   TextInput, ActivityIndicator, Modal, Image, Animated, Alert,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SHADOW } from '../../lib/tokens';
@@ -1199,7 +1200,7 @@ function BannerCard({ b, onEdit, onDelete, onToggle }) {
           <Text style={{ fontSize: 10, color: COLORS.primary }}>{b.is_active ? 'Désactiver' : 'Activer'}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => onEdit(b)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(108,77,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="eye" size={14} color={COLORS.primary} />
+          <Icon name="edit" size={14} color={COLORS.primary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => onDelete(b.id)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(209,67,67,0.15)', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="trash2" size={14} color={COLORS.danger} />
@@ -1251,12 +1252,12 @@ function BannerImageUploadButton({ form, setForm }) {
 function BannerModal({ visible, form, setForm, onSave, onCancel, saving }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={onCancel}
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
-      >
-        <TouchableOpacity activeOpacity={1} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: DARK.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 32 }}>
+      {/* Backdrop — only tap outside the sheet to close */}
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+        <TouchableOpacity activeOpacity={1} onPress={onCancel} style={{ flex: 1 }} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView style={{ backgroundColor: DARK.card, borderTopLeftRadius: 18, borderTopRightRadius: 18 }} contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+        <View>
           <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: DARK.border, alignSelf: 'center', marginBottom: 16 }} />
           <Text style={{ fontSize: 16, fontWeight: '700', color: DARK.text, marginBottom: 14 }}>
             {form._isNew ? 'Nouvelle bannière' : 'Modifier la bannière'}
@@ -1333,8 +1334,10 @@ function BannerModal({ visible, form, setForm, onSave, onCancel, saving }) {
               }
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+        </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

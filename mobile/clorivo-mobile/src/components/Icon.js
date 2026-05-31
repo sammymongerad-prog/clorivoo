@@ -42,6 +42,7 @@ const MAP = {
   mail:          'mail',
   help:          'help-circle',
   video:         'video',
+  edit:          'edit-2',
   trash2:        'trash-2',
   image:         'image',
   upload:        'upload',
