@@ -34,6 +34,8 @@ export default function LoginScreen({ navigation }) {
       if (err.message.includes('Invalid login credentials')) setError('Email ou mot de passe incorrect.');
       else if (err.message.includes('Email not confirmed'))  setError('Confirmez votre email avant de vous connecter.');
       else setError(err.message);
+    } else {
+      navigation.replace('Tabs');
     }
   }
 
