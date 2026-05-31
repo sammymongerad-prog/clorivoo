@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 
 // Capture global JS errors (module-level crashes not caught by React)
 if (typeof window !== 'undefined') {
+  window.__clorivoBundleReady = true;
   window.__CLORIVO_ERRORS__ = window.__CLORIVO_ERRORS__ || [];
   const _onerror = window.onerror;
   window.onerror = (msg, src, line, col, err) => {
@@ -168,6 +169,13 @@ function AppNavigator() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Hide the HTML loading indicator when React mounts
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById('loading');
+      if (el) el.style.display = 'none';
+    }
+  }, []);
   return (
     <ErrorBoundary>
       <SessionProvider>

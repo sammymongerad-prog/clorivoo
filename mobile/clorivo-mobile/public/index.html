@@ -5,28 +5,41 @@
   <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
   <title>Clorivo</title>
-  <style>
-    html, body, #root { height: 100%; margin: 0; padding: 0; }
+  <style id="expo-reset">
+    html, body { height: 100%; }
+    body { overflow: hidden; margin: 0; padding: 0; }
+    #root { display: flex; height: 100%; flex: 1; }
+    #loading {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      z-index: 88888; flex-direction: column; gap: 16px; font-family: sans-serif;
+    }
     #error-overlay {
       display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: #fff; z-index: 99999; padding: 24px; overflow: auto;
       font-family: monospace; box-sizing: border-box;
     }
     #error-overlay h1 { color: #D14343; font-size: 18px; margin-bottom: 12px; }
-    #error-overlay pre { background: #f5f5f5; padding: 12px; border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-break: break-all; color: #333; }
+    #error-overlay pre { background: #f5f5f5; padding: 12px; border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-break: break-all; color: #333; max-height: 300px; overflow: auto; }
   </style>
   <script>
     (function() {
       var errors = [];
       function showError(msg, stack, src, line) {
         errors.push({ msg: msg, stack: stack, src: src, line: line });
+        var loading = document.getElementById('loading');
+        if (loading) loading.style.display = 'none';
         var el = document.getElementById('error-overlay');
-        if (!el) { setTimeout(function() { showError(msg, stack, src, line); }, 100); return; }
+        if (!el) { setTimeout(function() { showError(msg, stack, src, line); }, 200); return; }
         el.style.display = 'block';
-        el.innerHTML = '<h1>🔴 Erreur JavaScript</h1>' +
-          errors.map(function(e, i) {
-            return '<p><strong>ERREUR ' + (i+1) + ':</strong></p>' +
-              '<pre>' + (e.msg || '') + (e.src ? '\n\nSource: ' + e.src + ':' + e.line : '') + (e.stack ? '\n\nStack:\n' + e.stack : '') + '</pre>';
+        var safe = function(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+        el.innerHTML = '<h1>&#128308; Erreur — copiez ce texte</h1>' +
+          errors.map(function(e,i) {
+            return '<p><b>ERREUR '+(i+1)+':</b></p><pre>'+
+              safe(e.msg)+
+              (e.src?'\n\nSource: '+safe(e.src)+':'+e.line:'')+
+              (e.stack?'\n\nStack:\n'+safe(e.stack):'')+
+              '</pre>';
           }).join('');
       }
       window.onerror = function(msg, src, line, col, err) {
@@ -34,18 +47,24 @@
         return false;
       };
       window.addEventListener('unhandledrejection', function(e) {
-        var reason = e.reason;
-        showError(
-          reason ? String(reason) : 'Unhandled Promise Rejection',
-          reason && reason.stack,
-          null, null
-        );
+        var r = e.reason;
+        showError(r ? String(r) : 'Unhandled Promise Rejection', r && r.stack, null, null);
       });
+      // If bundle never loads after 12s, show message
+      setTimeout(function() {
+        if (!window.__clorivoBundleReady) {
+          showError('Le bundle JS ne s\'est pas chargé (timeout 12s). Vérifiez que Metro tourne bien.', null, null, null);
+        }
+      }, 12000);
     })();
   </script>
 </head>
 <body>
   <div id="error-overlay"></div>
+  <div id="loading">
+    <div style="font-size:48px;line-height:1">&#9889;</div>
+    <div style="font-size:22px;font-weight:700;color:#6C4DFF;font-family:sans-serif">Chargement…</div>
+  </div>
   <div id="root"></div>
 </body>
 </html>
