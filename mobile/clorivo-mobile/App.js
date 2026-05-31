@@ -51,6 +51,7 @@ import AddProductScreen      from './src/screens/seller/AddProductScreen';
 import SellerOrdersScreen    from './src/screens/seller/SellerOrdersScreen';
 import ShopSetupScreen       from './src/screens/seller/ShopSetupScreen';
 import ManageVideosScreen    from './src/screens/seller/ManageVideosScreen';
+import BecomeSellerScreen    from './src/screens/seller/BecomeSellerScreen';
 import AdminConsoleScreen    from './src/screens/admin/AdminConsoleScreen';
 import AddressScreen         from './src/screens/buyer/AddressScreen';
 import SettingsScreen        from './src/screens/buyer/SettingsScreen';
@@ -118,6 +119,7 @@ function AppNavigator() {
       <Stack.Screen name="AddProduct"      component={AddProductScreen} />
       <Stack.Screen name="SellerOrders"    component={SellerOrdersScreen} />
       <Stack.Screen name="ShopSetup"       component={ShopSetupScreen} />
+      <Stack.Screen name="BecomeSeller"    component={BecomeSellerScreen} />
       <Stack.Screen name="ManageVideos"    component={ManageVideosScreen} />
       <Stack.Screen name="AdminConsole"    component={AdminConsoleScreen} />
       <Stack.Screen name="Address"         component={AddressScreen} />

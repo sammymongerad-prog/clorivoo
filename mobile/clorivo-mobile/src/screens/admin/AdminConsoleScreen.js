@@ -1069,6 +1069,11 @@ export default function AdminConsoleScreen({ navigation }) {
   /* data */
   const [users,        setUsers]        = useState([]);
   const [sellers,      setSellers]      = useState([]);
+  const [kycRequests,  setKycRequests]  = useState([]);
+  const [kycLoading,   setKycLoading]   = useState(false);
+  const [rejectModal,  setRejectModal]  = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectNotes,  setRejectNotes]  = useState('');
   const [usersCount,   setUsersCount]   = useState(0);
   const [ordersCount,  setOrdersCount]  = useState(0);
   const [banners,      setBanners]      = useState([]);
@@ -1107,6 +1112,7 @@ export default function AdminConsoleScreen({ navigation }) {
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   useEffect(() => { loadAll(); }, []);
+  useEffect(() => { if (section === 'sellers') loadKycRequests(); }, [section]);
 
   async function loadAll() {
     setLoading(true);
@@ -1155,6 +1161,48 @@ export default function AdminConsoleScreen({ navigation }) {
       console.warn('loadAll error', e);
     } finally {
       setLoading(false);
+    }
+  }
+
+  /* KYC helpers */
+  async function loadKycRequests() {
+    setKycLoading(true);
+    try {
+      const { data } = await supabase
+        .from('kyc_requests')
+        .select('*')
+        .eq('status', 'pending')
+        .order('submitted_at', { ascending: false });
+      setKycRequests(data ?? []);
+    } catch (e) {
+      console.warn('loadKycRequests error', e);
+    } finally {
+      setKycLoading(false);
+    }
+  }
+
+  async function approveKyc(req) {
+    try {
+      await supabase.from('kyc_requests').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', req.id);
+      await supabase.from('profiles').update({ role: 'seller', kyc_status: 'approved' }).eq('id', req.seller_id);
+      setKycRequests(prev => prev.filter(r => r.id !== req.id));
+    } catch (e) {
+      console.warn('approveKyc error', e);
+    }
+  }
+
+  async function rejectKyc() {
+    if (!rejectTarget) return;
+    try {
+      await supabase.from('kyc_requests').update({ status: 'rejected', admin_notes: rejectNotes, reviewed_at: new Date().toISOString() }).eq('id', rejectTarget.id);
+      await supabase.from('profiles').update({ kyc_status: 'rejected' }).eq('id', rejectTarget.seller_id);
+      setKycRequests(prev => prev.filter(r => r.id !== rejectTarget.id));
+    } catch (e) {
+      console.warn('rejectKyc error', e);
+    } finally {
+      setRejectModal(false);
+      setRejectTarget(null);
+      setRejectNotes('');
     }
   }
 
@@ -1448,39 +1496,111 @@ export default function AdminConsoleScreen({ navigation }) {
             </>
           )}
 
-          {/* ── SELLERS ── */}
+          {/* ── SELLERS / KYC ── */}
           {!loading && section === 'sellers' && (
             <>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-                {[['Total', String(sellers.length)], ['Vérifiés', String(sellers.filter(s => s.is_verified).length)], ['Attente', String(sellers.filter(s => !s.is_verified).length)]].map(([k, v], i) => (
+                {[['En attente', String(kycRequests.length)], ['Vendeurs', String(sellers.length)]].map(([k, v], i) => (
                   <View key={i} style={{ flex: 1, backgroundColor: DARK.card, borderRadius: 10, padding: 10 }}>
                     <Text style={{ fontSize: 10, color: DARK.mute }}>{k}</Text>
                     <Text style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: '700', color: DARK.text, marginTop: 2 }}>{v}</Text>
                   </View>
                 ))}
+                <TouchableOpacity
+                  onPress={loadKycRequests}
+                  style={{ backgroundColor: COLORS.primary, borderRadius: 10, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Actualiser</Text>
+                </TouchableOpacity>
               </View>
-              <DarkCard>
-                {sellers.map((s, i) => (
-                  <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: DARK.border }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{(s.name ?? '?')[0]?.toUpperCase()}</Text>
+
+              <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text, marginBottom: 10 }}>Demandes KYC en attente</Text>
+
+              {kycLoading && <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 20 }} />}
+
+              {!kycLoading && kycRequests.length === 0 && (
+                <DarkCard style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: DARK.mute }}>Aucune demande KYC en attente</Text>
+                </DarkCard>
+              )}
+
+              {kycRequests.map((req, i) => (
+                <DarkCard key={req.id} style={{ marginBottom: 12 }}>
+                  <View style={{ padding: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      {req.doc_front_url ? (
+                        <Image source={{ uri: req.doc_front_url }} style={{ width: 50, height: 36, borderRadius: 6 }} resizeMode="cover" />
+                      ) : (
+                        <View style={{ width: 50, height: 36, borderRadius: 6, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon name="image" size={16} color={DARK.mute} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text }}>
+                          {req.first_name ?? ''} {req.last_name ?? ''}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: DARK.mute, marginTop: 2 }}>
+                          {req.shop_name ?? '—'} · {req.doc_type ?? '—'}
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: 'rgba(245,158,11,0.2)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ fontSize: 9, fontWeight: '700', color: '#F59E0B' }}>EN ATTENTE</Text>
+                      </View>
                     </View>
-                    <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: DARK.text }}>{s.name ?? '—'}</Text>
-                    <TouchableOpacity
-                      onPress={async () => {
-                        const newVal = !s.is_verified;
-                        await supabase.from('shops').update({ is_verified: newVal }).eq('id', s.id);
-                        setSellers(prev => prev.map(x => x.id === s.id ? { ...x, is_verified: newVal } : x));
-                      }}
-                      style={{ backgroundColor: s.is_verified ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}
-                    >
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: s.is_verified ? '#EF4444' : '#10B981' }}>
-                        {s.is_verified ? 'Révoquer' : 'Vérifier'}
-                      </Text>
-                    </TouchableOpacity>
+
+                    <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 12 }}>
+                      Soumis le {req.submitted_at ? new Date(req.submitted_at).toLocaleDateString('fr-FR') : '—'}
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => approveKyc(req)}
+                        style={{ flex: 1, height: 36, borderRadius: 8, backgroundColor: 'rgba(16,185,129,0.15)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+                      >
+                        <Text style={{ fontSize: 14 }}>✅</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#10B981' }}>Approuver</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => { setRejectTarget(req); setRejectNotes(''); setRejectModal(true); }}
+                        style={{ flex: 1, height: 36, borderRadius: 8, backgroundColor: 'rgba(239,68,68,0.15)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+                      >
+                        <Text style={{ fontSize: 14 }}>❌</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#EF4444' }}>Rejeter</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                ))}
-              </DarkCard>
+                </DarkCard>
+              ))}
+
+              {/* Reject modal */}
+              <Modal visible={rejectModal} transparent animationType="slide" onRequestClose={() => setRejectModal(false)}>
+                <TouchableOpacity activeOpacity={1} onPress={() => setRejectModal(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+                  <TouchableOpacity activeOpacity={1} style={{ backgroundColor: DARK.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 32 }}>
+                    <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: DARK.border, alignSelf: 'center', marginBottom: 16 }} />
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: DARK.text, marginBottom: 8 }}>Rejeter la demande</Text>
+                    <Text style={{ fontSize: 12, color: DARK.mute, marginBottom: 14 }}>
+                      {rejectTarget ? `${rejectTarget.first_name ?? ''} ${rejectTarget.last_name ?? ''} — ${rejectTarget.shop_name ?? ''}` : ''}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 6 }}>Motif du rejet (optionnel)</Text>
+                    <TextInput
+                      value={rejectNotes}
+                      onChangeText={setRejectNotes}
+                      placeholder="Documents illisibles, informations incorrectes..."
+                      placeholderTextColor={DARK.mute}
+                      multiline
+                      style={{ backgroundColor: DARK.bg, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 12, paddingVertical: 9, fontSize: 13, minHeight: 70, marginBottom: 16 }}
+                    />
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <TouchableOpacity onPress={() => setRejectModal(false)} style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: DARK.border, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: DARK.mute, fontWeight: '600', fontSize: 14 }}>Annuler</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={rejectKyc} style={{ flex: 2, height: 44, borderRadius: 10, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Confirmer le rejet</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              </Modal>
             </>
           )}
 

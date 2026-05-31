@@ -251,8 +251,12 @@ export default function ProfileScreen({ navigation }) {
         <MenuGroup>
           {isSeller ? (
             <MenuItem icon="barChart"  label="Espace vendeur"  detail="Tableau de bord"  onPress={() => navigation.navigate('SellerDashboard')} accent />
+          ) : profile?.kyc_status === 'pending' ? (
+            <MenuItem icon="store" label="KYC en attente" detail="Votre dossier est en cours d'examen" onPress={() => {}} accent />
+          ) : profile?.kyc_status === 'rejected' ? (
+            <MenuItem icon="store" label="Devenir vendeur" detail="Dossier rejeté — recommencer" onPress={() => navigation.navigate('BecomeSeller')} accent />
           ) : (
-            <MenuItem icon="store"     label="Devenir vendeur" detail="Gagner sur clorivo" onPress={() => navigation.navigate('ShopSetup')} accent />
+            <MenuItem icon="store"     label="Devenir vendeur" detail="Gagner sur clorivo" onPress={() => navigation.navigate('BecomeSeller')} accent />
           )}
         </MenuGroup>
 
