@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Switch,
-  TextInput, ActivityIndicator, Modal, Image, Animated,
+  TextInput, ActivityIndicator, Modal, Image, Animated, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SHADOW } from '../../lib/tokens';
@@ -22,10 +22,14 @@ import {
 const DARK = {
   bg: '#0A0812',
   card: '#1A1630',
-  border: 'rgba(255,255,255,0.06)',
+  border: 'rgba(255,255,255,0.07)',
   text: '#EDE9F7',
   mute: 'rgba(255,255,255,0.4)',
   sidebar: '#0F0C1E',
+  accent: '#6C4DFF',
+  success: '#10B981',
+  danger: '#EF4444',
+  warning: '#F59E0B',
 };
 
 const BANNER_COLORS = ['#6C4DFF', '#C97B5A', '#3B82F6', '#10B981', '#EF4444', '#8B5CF6'];
@@ -48,6 +52,7 @@ const NAV_ITEMS = [
   { key: 'products',      icon: 'shoppingBag',  label: 'Produits' },
   { key: 'orders',        icon: 'package',      label: 'Commandes' },
   { key: 'categories',    icon: 'grid',         label: 'Catégories' },
+  { key: 'cjdropshipping', icon: 'package',     label: 'CJ Import' },
   { key: 'coupons',       icon: 'tag',          label: 'Coupons' },
   { key: 'reviews',       icon: 'star',         label: 'Avis' },
   { key: 'withdrawals',   icon: 'creditCard',   label: 'Retraits' },
@@ -1116,6 +1121,31 @@ export default function AdminConsoleScreen({ navigation }) {
   const [savingFeatured,  setSavingFeatured]  = useState(false);
   const [featuredProducts, setFeaturedProducts] = useState([]);
 
+  /* CJ Dropshipping */
+  const [cjApiKey, setCjApiKey]           = useState('');
+  const [cjConnected, setCjConnected]     = useState(false);
+  const [cjConnecting, setCjConnecting]   = useState(false);
+  const [cjCats, setCjCats]               = useState([]);
+  const [cjCatsLoading, setCjCatsLoading] = useState(false);
+  const [cjLevel1, setCjLevel1]           = useState(null);
+  const [cjLevel2, setCjLevel2]           = useState(null);
+  const [cjLevel3, setCjLevel3]           = useState(null);
+  const [cjProducts, setCjProducts]       = useState([]);
+  const [cjProductsLoading, setCjProductsLoading] = useState(false);
+  const [cjPage, setCjPage]               = useState(1);
+  const [cjTotal, setCjTotal]             = useState(0);
+  const [cjKeyword, setCjKeyword]         = useState('');
+  const [cjSubTab, setCjSubTab]           = useState('categories');
+  const [cjMarkup, setCjMarkup]           = useState('30');
+  const [cjImporting, setCjImporting]     = useState(null);
+  const [cjDetailPid, setCjDetailPid]     = useState(null);
+  const [cjDetail, setCjDetail]           = useState(null);
+  const [cjDetailModal, setCjDetailModal] = useState(false);
+  const [cjDetailMarkup, setCjDetailMarkup] = useState('30');
+  const [cjDetailCategory, setCjDetailCategory] = useState('');
+  const [cjImportedProducts, setCjImportedProducts] = useState([]);
+  const [cjImportLoading, setCjImportLoading] = useState(false);
+
   /* banner CMS */
   const [bannerModal,   setBannerModal]   = useState(false);
   const [editingBanner, setEditingBanner] = useState(null);
@@ -1310,6 +1340,521 @@ export default function AdminConsoleScreen({ navigation }) {
     const newStatus = p.status === 'active' ? 'inactive' : 'active';
     await supabase.from('products').update({ status: newStatus }).eq('id', p.id);
     setProducts(prev => prev.map(x => x.id === p.id ? { ...x, status: newStatus } : x));
+  }
+
+  /* ── CJ Dropshipping ── */
+  // Load CJ API key from app_config on mount
+  useEffect(() => {
+    supabase.from('app_config').select('value').eq('key', 'cj.apiKey').maybeSingle()
+      .then(({ data }) => { if (data?.value) { try { setCjApiKey(JSON.parse(data.value)); } catch { setCjApiKey(data.value); } } });
+  }, []);
+
+  // Load categories when tab opens
+  useEffect(() => {
+    if (section === 'cjdropshipping' && cjConnected && cjCats.length === 0) loadCjCategories();
+    if (section === 'cjdropshipping' && cjSubTab === 'imported') loadCjImported();
+  }, [section, cjSubTab, cjConnected]);
+
+  async function testCjConnection() {
+    if (!cjApiKey.trim()) { Alert.alert('Erreur', 'Entrez votre clé API CJ'); return; }
+    setCjConnecting(true);
+    try {
+      const { clearCJToken, getCJToken } = await import('../../lib/cjapi');
+      await clearCJToken();
+      await getCJToken(cjApiKey.trim());
+      await supabase.from('app_config').upsert({ key: 'cj.apiKey', value: JSON.stringify(cjApiKey.trim()), category: 'integrations', label: 'Clé API CJ Dropshipping' });
+      setCjConnected(true);
+      loadCjCategories();
+    } catch (e) {
+      Alert.alert('Connexion échouée', e.message);
+    } finally { setCjConnecting(false); }
+  }
+
+  async function loadCjCategories() {
+    setCjCatsLoading(true);
+    try {
+      const { getCJCategories } = await import('../../lib/cjapi');
+      const data = await getCJCategories(cjApiKey);
+      setCjCats(Array.isArray(data) ? data : []);
+      setCjConnected(true);
+    } catch (e) {
+      Alert.alert('Erreur CJ', e.message);
+      setCjConnected(false);
+    } finally { setCjCatsLoading(false); }
+  }
+
+  async function loadCjProducts(catId, page = 1, append = false) {
+    setCjProductsLoading(true);
+    try {
+      const { searchCJProducts } = await import('../../lib/cjapi');
+      const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
+      const list = data?.list ?? [];
+      setCjProducts(prev => append ? [...prev, ...list] : list);
+      setCjTotal(data?.total ?? 0);
+      setCjPage(page);
+    } catch (e) { Alert.alert('Erreur', e.message); }
+    finally { setCjProductsLoading(false); }
+  }
+
+  async function searchCjByKeyword(page = 1, append = false) {
+    if (!cjKeyword.trim()) return;
+    setCjProductsLoading(true);
+    try {
+      const { searchCJProducts } = await import('../../lib/cjapi');
+      const data = await searchCJProducts(cjApiKey, { keyWord: cjKeyword.trim(), page, pageSize: 50 });
+      const list = data?.list ?? [];
+      setCjProducts(prev => append ? [...prev, ...list] : list);
+      setCjTotal(data?.total ?? 0);
+      setCjPage(page);
+    } catch (e) { Alert.alert('Erreur', e.message); }
+    finally { setCjProductsLoading(false); }
+  }
+
+  async function openCjDetail(pid) {
+    setCjDetailPid(pid);
+    setCjDetail(null);
+    setCjDetailModal(true);
+    setCjDetailMarkup(cjMarkup);
+    try {
+      const { getCJProduct } = await import('../../lib/cjapi');
+      const data = await getCJProduct(cjApiKey, pid);
+      setCjDetail(data);
+      setCjDetailCategory(cjLevel1?.categoryFirstName?.toLowerCase() ?? 'autre');
+    } catch (e) { Alert.alert('Erreur', e.message); setCjDetailModal(false); }
+  }
+
+  async function importCjProduct(product, markupPct, categorySlug) {
+    setCjImporting(product.pid);
+    try {
+      const markup = parseFloat(markupPct) || 30;
+      const basePrice = parseFloat(product.sellPrice ?? product.nowPrice ?? 0);
+      const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
+      const images = product.productImageSet ?? (product.bigImage ? [product.bigImage] : (product.productImage ? [product.productImage] : []));
+      const imgArr = Array.isArray(images) ? images : [images];
+
+      let catId = null;
+      if (categorySlug) {
+        const { data: cat } = await supabase.from('categories').select('id').eq('slug', categorySlug).maybeSingle();
+        catId = cat?.id ?? null;
+      }
+
+      const { data: existing } = await supabase.from('products').select('id').eq('cj_pid', product.pid).maybeSingle();
+      if (existing) { Alert.alert('Déjà importé', 'Ce produit est déjà dans votre catalogue.'); return; }
+
+      const payload = {
+        title: product.productNameEn || product.productName,
+        description: product.description || null,
+        price: sellPrice,
+        compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
+        stock: 999,
+        category: categorySlug || 'autre',
+        images: imgArr.filter(Boolean).slice(0, 8),
+        status: 'active',
+        cj_pid: product.pid,
+        cj_source: true,
+        cj_category_id: product.categoryId ?? null,
+        markup_percent: markup,
+      };
+
+      const { error } = await supabase.from('products').insert(payload);
+      if (error) throw error;
+      Alert.alert('Importé !', `"${payload.title}" ajouté au catalogue à $${sellPrice}`);
+    } catch (e) {
+      Alert.alert('Erreur import', e.message);
+    } finally { setCjImporting(null); }
+  }
+
+  async function bulkImportCategory(catId, catName, markupPct) {
+    const markup = parseFloat(markupPct) || 30;
+    let page = 1, total = 0, imported = 0, skipped = 0;
+    const { searchCJProducts } = await import('../../lib/cjapi');
+
+    Alert.alert('Import en masse', `Importer tous les produits de "${catName}" avec ${markup}% de marge ?`, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Importer', onPress: async () => {
+        setCjImportLoading(true);
+        try {
+          do {
+            const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
+            const list = data?.list ?? [];
+            total = data?.total ?? 0;
+            for (const p of list) {
+              try {
+                const { data: exists } = await supabase.from('products').select('id').eq('cj_pid', p.pid).maybeSingle();
+                if (exists) { skipped++; continue; }
+                const basePrice = parseFloat(p.sellPrice ?? p.nowPrice ?? 0);
+                const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
+                await supabase.from('products').insert({
+                  title: p.productNameEn || p.productName,
+                  price: sellPrice,
+                  compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
+                  stock: 999,
+                  category: catName.toLowerCase(),
+                  images: p.bigImage ? [p.bigImage] : [],
+                  status: 'active',
+                  cj_pid: p.pid,
+                  cj_source: true,
+                  cj_category_id: catId,
+                  markup_percent: markup,
+                });
+                imported++;
+              } catch {}
+            }
+            page++;
+          } while ((page - 1) * 50 < total);
+          Alert.alert('Import terminé', `${imported} produits importés, ${skipped} ignorés (déjà existants).`);
+          loadCjImported();
+        } catch (e) { Alert.alert('Erreur', e.message); }
+        finally { setCjImportLoading(false); }
+      }},
+    ]);
+  }
+
+  async function loadCjImported() {
+    const { data } = await supabase.from('products').select('id,title,price,images,status,cj_pid,markup_percent').eq('cj_source', true).order('created_at', { ascending: false }).limit(50);
+    setCjImportedProducts(data ?? []);
+  }
+
+  function renderCJDropshipping() {
+    const tabs = [
+      { key: 'categories', label: 'Catégories' },
+      { key: 'search',     label: 'Recherche' },
+      { key: 'imported',   label: 'Importés' },
+    ];
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: DARK.text }}>CJ Dropshipping</Text>
+            <Text style={{ fontSize: 11, color: DARK.mute }}>Importer des produits dans votre catalogue</Text>
+          </View>
+          <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, backgroundColor: cjConnected ? '#10B98133' : '#EF444433' }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: cjConnected ? '#10B981' : '#EF4444' }}>
+              {cjConnected ? '● Connecté' : '○ Déconnecté'}
+            </Text>
+          </View>
+        </View>
+
+        {/* API key setup */}
+        {!cjConnected && (
+          <View style={{ backgroundColor: DARK.card, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: DARK.border }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text, marginBottom: 4 }}>Configuration API</Text>
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 10 }}>
+              Obtenez votre clé sur cjdropshipping.com → Authorization → API
+            </Text>
+            <TextInput
+              value={cjApiKey}
+              onChangeText={setCjApiKey}
+              placeholder="CJUserNum@api@xxxxxxxxxxxxxxxx"
+              placeholderTextColor={DARK.mute}
+              style={{ backgroundColor: DARK.bg, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 12, paddingVertical: 10, fontSize: 12, marginBottom: 10 }}
+            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <Text style={{ fontSize: 12, color: DARK.mute, flex: 1 }}>Marge par défaut (%)</Text>
+              <TextInput
+                value={cjMarkup}
+                onChangeText={setCjMarkup}
+                keyboardType="numeric"
+                style={{ backgroundColor: DARK.bg, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, width: 80, textAlign: 'center' }}
+              />
+              <Text style={{ fontSize: 12, color: DARK.mute }}>%</Text>
+            </View>
+            <TouchableOpacity onPress={testCjConnection} disabled={cjConnecting}
+              style={{ backgroundColor: DARK.accent, borderRadius: 10, height: 42, alignItems: 'center', justifyContent: 'center' }}>
+              {cjConnecting
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Se connecter</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {cjConnected && (
+          <>
+            {/* Markup + disconnect row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Text style={{ fontSize: 12, color: DARK.mute }}>Marge :</Text>
+              <TextInput
+                value={cjMarkup}
+                onChangeText={setCjMarkup}
+                keyboardType="numeric"
+                style={{ backgroundColor: DARK.card, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 10, paddingVertical: 6, fontSize: 14, width: 70, textAlign: 'center' }}
+              />
+              <Text style={{ fontSize: 12, color: DARK.mute }}>%</Text>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity onPress={async () => { const { clearCJToken } = await import('../../lib/cjapi'); await clearCJToken(); setCjConnected(false); setCjCats([]); }}
+                style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: DARK.border }}>
+                <Text style={{ fontSize: 11, color: DARK.mute }}>Déconnecter</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Sub-tabs */}
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14 }}>
+              {tabs.map(t => (
+                <TouchableOpacity key={t.key} onPress={() => setCjSubTab(t.key)}
+                  style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', backgroundColor: cjSubTab === t.key ? DARK.accent : DARK.card, borderWidth: 1, borderColor: cjSubTab === t.key ? DARK.accent : DARK.border }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: cjSubTab === t.key ? '#fff' : DARK.mute }}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ── CATEGORIES tab ── */}
+            {cjSubTab === 'categories' && (
+              <View>
+                {cjCatsLoading && <ActivityIndicator color={DARK.accent} style={{ marginVertical: 20 }} />}
+                {/* Level 1 */}
+                {!cjCatsLoading && !cjLevel1 && (
+                  <>
+                    <Text style={{ fontSize: 12, color: DARK.mute, marginBottom: 8 }}>Sélectionnez une catégorie principale :</Text>
+                    {cjCats.map(cat => (
+                      <TouchableOpacity key={cat.categoryId || cat.categoryFirstName} onPress={() => { setCjLevel1(cat); setCjLevel2(null); setCjLevel3(null); setCjProducts([]); }}
+                        style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: DARK.border }}>
+                        <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: DARK.text }}>{cat.categoryFirstName}</Text>
+                        <Icon name="chevronRight" size={16} color={DARK.mute} />
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+                {/* Level 2 */}
+                {!cjCatsLoading && cjLevel1 && !cjLevel2 && (
+                  <>
+                    <TouchableOpacity onPress={() => { setCjLevel1(null); setCjProducts([]); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                      <Icon name="arrowLeft" size={16} color={DARK.accent} />
+                      <Text style={{ fontSize: 12, color: DARK.accent }}>{cjLevel1.categoryFirstName}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => bulkImportCategory(cjLevel1.categoryId, cjLevel1.categoryFirstName, cjMarkup)} disabled={cjImportLoading}
+                      style={{ backgroundColor: DARK.accent + '22', borderRadius: 10, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: DARK.accent + '44' }}>
+                      {cjImportLoading ? <ActivityIndicator size="small" color={DARK.accent} /> : <Icon name="upload" size={14} color={DARK.accent} />}
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.accent }}>Tout importer ({cjMarkup}% marge)</Text>
+                    </TouchableOpacity>
+                    {(cjLevel1.categoryFirstList ?? []).map(sub => (
+                      <TouchableOpacity key={sub.categoryId} onPress={() => { setCjLevel2(sub); setCjLevel3(null); setCjProducts([]); }}
+                        style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: DARK.border }}>
+                        <Text style={{ flex: 1, fontSize: 13, color: DARK.text }}>{sub.categoryName}</Text>
+                        <Icon name="chevronRight" size={16} color={DARK.mute} />
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+                {/* Level 3 */}
+                {!cjCatsLoading && cjLevel1 && cjLevel2 && !cjLevel3 && (
+                  <>
+                    <TouchableOpacity onPress={() => { setCjLevel2(null); setCjProducts([]); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                      <Icon name="arrowLeft" size={16} color={DARK.accent} />
+                      <Text style={{ fontSize: 12, color: DARK.accent }}>{cjLevel2.categoryName}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => bulkImportCategory(cjLevel2.categoryId, cjLevel2.categoryName, cjMarkup)} disabled={cjImportLoading}
+                      style={{ backgroundColor: DARK.accent + '22', borderRadius: 10, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: DARK.accent + '44' }}>
+                      {cjImportLoading ? <ActivityIndicator size="small" color={DARK.accent} /> : <Icon name="upload" size={14} color={DARK.accent} />}
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.accent }}>Tout importer ({cjMarkup}% marge)</Text>
+                    </TouchableOpacity>
+                    {(cjLevel2.categorySecondList ?? []).map(sub => (
+                      <TouchableOpacity key={sub.categoryId} onPress={() => { setCjLevel3(sub); loadCjProducts(sub.categoryId, 1, false); }}
+                        style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: DARK.border }}>
+                        <Text style={{ flex: 1, fontSize: 13, color: DARK.text }}>{sub.categoryName}</Text>
+                        <Icon name="chevronRight" size={16} color={DARK.mute} />
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+                {/* Product list for Level 3 */}
+                {!cjCatsLoading && cjLevel3 && (
+                  <>
+                    <TouchableOpacity onPress={() => { setCjLevel3(null); setCjProducts([]); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <Icon name="arrowLeft" size={16} color={DARK.accent} />
+                      <Text style={{ fontSize: 12, color: DARK.accent }}>{cjLevel3.categoryName}</Text>
+                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <Text style={{ fontSize: 12, color: DARK.mute }}>{cjTotal} produits disponibles</Text>
+                      <TouchableOpacity onPress={() => bulkImportCategory(cjLevel3.categoryId, cjLevel3.categoryName, cjMarkup)} disabled={cjImportLoading}
+                        style={{ backgroundColor: DARK.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {cjImportLoading ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="upload" size={12} color="#fff" />}
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>Tout importer</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {cjProductsLoading && cjProducts.length === 0 && <ActivityIndicator color={DARK.accent} style={{ marginVertical: 20 }} />}
+                    {cjProducts.map(p => (
+                      <TouchableOpacity key={p.pid} onPress={() => openCjDetail(p.pid)}
+                        style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: DARK.border }}>
+                        {p.bigImage
+                          ? <Image source={{ uri: p.bigImage }} style={{ width: 52, height: 52, borderRadius: 8 }} resizeMode="cover" />
+                          : <View style={{ width: 52, height: 52, borderRadius: 8, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center' }}><Icon name="shoppingBag" size={20} color={DARK.mute} /></View>
+                        }
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: DARK.text }} numberOfLines={2}>{p.productNameEn || p.productName}</Text>
+                          <Text style={{ fontSize: 11, color: DARK.accent, marginTop: 3, fontWeight: '700' }}>
+                            CJ: ${parseFloat(p.sellPrice || 0).toFixed(2)} → Vente: ${(parseFloat(p.sellPrice || 0) * (1 + parseFloat(cjMarkup || 30) / 100)).toFixed(2)}
+                          </Text>
+                        </View>
+                        <TouchableOpacity onPress={() => importCjProduct(p, cjMarkup, cjLevel3.categoryName.toLowerCase())} disabled={cjImporting === p.pid}
+                          style={{ backgroundColor: DARK.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+                          {cjImporting === p.pid ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="plus" size={14} color="#fff" />}
+                        </TouchableOpacity>
+                      </TouchableOpacity>
+                    ))}
+                    {cjProducts.length < cjTotal && !cjProductsLoading && (
+                      <TouchableOpacity onPress={() => loadCjProducts(cjLevel3.categoryId, cjPage + 1, true)}
+                        style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: DARK.border, marginTop: 4 }}>
+                        <Text style={{ color: DARK.accent, fontWeight: '600', fontSize: 13 }}>Charger plus ({cjProducts.length}/{cjTotal})</Text>
+                      </TouchableOpacity>
+                    )}
+                    {cjProductsLoading && cjProducts.length > 0 && <ActivityIndicator color={DARK.accent} style={{ marginVertical: 12 }} />}
+                  </>
+                )}
+              </View>
+            )}
+
+            {/* ── SEARCH tab ── */}
+            {cjSubTab === 'search' && (
+              <View>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+                  <TextInput
+                    value={cjKeyword}
+                    onChangeText={setCjKeyword}
+                    placeholder="Rechercher un produit CJ..."
+                    placeholderTextColor={DARK.mute}
+                    onSubmitEditing={() => searchCjByKeyword(1, false)}
+                    returnKeyType="search"
+                    style={{ flex: 1, backgroundColor: DARK.card, borderRadius: 10, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13 }}
+                  />
+                  <TouchableOpacity onPress={() => searchCjByKeyword(1, false)} disabled={cjProductsLoading}
+                    style={{ backgroundColor: DARK.accent, borderRadius: 10, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="search" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                {cjProductsLoading && cjProducts.length === 0 && <ActivityIndicator color={DARK.accent} style={{ marginVertical: 20 }} />}
+                {cjTotal > 0 && <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 10 }}>{cjTotal} résultats</Text>}
+                {cjProducts.map(p => (
+                  <TouchableOpacity key={p.pid} onPress={() => openCjDetail(p.pid)}
+                    style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: DARK.border }}>
+                    {p.bigImage
+                      ? <Image source={{ uri: p.bigImage }} style={{ width: 52, height: 52, borderRadius: 8 }} resizeMode="cover" />
+                      : <View style={{ width: 52, height: 52, borderRadius: 8, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center' }}><Icon name="shoppingBag" size={20} color={DARK.mute} /></View>
+                    }
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: DARK.text }} numberOfLines={2}>{p.productNameEn || p.productName}</Text>
+                      <Text style={{ fontSize: 11, color: DARK.accent, marginTop: 3, fontWeight: '700' }}>
+                        CJ: ${parseFloat(p.sellPrice || 0).toFixed(2)} → Vente: ${(parseFloat(p.sellPrice || 0) * (1 + parseFloat(cjMarkup || 30) / 100)).toFixed(2)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => importCjProduct(p, cjMarkup, 'autre')} disabled={cjImporting === p.pid}
+                      style={{ backgroundColor: DARK.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+                      {cjImporting === p.pid ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="plus" size={14} color="#fff" />}
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+                {cjProducts.length < cjTotal && !cjProductsLoading && (
+                  <TouchableOpacity onPress={() => searchCjByKeyword(cjPage + 1, true)}
+                    style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: DARK.border, marginTop: 4 }}>
+                    <Text style={{ color: DARK.accent, fontWeight: '600', fontSize: 13 }}>Charger plus ({cjProducts.length}/{cjTotal})</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* ── IMPORTED tab ── */}
+            {cjSubTab === 'imported' && (
+              <View>
+                <Text style={{ fontSize: 12, color: DARK.mute, marginBottom: 10 }}>{cjImportedProducts.length} produits importés depuis CJ</Text>
+                {cjImportedProducts.map(p => (
+                  <View key={p.id} style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: DARK.border }}>
+                    {p.images?.[0]
+                      ? <Image source={{ uri: p.images[0] }} style={{ width: 46, height: 46, borderRadius: 8 }} resizeMode="cover" />
+                      : <View style={{ width: 46, height: 46, borderRadius: 8, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center' }}><Icon name="shoppingBag" size={18} color={DARK.mute} /></View>
+                    }
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: DARK.text }} numberOfLines={1}>{p.title}</Text>
+                      <Text style={{ fontSize: 11, color: DARK.accent, fontWeight: '700' }}>${p.price} · Marge {p.markup_percent ?? '—'}%</Text>
+                    </View>
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, backgroundColor: p.status === 'active' ? '#10B98133' : '#EF444433' }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: p.status === 'active' ? '#10B981' : '#EF4444' }}>{p.status}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* CJ Product Detail Modal */}
+        <Modal visible={cjDetailModal} animationType="slide" transparent onRequestClose={() => setCjDetailModal(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: DARK.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '92%' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+                <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: DARK.text }}>Détail produit CJ</Text>
+                <TouchableOpacity onPress={() => setCjDetailModal(false)}><Icon name="x" size={20} color={DARK.mute} /></TouchableOpacity>
+              </View>
+              <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+                {!cjDetail
+                  ? <ActivityIndicator color={DARK.accent} style={{ marginVertical: 40 }} />
+                  : (() => {
+                    const images = cjDetail.productImageSet ?? (cjDetail.productImage ? [cjDetail.productImage] : []);
+                    const cjPrice = parseFloat(cjDetail.sellPrice ?? 0);
+                    const sellPrice = (cjPrice * (1 + parseFloat(cjDetailMarkup || 30) / 100)).toFixed(2);
+                    return (
+                      <>
+                        {images[0] && <Image source={{ uri: images[0] }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 12 }} resizeMode="cover" />}
+                        {images.length > 1 && (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                            {images.slice(1, 6).map((img, i) => (
+                              <Image key={i} source={{ uri: img }} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 8 }} resizeMode="cover" />
+                            ))}
+                          </ScrollView>
+                        )}
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: DARK.text, marginBottom: 8 }}>{cjDetail.productNameEn || cjDetail.productName}</Text>
+                        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                          <View style={{ flex: 1, backgroundColor: DARK.bg, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: DARK.border }}>
+                            <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 2 }}>PRIX CJ</Text>
+                            <Text style={{ fontSize: 16, fontWeight: '800', color: DARK.text }}>${cjPrice.toFixed(2)}</Text>
+                          </View>
+                          <View style={{ flex: 1, backgroundColor: DARK.accent + '22', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: DARK.accent + '44' }}>
+                            <Text style={{ fontSize: 10, color: DARK.accent, marginBottom: 2 }}>PRIX DE VENTE</Text>
+                            <Text style={{ fontSize: 16, fontWeight: '800', color: DARK.accent }}>${sellPrice}</Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: DARK.bg, borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: DARK.border }}>
+                          <Text style={{ fontSize: 12, color: DARK.mute, flex: 1 }}>Marge de revente</Text>
+                          <TextInput
+                            value={cjDetailMarkup}
+                            onChangeText={setCjDetailMarkup}
+                            keyboardType="numeric"
+                            style={{ backgroundColor: DARK.card, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 10, paddingVertical: 6, fontSize: 16, fontWeight: '700', width: 70, textAlign: 'center' }}
+                          />
+                          <Text style={{ fontSize: 14, color: DARK.mute, fontWeight: '600' }}>%</Text>
+                        </View>
+                        <View style={{ marginBottom: 14 }}>
+                          <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 6 }}>Catégorie Clorivo</Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                            {['maison','mode','tech','beaute','sport','enfants','jardin','autre'].map(c => (
+                              <TouchableOpacity key={c} onPress={() => setCjDetailCategory(c)}
+                                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, backgroundColor: cjDetailCategory === c ? DARK.accent : DARK.bg, borderWidth: 1, borderColor: cjDetailCategory === c ? DARK.accent : DARK.border }}>
+                                <Text style={{ fontSize: 11, color: cjDetailCategory === c ? '#fff' : DARK.mute, fontWeight: '600', textTransform: 'capitalize' }}>{c}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                        {cjDetail.productWeight ? <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 14 }}>Poids : {cjDetail.productWeight}g</Text> : null}
+                        <TouchableOpacity
+                          onPress={() => { setCjDetailModal(false); setTimeout(() => importCjProduct({ ...cjDetail, pid: cjDetailPid }, cjDetailMarkup, cjDetailCategory || 'autre'), 300); }}
+                          disabled={!!cjImporting}
+                          style={{ backgroundColor: DARK.accent, borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                          {cjImporting ? <ActivityIndicator color="#fff" /> : <Icon name="upload" size={16} color="#fff" />}
+                          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Importer à ${sellPrice}</Text>
+                        </TouchableOpacity>
+                      </>
+                    );
+                  })()
+                }
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        <View style={{ height: 30 }} />
+      </ScrollView>
+    );
   }
 
   const SETTINGS = [
@@ -2042,6 +2587,9 @@ export default function AdminConsoleScreen({ navigation }) {
               )}
             </>
           )}
+
+          {/* ── CJ DROPSHIPPING ── */}
+          {!loading && section === 'cjdropshipping' && renderCJDropshipping()}
 
           {/* ── SETTINGS ── */}
           {!loading && section === 'settings' && (
