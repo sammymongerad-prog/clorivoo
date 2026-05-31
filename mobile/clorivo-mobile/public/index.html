@@ -50,12 +50,22 @@
         var r = e.reason;
         showError(r ? String(r) : 'Unhandled Promise Rejection', r && r.stack, null, null);
       });
-      // If bundle never loads after 90s, show message
-      setTimeout(function() {
-        if (!window.__clorivoBundleReady) {
-          showError('Le bundle JS ne s\'est pas chargé (timeout 90s). Metro est-il bien démarré sur ce port ?', null, null, null);
+      // Intercept Metro's ErrorUtils.reportFatalError (not caught by window.onerror)
+      var _euValue = null;
+      Object.defineProperty(window, 'ErrorUtils', {
+        configurable: true,
+        get: function() { return _euValue; },
+        set: function(val) {
+          _euValue = val;
+          if (val && typeof val.reportFatalError === 'function') {
+            var orig = val.reportFatalError.bind(val);
+            val.reportFatalError = function(err) {
+              showError(String(err), err && err.stack, null, null);
+              orig(err);
+            };
+          }
         }
-      }, 90000);
+      });
     })();
   </script>
 </head>
