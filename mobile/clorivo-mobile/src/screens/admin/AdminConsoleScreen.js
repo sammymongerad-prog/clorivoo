@@ -1453,8 +1453,17 @@ export default function AdminConsoleScreen({ navigation }) {
         catId = cat?.id ?? null;
       }
 
-      const { data: existing } = await supabase.from('products').select('id').eq('cj_pid', p.pid).maybeSingle();
+      const { data: existing } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
       if (existing) { Alert.alert('Déjà importé', 'Ce produit est déjà dans votre catalogue.'); return; }
+
+      // Get or create a system shop for CJ imports
+      let shopId = null;
+      const { data: sysShop } = await supabase.from('shops').select('id').eq('name', 'Clorivo').maybeSingle();
+      shopId = sysShop?.id ?? null;
+      if (!shopId) {
+        const { data: newShop } = await supabase.from('shops').insert({ name: 'Clorivo', description: 'Produits CJ Dropshipping' }).select('id').single();
+        shopId = newShop?.id ?? null;
+      }
 
       const payload = {
         title: p.productNameEn || '',
@@ -1465,10 +1474,9 @@ export default function AdminConsoleScreen({ navigation }) {
         category: categorySlug || 'autre',
         images: imgArr.filter(Boolean).slice(0, 8),
         status: 'active',
-        cj_pid: p.pid,
-        cj_source: true,
-        cj_category_id: p.categoryId ?? null,
-        markup_percent: markup,
+        source: 'cj',
+        cj_product_id: p.pid,
+        ...(shopId ? { shop_id: shopId } : {}),
       };
 
       const { error } = await supabase.from('products').insert(payload);
@@ -1489,28 +1497,35 @@ export default function AdminConsoleScreen({ navigation }) {
       { text: 'Importer', onPress: async () => {
         setCjImportLoading(true);
         try {
+          let bulkShopId = null;
+          const { data: sysShop } = await supabase.from('shops').select('id').eq('name', 'Clorivo').maybeSingle();
+          bulkShopId = sysShop?.id ?? null;
+          if (!bulkShopId) {
+            const { data: ns } = await supabase.from('shops').insert({ name: 'Clorivo', description: 'Produits CJ Dropshipping' }).select('id').single();
+            bulkShopId = ns?.id ?? null;
+          }
           do {
             const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
             const list = (data?.list ?? []).map(normalizeCjProduct);
             total = data?.total ?? 0;
             for (const p of list) {
               try {
-                const { data: exists } = await supabase.from('products').select('id').eq('cj_pid', p.pid).maybeSingle();
+                const { data: exists } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
                 if (exists) { skipped++; continue; }
                 const basePrice = parseFloat(p.sellPrice ?? 0);
                 const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
+                const imgs = p.productImageSet?.length ? p.productImageSet.slice(0, 8) : (p.bigImage ? [p.bigImage] : []);
                 await supabase.from('products').insert({
                   title: p.productNameEn || '',
                   price: sellPrice,
                   compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
                   stock: 999,
                   category: catName.toLowerCase(),
-                  images: p.productImageSet?.length ? p.productImageSet.slice(0, 8) : (p.bigImage ? [p.bigImage] : []),
+                  images: imgs,
                   status: 'active',
-                  cj_pid: p.pid,
-                  cj_source: true,
-                  cj_category_id: catId,
-                  markup_percent: markup,
+                  source: 'cj',
+                  cj_product_id: p.pid,
+                  ...(bulkShopId ? { shop_id: bulkShopId } : {}),
                 });
                 imported++;
               } catch {}
@@ -1526,7 +1541,7 @@ export default function AdminConsoleScreen({ navigation }) {
   }
 
   async function loadCjImported() {
-    const { data } = await supabase.from('products').select('id,title,price,images,status,cj_pid,markup_percent').eq('cj_source', true).order('created_at', { ascending: false }).limit(50);
+    const { data } = await supabase.from('products').select('id,title,price,images,status,cj_product_id').eq('source', 'cj').order('created_at', { ascending: false }).limit(50);
     setCjImportedProducts(data ?? []);
   }
 
