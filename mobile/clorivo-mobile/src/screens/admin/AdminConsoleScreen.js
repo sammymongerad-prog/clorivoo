@@ -1123,6 +1123,7 @@ export default function AdminConsoleScreen({ navigation }) {
 
   /* CJ Dropshipping */
   const [cjApiKey, setCjApiKey]           = useState('');
+  const [cjDebug,  setCjDebug]            = useState('');
   const [cjConnected, setCjConnected]     = useState(false);
   const [cjConnecting, setCjConnecting]   = useState(false);
   const [cjCats, setCjCats]               = useState([]);
@@ -1385,6 +1386,7 @@ export default function AdminConsoleScreen({ navigation }) {
 
   async function loadCjProducts(catId, page = 1, append = false) {
     setCjProductsLoading(true);
+    setCjDebug('');
     try {
       const { searchCJProducts } = await import('../../lib/cjapi');
       const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
@@ -1392,13 +1394,18 @@ export default function AdminConsoleScreen({ navigation }) {
       setCjProducts(prev => append ? [...prev, ...list] : list);
       setCjTotal(data?.total ?? 0);
       setCjPage(page);
-    } catch (e) { Alert.alert('Erreur', e.message); }
+      setCjDebug(list.length === 0 ? `API OK mais 0 résultats (catId: ${catId})` : '');
+    } catch (e) {
+      setCjDebug('ERREUR: ' + e.message);
+      Alert.alert('Erreur CJ', e.message);
+    }
     finally { setCjProductsLoading(false); }
   }
 
   async function searchCjByKeyword(page = 1, append = false) {
     if (!cjKeyword.trim()) return;
     setCjProductsLoading(true);
+    setCjDebug('');
     try {
       const { searchCJProducts } = await import('../../lib/cjapi');
       const data = await searchCJProducts(cjApiKey, { keyWord: cjKeyword.trim(), page, pageSize: 50 });
@@ -1406,7 +1413,11 @@ export default function AdminConsoleScreen({ navigation }) {
       setCjProducts(prev => append ? [...prev, ...list] : list);
       setCjTotal(data?.total ?? 0);
       setCjPage(page);
-    } catch (e) { Alert.alert('Erreur', e.message); }
+      setCjDebug(list.length === 0 ? `0 résultats pour "${cjKeyword}"` : '');
+    } catch (e) {
+      setCjDebug('ERREUR: ' + e.message);
+      Alert.alert('Erreur CJ', e.message);
+    }
     finally { setCjProductsLoading(false); }
   }
 
@@ -1599,6 +1610,12 @@ export default function AdminConsoleScreen({ navigation }) {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {!!cjDebug && (
+              <View style={{ backgroundColor: '#1a0808', borderRadius: 8, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: DARK.danger }}>
+                <Text style={{ fontSize: 11, color: DARK.danger }}>{cjDebug}</Text>
+              </View>
+            )}
 
             {/* ── CATEGORIES tab ── */}
             {cjSubTab === 'categories' && (

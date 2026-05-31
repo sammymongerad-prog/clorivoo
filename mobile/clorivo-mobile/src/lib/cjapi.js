@@ -81,13 +81,19 @@ export async function getCJToken(apiKey) {
 
 async function cjFetch(path, apiKey) {
   const token = await getCJToken(apiKey);
-  const res = await fetch(`${CJ_BASE}${path}`, {
-    headers: { 'CJ-Access-Token': token },
-  });
-  const json = await res.json();
-  // CJ sometimes returns code as string "200"
+  const url = `${CJ_BASE}${path}`;
+  let res;
+  try {
+    res = await fetch(url, { headers: { 'CJ-Access-Token': token } });
+  } catch (networkErr) {
+    throw new Error(`Réseau/CORS bloqué: ${networkErr.message}. Essayez sur mobile.`);
+  }
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { throw new Error(`Réponse invalide: ${text.slice(0, 200)}`); }
+  console.log('[CJ]', path, '→ code:', json.code, 'data keys:', Object.keys(json.data || {}).join(','));
   if (!isOk(json.code)) {
-    throw new Error(json.message || `CJ erreur (code: ${json.code}) — ${path}`);
+    throw new Error(json.message || `CJ code ${json.code} — ${path}`);
   }
   return json.data;
 }
