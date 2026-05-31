@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SHADOW } from '../../lib/tokens';
 import { Avatar } from '../../components/UI';
 import Icon from '../../components/Icon';
-import { supabase, uploadImage } from '../../lib/supabase';
+import { supabase, uploadImage, sendBroadcastNotification, getNotificationStats } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 import {
   getAppConfig, setAppConfig,
@@ -858,6 +858,104 @@ function NotificationsTab() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+    </>
+  );
+}
+
+/* ─── Broadcast Notifications ────────────────────────────────────────────── */
+function BroadcastNotifSection() {
+  const SEGMENTS = [
+    { key: 'all',     label: 'Tous les utilisateurs' },
+    { key: 'buyers',  label: 'Acheteurs' },
+    { key: 'sellers', label: 'Vendeurs' },
+  ];
+  const [form, setForm]     = useState({ segment: 'all', title: '', body: '' });
+  const [sending, setSend]  = useState(false);
+  const [stats, setStats]   = useState(null);
+  const [sent, setSent]     = useState([]);
+
+  useEffect(() => {
+    getNotificationStats().then(setStats).catch(() => {});
+    supabase.from('notifications').select('id,title,body,type,created_at')
+      .order('created_at', { ascending: false }).limit(10)
+      .then(({ data }) => setSent(data ?? []));
+  }, []);
+
+  async function handleSend() {
+    if (!form.title.trim() || !form.body.trim()) return Alert.alert('Champs requis', 'Remplissez le titre et le message.');
+    setSend(true);
+    const { error } = await sendBroadcastNotification({ segment: form.segment, type: 'promo', title: form.title, body: form.body });
+    setSend(false);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    Alert.alert('✅ Envoyé', `Notification envoyée au segment "${form.segment}".`);
+    setForm(f => ({ ...f, title: '', body: '' }));
+    supabase.from('notifications').select('id,title,body,type,created_at')
+      .order('created_at', { ascending: false }).limit(10)
+      .then(({ data }) => setSent(data ?? []));
+  }
+
+  return (
+    <>
+      {/* Stats */}
+      {stats && (
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+          {[{ label: 'Total envoyées', value: stats.total }, { label: 'Non lues', value: stats.unread }].map(s => (
+            <DarkCard key={s.label} style={{ flex: 1, padding: 12 }}>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#fff' }}>{s.value.toLocaleString()}</Text>
+              <Text style={{ fontSize: 11, color: DARK.mute, marginTop: 2 }}>{s.label}</Text>
+            </DarkCard>
+          ))}
+        </View>
+      )}
+
+      {/* Compose */}
+      <DarkCard style={{ marginBottom: 14 }}>
+        <View style={{ padding: 14 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text, marginBottom: 10 }}>📣 Envoyer une notification</Text>
+
+          <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 6 }}>Segment</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            {SEGMENTS.map(s => (
+              <TouchableOpacity key={s.key} onPress={() => setForm(f => ({ ...f, segment: s.key }))}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5,
+                  borderColor: form.segment === s.key ? COLORS.primary : DARK.border,
+                  backgroundColor: form.segment === s.key ? 'rgba(108,77,255,0.2)' : 'transparent' }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: form.segment === s.key ? COLORS.primary : DARK.mute }}>{s.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Titre</Text>
+          <DarkInput value={form.title} onChangeText={v => setForm(f => ({ ...f, title: v }))} placeholder="ex: ⚡ Flash sale — 24h seulement !" style={{ marginBottom: 10 }} />
+
+          <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Message</Text>
+          <DarkInput value={form.body} onChangeText={v => setForm(f => ({ ...f, body: v }))} placeholder="ex: -40% sur toute la mode. Offre valable jusqu'à minuit." multiline style={{ minHeight: 70, marginBottom: 14 }} />
+
+          <TouchableOpacity onPress={handleSend} disabled={sending}
+            style={{ height: 44, borderRadius: 10, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+            {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Envoyer la notification</Text>}
+          </TouchableOpacity>
+        </View>
+      </DarkCard>
+
+      {/* Recent sends */}
+      {sent.length > 0 && (
+        <>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.mute, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Récentes</Text>
+          {sent.map(n => (
+            <DarkCard key={n.id} style={{ marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 10, padding: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 18 }}>{n.type === 'promo' ? '📣' : n.type === 'order' ? '📦' : '🔔'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }} numberOfLines={1}>{n.title}</Text>
+                  <Text style={{ fontSize: 11, color: DARK.mute, marginTop: 2 }} numberOfLines={1}>{n.body}</Text>
+                </View>
+                <Text style={{ fontSize: 11, color: DARK.mute }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+              </View>
+            </DarkCard>
+          ))}
+        </>
+      )}
     </>
   );
 }
@@ -2784,7 +2882,7 @@ export default function AdminConsoleScreen({ navigation }) {
           {!loading && section === 'transactions' && <ComingSoon icon="zap" label="Transactions" />}
 
           {/* ── NOTIFICATIONS ── */}
-          {!loading && section === 'notifications' && <ComingSoon icon="bell" label="Notifications" />}
+          {!loading && section === 'notifications' && <BroadcastNotifSection />}
 
           {/* ── REPORTS ── */}
           {!loading && section === 'reports' && (

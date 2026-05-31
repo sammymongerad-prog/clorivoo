@@ -393,3 +393,52 @@ export async function deleteProductVideo(id) {
 export async function incrementVideoViews(id) {
   await supabase.rpc('increment_video_views', { video_id: id }).catch(() => {});
 }
+
+// ─── NOTIFICATION TEMPLATES ───────────────────────────────────────
+export async function getNotificationTemplates() {
+  const { data } = await supabase.from('notification_templates')
+    .select('*').order('type');
+  return data ?? [];
+}
+
+export async function upsertNotificationTemplate(template) {
+  const { data, error } = await supabase.from('notification_templates')
+    .upsert(template, { onConflict: 'type' }).select().single();
+  return { data, error };
+}
+
+// ─── NOTIFICATION BROADCAST ───────────────────────────────────────
+export async function sendBroadcastNotification({ segment = 'all', type = 'promo', title, body, data = {} }) {
+  const { data: result, error } = await supabase.functions.invoke('send-broadcast', {
+    body: { segment, type, title, body, data },
+  });
+  return { data: result, error };
+}
+
+export async function getNotificationStats() {
+  const [{ count: total }, { count: unread }] = await Promise.all([
+    supabase.from('notifications').select('*', { count: 'exact', head: true }),
+    supabase.from('notifications').select('*', { count: 'exact', head: true }).is('read_at', null),
+  ]);
+  return { total: total ?? 0, unread: unread ?? 0 };
+}
+
+export async function getUnreadNotificationCount(userId) {
+  const { count } = await supabase.from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('read_at', null);
+  return count ?? 0;
+}
+
+export function subscribeToNotifications(userId, callback) {
+  const channel = supabase.channel(`notifications:${userId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'notifications',
+      filter: `user_id=eq.${userId}`,
+    }, payload => callback(payload.new))
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}

@@ -8,11 +8,12 @@ import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
 import { ProductCard, SectionHeader, Avatar, Badge } from '../../components/UI';
 import Icon from '../../components/Icon';
 import {
-  getProducts, getShops, getNotifications, getBanners,
+  getProducts, getShops, getBanners,
   getCart, getConversations, getProfile, getProductVideos,
   updateProfile,
 } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
+import { useNotifications } from '../../hooks/useNotifications';
 
 // ── Live countdown ─────────────────────────────────────────────────
 function useCountdown(seconds) {
@@ -70,7 +71,7 @@ export default function HomeScreen({ navigation }) {
   const [videos, setVideos]         = useState([]);
   const [cartCount, setCartCount]   = useState(0);
   const [unreadMsgs, setUnreadMsgs] = useState(0);
-  const [unreadNotifs, setUnreadNotifs] = useState(0);
+  const { unreadCount: unreadNotifs } = useNotifications();
   const [address, setAddress]       = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]         = useState('');
@@ -105,15 +106,13 @@ export default function HomeScreen({ navigation }) {
       if (vids?.length)   setVideos(vids);
 
       if (userId) {
-        const [cartItems, convs, notifs, profile] = await Promise.all([
+        const [cartItems, convs, profile] = await Promise.all([
           getCart(userId).catch(() => []),
           getConversations(userId).catch(() => []),
-          getNotifications(userId).catch(() => []),
           getProfile(userId).catch(() => null),
         ]);
         setCartCount(cartItems?.length ?? 0);
         setUnreadMsgs(convs?.filter(c => c.last_message_at)?.length ?? 0);
-        setUnreadNotifs(notifs?.filter(n => !n.read_at)?.length ?? 0);
         if (profile?.address) {
           const addr = profile.address;
           setAddress(typeof addr === 'string' ? addr : (addr?.city ?? addr?.street ?? null));
