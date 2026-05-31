@@ -64,19 +64,28 @@ export async function savePushToken(userId, token) {
 }
 
 // ─── PRODUCTS ─────────────────────────────────────────────────────
-export async function getProducts({ categorySlug, shopId, seller_id, limit = 20, offset = 0 } = {}) {
+export async function getProducts({ categorySlug, categoryId, shopId, seller_id, limit = 20, offset = 0 } = {}) {
   let q = supabase
     .from('products')
-    .select('*, shops(id,name,is_verified,brand_color), categories(id,name,slug)')
+    .select('*, shops(id,name,is_verified,brand_color,followers,seller_id), categories(id,name,slug,color)')
     .eq('status', 'active')
     .range(offset, offset + limit - 1)
     .order('created_at', { ascending: false });
-  if (shopId)    q = q.eq('shop_id', shopId);
-  if (seller_id) q = q.eq('seller_id', seller_id);
-  if (categorySlug) {
-    const { data: cat } = await supabase.from('categories').select('id').eq('slug', categorySlug).maybeSingle();
-    if (cat) q = q.eq('category_id', cat.id);
-    else q = q.eq('category', categorySlug);
+  if (shopId)     q = q.eq('shop_id', shopId);
+  if (seller_id)  q = q.eq('seller_id', seller_id);
+  if (categoryId) {
+    q = q.eq('category_id', categoryId);
+  } else if (categorySlug) {
+    // First try matching by category_id via slug lookup, then fallback to text field
+    const { data: cat } = await supabase.from('categories').select('id,parent_id').eq('slug', categorySlug).maybeSingle();
+    if (cat) {
+      // If it's a parent category, include products from all its subcategories too
+      const { data: subs } = await supabase.from('categories').select('id').eq('parent_id', cat.id);
+      const ids = [cat.id, ...(subs ?? []).map(s => s.id)];
+      q = q.in('category_id', ids);
+    } else {
+      q = q.ilike('category', `%${categorySlug}%`);
+    }
   }
   const { data, error } = await q;
   return { data: data ?? [], error };

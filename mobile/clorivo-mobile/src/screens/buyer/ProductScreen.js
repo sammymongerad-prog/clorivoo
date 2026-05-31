@@ -70,9 +70,9 @@ export default function ProductScreen({ route, navigation }) {
           {/* Price + title */}
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-              <Text style={{ fontSize: 26, fontWeight: '700', color: COLORS.primary }}>${Number(product.price).toFixed(2)}</Text>
-              {product.compare_price && (
-                <Text style={{ fontSize: 15, color: COLORS.mute, textDecorationLine: 'line-through' }}>${Number(product.compare_price).toFixed(2)}</Text>
+              <Text style={{ fontSize: 26, fontWeight: '700', color: COLORS.primary }}>${(+(product.price ?? 0)).toFixed(2)}</Text>
+              {product.compare_price && product.compare_price > product.price && (
+                <Text style={{ fontSize: 15, color: COLORS.mute, textDecorationLine: 'line-through' }}>${(+(product.compare_price)).toFixed(2)}</Text>
               )}
             </View>
             <Text style={{ fontSize: 17, fontWeight: '600', color: COLORS.ink, lineHeight: 24, marginBottom: 8 }}>{product.title}</Text>

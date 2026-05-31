@@ -59,15 +59,23 @@ export default function CategoriesScreen({ route, navigation }) {
   }, []);
 
   useEffect(() => {
-    loadProducts(activeCat.slug, activeSub);
     const subs = activeCat.id ? (subCatMap[activeCat.id] ?? []) : [];
     setSubCats(subs);
     setActiveSub(null);
+    loadProducts(activeCat.slug, null);
   }, [activeCat.slug, subCatMap]);
+
+  // Re-fetch when subcategory filter changes
+  useEffect(() => {
+    if (activeSub !== undefined) loadProducts(activeCat.slug, activeSub);
+  }, [activeSub]);
 
   async function loadProducts(slug, subCatId) {
     setLoading(true);
-    const { data } = await getProducts({ categorySlug: slug ?? undefined, limit: 60 });
+    const params = subCatId
+      ? { categoryId: subCatId, limit: 60 }
+      : { categorySlug: slug ?? undefined, limit: 60 };
+    const { data } = await getProducts(params);
     let prods = data ?? [];
     if (sort === 1) prods = [...prods].sort((a, b) => a.price - b.price);
     else if (sort === 2) prods = [...prods].sort((a, b) => b.price - a.price);
