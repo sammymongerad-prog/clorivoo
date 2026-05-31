@@ -23,6 +23,7 @@ class ErrorBoundary extends Component {
 }
 
 import { SessionProvider, useSession } from './src/hooks/useSession';
+import { CMSProvider } from './src/hooks/useCMS';
 import { registerForPushNotifications } from './src/lib/notifications';
 import { COLORS } from './src/lib/tokens';
 import Icon from './src/components/Icon';
@@ -136,10 +137,12 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SessionProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" />
-          <AppNavigator />
-        </NavigationContainer>
+        <CMSProvider>
+          <NavigationContainer>
+            <StatusBar style="dark" />
+            <AppNavigator />
+          </NavigationContainer>
+        </CMSProvider>
       </SessionProvider>
     </ErrorBoundary>
   );

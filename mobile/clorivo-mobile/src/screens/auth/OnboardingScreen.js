@@ -1,44 +1,68 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { COLORS, RADIUS } from '../../lib/tokens';
+import { getOnboardingSlides } from '../../lib/cms';
 
-const SLIDES = [
+const FALLBACK_SLIDES = [
   {
-    bg: ['#6C4DFF', '#4F36CC'],
+    bg_color: '#6C4DFF',
     emoji: '🛍️',
     label: 'lifestyle · shopping',
     title: 'Bienvenue sur clorivo',
-    sub: 'Des millions de produits, des vendeurs vérifiés, des prix justes — tout au même endroit.',
+    subtitle: 'Des millions de produits, des vendeurs vérifiés, des prix justes — tout au même endroit.',
   },
   {
-    bg: ['#D97706', '#B45309'],
+    bg_color: '#D97706',
     emoji: '⚡',
     label: 'lifestyle · découverte',
     title: 'Des offres toute la journée',
-    sub: "Ventes flash renouvelées chaque heure. Jusqu'à -80% sur les meilleures sélections.",
+    subtitle: "Ventes flash renouvelées chaque heure. Jusqu'à -80% sur les meilleures sélections.",
   },
   {
-    bg: ['#059669', '#047857'],
+    bg_color: '#059669',
     emoji: '🔒',
     label: 'lifestyle · confiance',
     title: 'Achetez en confiance',
-    sub: 'Vendeurs certifiés, paiements 3D-secure, retours gratuits sous 30 jours.',
+    subtitle: 'Vendeurs certifiés, paiements 3D-secure, retours gratuits sous 30 jours.',
   },
 ];
 
 export default function OnboardingScreen({ navigation }) {
+  const [slides, setSlides] = useState([]);
+  const [loadingSlides, setLoadingSlides] = useState(true);
   const [step, setStep] = useState(0);
-  const s = SLIDES[step];
+
+  useEffect(() => {
+    getOnboardingSlides()
+      .then(data => {
+        setSlides(data && data.length > 0 ? data : FALLBACK_SLIDES);
+      })
+      .catch(() => {
+        setSlides(FALLBACK_SLIDES);
+      })
+      .finally(() => setLoadingSlides(false));
+  }, []);
+
+  if (loadingSlides) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#6C4DFF', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color="#fff" size="large" />
+      </View>
+    );
+  }
+
+  const s = slides[step] ?? slides[0];
+  const lastStep = slides.length - 1;
 
   function next() {
-    if (step < 2) setStep(step + 1);
+    if (step < lastStep) setStep(step + 1);
     else navigation.replace('Login');
   }
 
   return (
     <View style={{ flex: 1, overflow: 'hidden' }}>
       {/* Full-bleed gradient background */}
-      <View style={{ ...StyleSheet_absoluteFill, backgroundColor: s.bg[0] }}>
+      <View style={{ ...StyleSheet_absoluteFill, backgroundColor: s.bg_color }}>
         {/* Decorative circles */}
         <View style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(255,255,255,0.08)' }} />
         <View style={{ position: 'absolute', top: 100, left: -80, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.05)' }} />
@@ -51,7 +75,7 @@ export default function OnboardingScreen({ navigation }) {
       </View>
 
       {/* Vignette */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 340, backgroundColor: 'rgba(14,11,31,0)', }} />
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 340, backgroundColor: 'rgba(14,11,31,0)' }} />
 
       {/* Skip button */}
       <TouchableOpacity onPress={() => navigation.replace('Login')}
@@ -61,7 +85,7 @@ export default function OnboardingScreen({ navigation }) {
 
       {/* Step dots */}
       <View style={{ position: 'absolute', bottom: 306, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6, zIndex: 10 }}>
-        {[0, 1, 2].map(i => (
+        {slides.map((_, i) => (
           <View key={i} style={{
             width: i === step ? 20 : 6, height: 6, borderRadius: 9999,
             backgroundColor: i === step ? '#fff' : 'rgba(255,255,255,0.4)',
@@ -84,14 +108,14 @@ export default function OnboardingScreen({ navigation }) {
           {s.title}
         </Text>
         <Text style={{ fontSize: 15, color: COLORS.mute, lineHeight: 22, marginBottom: 24 }}>
-          {s.sub}
+          {s.subtitle}
         </Text>
 
         {/* CTA button */}
         <TouchableOpacity onPress={next}
           style={{ backgroundColor: COLORS.primary, borderRadius: RADIUS.full, height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>
-            {step < 2 ? 'Continuer' : 'Commencer'}
+            {step < lastStep ? 'Continuer' : 'Commencer'}
           </Text>
           <Text style={{ fontSize: 18, color: '#fff' }}>→</Text>
         </TouchableOpacity>

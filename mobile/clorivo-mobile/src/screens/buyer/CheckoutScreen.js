@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, RADIUS } from '../../lib/tokens';
@@ -6,6 +6,12 @@ import { Btn, Input } from '../../components/UI';
 import { createOrder } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 import { sendLocalNotification } from '../../lib/notifications';
+import { getShippingMethods } from '../../lib/cms';
+
+const FALLBACK_SHIPPING = [
+  { key: 'standard', emoji: '🚚', name: 'Standard', description: '5 à 8 jours', estimated_days: '5 à 8 jours', price: 3.99, free_threshold: 30 },
+  { key: 'express',  emoji: '⚡', name: 'Express',  description: '2 à 3 jours', estimated_days: '2 à 3 jours', price: 8.99, free_threshold: null },
+];
 
 export default function CheckoutScreen({ route, navigation }) {
   const { items = [], subtotal = 0 } = route.params ?? {};
@@ -15,8 +21,20 @@ export default function CheckoutScreen({ route, navigation }) {
   const [zip, setZip]         = useState('');
   const [loading, setLoading] = useState(false);
   const [method, setMethod]   = useState('standard');
+  const [shippingMethods, setShippingMethods] = useState([]);
 
-  const shipping = subtotal >= 30 ? 0 : method === 'express' ? 8.99 : 3.99;
+  useEffect(() => {
+    getShippingMethods()
+      .then(data => {
+        setShippingMethods(data && data.length > 0 ? data : FALLBACK_SHIPPING);
+      })
+      .catch(() => setShippingMethods(FALLBACK_SHIPPING));
+  }, []);
+
+  const selectedMethod = shippingMethods.find(m => m.key === method);
+  const shipping = selectedMethod?.free_threshold != null && subtotal >= selectedMethod.free_threshold
+    ? 0
+    : (selectedMethod?.price ?? 0);
   const total = subtotal + shipping;
 
   async function placeOrder() {
@@ -62,20 +80,25 @@ export default function CheckoutScreen({ route, navigation }) {
           {/* Shipping method */}
           <View style={{ backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: 16 }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.ink, marginBottom: 14 }}>Mode de livraison</Text>
-            {[
-              { id: 'standard', emoji: '🚚', label: 'Standard', detail: '5 à 8 jours', price: subtotal >= 30 ? 'Gratuit' : '$3.99' },
-              { id: 'express',  emoji: '⚡', label: 'Express',  detail: '2 à 3 jours', price: '$8.99' },
-            ].map(m => (
-              <View key={m.id} onStartShouldSetResponder={() => true} onResponderRelease={() => setMethod(m.id)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderWidth: 1.5, borderColor: method === m.id ? COLORS.primary : COLORS.hairline, borderRadius: RADIUS.sm, marginBottom: 8, backgroundColor: method === m.id ? COLORS.primarySoft : COLORS.white }}>
-                <Text style={{ fontSize: 22 }}>{m.emoji}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '600', color: COLORS.ink }}>{m.label}</Text>
-                  <Text style={{ fontSize: 12, color: COLORS.mute }}>{m.detail}</Text>
+            {shippingMethods.map(m => {
+              const isFree = m.free_threshold != null && subtotal >= m.free_threshold;
+              const priceLabel = isFree ? 'Gratuit' : `$${parseFloat(m.price ?? 0).toFixed(2)}`;
+              return (
+                <View
+                  key={m.key}
+                  onStartShouldSetResponder={() => true}
+                  onResponderRelease={() => setMethod(m.key)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderWidth: 1.5, borderColor: method === m.key ? COLORS.primary : COLORS.hairline, borderRadius: RADIUS.sm, marginBottom: 8, backgroundColor: method === m.key ? COLORS.primarySoft : COLORS.white }}
+                >
+                  <Text style={{ fontSize: 22 }}>{m.emoji}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '600', color: COLORS.ink }}>{m.name}</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.mute }}>{m.estimated_days}</Text>
+                  </View>
+                  <Text style={{ fontWeight: '700', color: method === m.key ? COLORS.primary : COLORS.ink }}>{priceLabel}</Text>
                 </View>
-                <Text style={{ fontWeight: '700', color: method === m.id ? COLORS.primary : COLORS.ink }}>{m.price}</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
 
           {/* Order summary */}

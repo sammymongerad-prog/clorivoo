@@ -9,6 +9,14 @@ import { Avatar } from '../../components/UI';
 import Icon from '../../components/Icon';
 import { supabase, uploadImage } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
+import {
+  getAppConfig, setAppConfig,
+  getHomepageSections, updateHomepageSection,
+  getOnboardingSlides, upsertOnboardingSlide, deleteOnboardingSlide,
+  getAllShippingMethods, upsertShippingMethod, deleteShippingMethod,
+  getAllPaymentMethods, upsertPaymentMethod, deletePaymentMethod,
+  getNotificationTemplates, upsertNotificationTemplate,
+} from '../../lib/cms';
 
 /* ─── Theme ─────────────────────────────────────────────────────────────── */
 const DARK = {
@@ -151,6 +159,701 @@ function StatusBadge({ status }) {
     <View style={{ borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, backgroundColor: color + '22' }}>
       <Text style={{ fontSize: 10, fontWeight: '700', color }}>{status}</Text>
     </View>
+  );
+}
+
+/* ─── CMS Settings Sub-tabs ─────────────────────────────────────────────── */
+const SETTINGS_SUB_TABS = [
+  { key: 'accueil',       label: 'Accueil' },
+  { key: 'config',        label: 'Config' },
+  { key: 'onboarding',    label: 'Onboarding' },
+  { key: 'livraison',     label: 'Livraison' },
+  { key: 'paiement',      label: 'Paiement' },
+  { key: 'notifications', label: 'Notifs' },
+];
+
+function SubTabBar({ tabs, active, onSelect }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+      <View style={{ flexDirection: 'row', backgroundColor: DARK.card, borderRadius: 10, padding: 3, gap: 2 }}>
+        {tabs.map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            onPress={() => onSelect(tab.key)}
+            style={{ paddingHorizontal: 12, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: active === tab.key ? COLORS.primary : 'transparent' }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: '600', color: active === tab.key ? '#fff' : DARK.mute }}>{tab.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+function DarkInput({ value, onChangeText, placeholder, multiline, keyboardType, style }) {
+  return (
+    <TextInput
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={DARK.mute}
+      multiline={multiline}
+      keyboardType={keyboardType}
+      style={[{ backgroundColor: DARK.bg, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 12, paddingVertical: 9, fontSize: 13 }, style]}
+    />
+  );
+}
+
+/* Homepage sections sub-tab */
+function HomepageSectionsTab() {
+  const [sections, setSections] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getHomepageSections().then(data => { setSections(data); setLoading(false); });
+  }, []);
+
+  async function toggleVisible(sec) {
+    const updated = { ...sec, visible: !sec.visible };
+    setSections(prev => prev.map(s => s.id === sec.id ? updated : s));
+    await updateHomepageSection(sec.id, { visible: !sec.visible });
+  }
+
+  async function updateOrder(sec, val) {
+    const n = parseInt(val) || 0;
+    setSections(prev => prev.map(s => s.id === sec.id ? { ...s, sort_order: n } : s));
+    await updateHomepageSection(sec.id, { sort_order: n });
+  }
+
+  if (loading) return <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />;
+
+  return (
+    <>
+      <Text style={{ fontSize: 12, color: DARK.mute, marginBottom: 12 }}>Activez/désactivez les sections de la page d'accueil et définissez leur ordre d'affichage.</Text>
+      {sections.map((sec, i) => (
+        <DarkCard key={sec.id} style={{ marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }}>{sec.label}</Text>
+              <Text style={{ fontSize: 10, color: DARK.mute, marginTop: 2 }}>{sec.key}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 8 }}>
+              <Text style={{ fontSize: 11, color: DARK.mute }}>Ordre</Text>
+              <TextInput
+                value={String(sec.sort_order)}
+                onChangeText={v => setSections(prev => prev.map(s => s.id === sec.id ? { ...s, sort_order: parseInt(v) || 0 } : s))}
+                onEndEditing={e => updateOrder(sec, e.nativeEvent.text)}
+                keyboardType="numeric"
+                style={{ width: 40, backgroundColor: DARK.bg, borderRadius: 6, borderWidth: 1, borderColor: DARK.border, color: DARK.text, textAlign: 'center', paddingVertical: 4, fontSize: 12 }}
+              />
+            </View>
+            <Switch
+              value={sec.visible}
+              onValueChange={() => toggleVisible(sec)}
+              trackColor={{ false: DARK.border, true: COLORS.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+        </DarkCard>
+      ))}
+    </>
+  );
+}
+
+/* Config sub-tab */
+function ConfigTab() {
+  const [config, setConfigData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+
+  useEffect(() => {
+    getAppConfig(true).then(data => { setConfigData(data); setLoading(false); });
+  }, []);
+
+  async function save(key, value) {
+    setSaving(key);
+    await setAppConfig(key, value);
+    setSaving(null);
+  }
+
+  if (loading) return <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />;
+
+  const appKeys = ['app.name', 'app.tagline'];
+  const themeKeys = Object.keys(config).filter(k => k.startsWith('theme.'));
+  const featureKeys = Object.keys(config).filter(k => k.startsWith('features.'));
+
+  return (
+    <>
+      {/* App info */}
+      <DarkCard style={{ marginBottom: 12 }}>
+        <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text }}>Informations app</Text>
+        </View>
+        {appKeys.map(key => (
+          <View key={key} style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+            <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 5 }}>{key}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <TextInput
+                value={typeof config[key] === 'string' ? config[key] : JSON.stringify(config[key])}
+                onChangeText={v => setConfigData(prev => ({ ...prev, [key]: v }))}
+                style={{ flex: 1, backgroundColor: DARK.bg, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 10, paddingVertical: 7, fontSize: 13 }}
+                placeholderTextColor={DARK.mute}
+              />
+              <TouchableOpacity
+                onPress={() => save(key, config[key])}
+                disabled={saving === key}
+                style={{ width: 60, height: 36, borderRadius: 8, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}
+              >
+                {saving === key
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Sauv.</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+      </DarkCard>
+
+      {/* Theme colors */}
+      <DarkCard style={{ marginBottom: 12 }}>
+        <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text }}>Couleurs du thème</Text>
+        </View>
+        {themeKeys.map(key => {
+          const colorVal = typeof config[key] === 'string' ? config[key] : '#6C4DFF';
+          return (
+            <View key={key} style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+              <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 5 }}>{key}</Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colorVal, borderWidth: 2, borderColor: DARK.border }} />
+                <TextInput
+                  value={colorVal}
+                  onChangeText={v => setConfigData(prev => ({ ...prev, [key]: v }))}
+                  style={{ flex: 1, backgroundColor: DARK.bg, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 10, paddingVertical: 7, fontSize: 13 }}
+                  placeholderTextColor={DARK.mute}
+                  placeholder="#RRGGBB"
+                />
+                <TouchableOpacity
+                  onPress={() => save(key, colorVal)}
+                  disabled={saving === key}
+                  style={{ width: 60, height: 36, borderRadius: 8, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {saving === key
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Sauv.</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })}
+      </DarkCard>
+
+      {/* Feature flags */}
+      <DarkCard style={{ marginBottom: 12 }}>
+        <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text }}>Fonctionnalités</Text>
+        </View>
+        {featureKeys.map(key => (
+          <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+            <Text style={{ flex: 1, fontSize: 13, color: DARK.text }}>{key.replace('features.', '')}</Text>
+            <Switch
+              value={config[key] === true || config[key] === 'true'}
+              onValueChange={v => {
+                setConfigData(prev => ({ ...prev, [key]: v }));
+                save(key, v);
+              }}
+              trackColor={{ false: DARK.border, true: COLORS.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+        ))}
+      </DarkCard>
+    </>
+  );
+}
+
+/* Onboarding sub-tab */
+function OnboardingTab() {
+  const [slides, setSlides] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editSlide, setEditSlide] = useState(null);
+  const [form, setForm] = useState({ title: '', subtitle: '', emoji: '✨', bg_color: '#6C4DFF', label: '', sort_order: 0, active: true });
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    const data = await getOnboardingSlides();
+    setSlides(data);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  function openNew() {
+    setEditSlide(null);
+    setForm({ title: '', subtitle: '', emoji: '✨', bg_color: '#6C4DFF', label: '', sort_order: slides.length + 1, active: true });
+    setModal(true);
+  }
+
+  function openEdit(slide) {
+    setEditSlide(slide);
+    setForm({ title: slide.title, subtitle: slide.subtitle ?? '', emoji: slide.emoji ?? '✨', bg_color: slide.bg_color ?? '#6C4DFF', label: slide.label ?? '', sort_order: slide.sort_order ?? 0, active: slide.active ?? true });
+    setModal(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    const payload = editSlide ? { ...form, id: editSlide.id } : form;
+    await upsertOnboardingSlide(payload);
+    setSaving(false);
+    setModal(false);
+    load();
+  }
+
+  async function del(id) {
+    await deleteOnboardingSlide(id);
+    load();
+  }
+
+  if (loading) return <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />;
+
+  return (
+    <>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, color: DARK.mute }}>{slides.length} slide(s)</Text>
+        <TouchableOpacity onPress={openNew} style={{ backgroundColor: COLORS.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="plus" size={13} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Nouveau slide</Text>
+        </TouchableOpacity>
+      </View>
+
+      {slides.map(slide => (
+        <DarkCard key={slide.id} style={{ marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: slide.bg_color ?? '#6C4DFF', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 18 }}>{slide.emoji}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }} numberOfLines={1}>{slide.title}</Text>
+              <Text style={{ fontSize: 10, color: DARK.mute, marginTop: 2 }}>Ordre {slide.sort_order} · {slide.active ? 'Actif' : 'Inactif'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => openEdit(slide)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(108,77,255,0.18)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
+              <Icon name="eye" size={14} color={COLORS.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => del(slide.id)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(209,67,67,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="trash2" size={14} color={COLORS.danger} />
+            </TouchableOpacity>
+          </View>
+        </DarkCard>
+      ))}
+
+      <Modal visible={modal} transparent animationType="slide" onRequestClose={() => setModal(false)}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setModal(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: DARK.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 32 }}>
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: DARK.border, alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: DARK.text, marginBottom: 14 }}>{editSlide ? 'Modifier le slide' : 'Nouveau slide'}</Text>
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Titre</Text>
+            <DarkInput value={form.title} onChangeText={v => setForm(f => ({ ...f, title: v }))} placeholder="Titre" style={{ marginBottom: 10 }} />
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Sous-titre</Text>
+            <DarkInput value={form.subtitle} onChangeText={v => setForm(f => ({ ...f, subtitle: v }))} placeholder="Sous-titre" multiline style={{ minHeight: 60, marginBottom: 10 }} />
+
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Emoji</Text>
+                <DarkInput value={form.emoji} onChangeText={v => setForm(f => ({ ...f, emoji: v }))} placeholder="✨" />
+              </View>
+              <View style={{ flex: 2 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Label</Text>
+                <DarkInput value={form.label} onChangeText={v => setForm(f => ({ ...f, label: v }))} placeholder="lifestyle · shopping" />
+              </View>
+            </View>
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 8 }}>Couleur de fond</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              {BANNER_COLORS.map(c => (
+                <TouchableOpacity key={c} onPress={() => setForm(f => ({ ...f, bg_color: c }))}
+                  style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: form.bg_color === c ? 2 : 0, borderColor: '#fff' }} />
+              ))}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Ordre</Text>
+                <DarkInput value={String(form.sort_order)} onChangeText={v => setForm(f => ({ ...f, sort_order: parseInt(v) || 0 }))} keyboardType="numeric" placeholder="1" />
+              </View>
+              <View style={{ flex: 2, justifyContent: 'flex-end', paddingBottom: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 13, color: DARK.text }}>Actif</Text>
+                  <Switch value={form.active} onValueChange={v => setForm(f => ({ ...f, active: v }))} trackColor={{ false: DARK.border, true: COLORS.primary }} thumbColor="#fff" />
+                </View>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => setModal(false)} style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: DARK.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: DARK.mute, fontWeight: '600', fontSize: 14 }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={save} disabled={saving} style={{ flex: 2, height: 44, borderRadius: 10, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Enregistrer</Text>}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
+/* Shipping sub-tab */
+function ShippingTab() {
+  const [methods, setMethods] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [form, setForm] = useState({ key: '', name: '', description: '', price: '3.99', free_threshold: '', estimated_days: '', emoji: '🚚', active: true, sort_order: 0 });
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    const data = await getAllShippingMethods();
+    setMethods(data);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  function openNew() {
+    setEditItem(null);
+    setForm({ key: '', name: '', description: '', price: '3.99', free_threshold: '', estimated_days: '', emoji: '🚚', active: true, sort_order: methods.length + 1 });
+    setModal(true);
+  }
+
+  function openEdit(m) {
+    setEditItem(m);
+    setForm({ key: m.key, name: m.name, description: m.description ?? '', price: String(m.price ?? '0'), free_threshold: m.free_threshold != null ? String(m.free_threshold) : '', estimated_days: m.estimated_days ?? '', emoji: m.emoji ?? '🚚', active: m.active ?? true, sort_order: m.sort_order ?? 0 });
+    setModal(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    const payload = {
+      key: form.key,
+      name: form.name,
+      description: form.description,
+      price: parseFloat(form.price) || 0,
+      free_threshold: form.free_threshold ? parseFloat(form.free_threshold) : null,
+      estimated_days: form.estimated_days,
+      emoji: form.emoji,
+      active: form.active,
+      sort_order: form.sort_order,
+    };
+    if (editItem) payload.id = editItem.id;
+    await upsertShippingMethod(payload);
+    setSaving(false);
+    setModal(false);
+    load();
+  }
+
+  async function del(id) {
+    await deleteShippingMethod(id);
+    load();
+  }
+
+  if (loading) return <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />;
+
+  return (
+    <>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, color: DARK.mute }}>{methods.length} méthode(s)</Text>
+        <TouchableOpacity onPress={openNew} style={{ backgroundColor: COLORS.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="plus" size={13} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Nouveau</Text>
+        </TouchableOpacity>
+      </View>
+
+      {methods.map(m => (
+        <DarkCard key={m.id} style={{ marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 }}>
+            <Text style={{ fontSize: 22 }}>{m.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }}>{m.name}</Text>
+              <Text style={{ fontSize: 11, color: DARK.mute, marginTop: 2 }}>${m.price} · {m.estimated_days} · {m.active ? 'Actif' : 'Inactif'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => openEdit(m)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(108,77,255,0.18)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
+              <Icon name="eye" size={14} color={COLORS.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => del(m.id)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(209,67,67,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="trash2" size={14} color={COLORS.danger} />
+            </TouchableOpacity>
+          </View>
+        </DarkCard>
+      ))}
+
+      <Modal visible={modal} transparent animationType="slide" onRequestClose={() => setModal(false)}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setModal(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: DARK.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 32 }}>
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: DARK.border, alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: DARK.text, marginBottom: 14 }}>{editItem ? 'Modifier la livraison' : 'Nouvelle méthode'}</Text>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Clé</Text>
+                <DarkInput value={form.key} onChangeText={v => setForm(f => ({ ...f, key: v }))} placeholder="standard" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Emoji</Text>
+                <DarkInput value={form.emoji} onChangeText={v => setForm(f => ({ ...f, emoji: v }))} placeholder="🚚" />
+              </View>
+            </View>
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Nom</Text>
+            <DarkInput value={form.name} onChangeText={v => setForm(f => ({ ...f, name: v }))} placeholder="Standard" style={{ marginBottom: 10 }} />
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Description</Text>
+            <DarkInput value={form.description} onChangeText={v => setForm(f => ({ ...f, description: v }))} placeholder="Livraison en 5 à 8 jours" style={{ marginBottom: 10 }} />
+
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Prix ($)</Text>
+                <DarkInput value={form.price} onChangeText={v => setForm(f => ({ ...f, price: v }))} placeholder="3.99" keyboardType="decimal-pad" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Gratuit si + ($)</Text>
+                <DarkInput value={form.free_threshold} onChangeText={v => setForm(f => ({ ...f, free_threshold: v }))} placeholder="30" keyboardType="decimal-pad" />
+              </View>
+            </View>
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Délai estimé</Text>
+            <DarkInput value={form.estimated_days} onChangeText={v => setForm(f => ({ ...f, estimated_days: v }))} placeholder="5 à 8 jours" style={{ marginBottom: 12 }} />
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={{ fontSize: 13, color: DARK.text }}>Activer</Text>
+              <Switch value={form.active} onValueChange={v => setForm(f => ({ ...f, active: v }))} trackColor={{ false: DARK.border, true: COLORS.primary }} thumbColor="#fff" />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => setModal(false)} style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: DARK.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: DARK.mute, fontWeight: '600', fontSize: 14 }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={save} disabled={saving} style={{ flex: 2, height: 44, borderRadius: 10, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Enregistrer</Text>}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
+/* Payment sub-tab */
+function PaymentTab() {
+  const [methods, setMethods] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [form, setForm] = useState({ key: '', name: '', description: '', emoji: '💳', active: true, sort_order: 0 });
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    const data = await getAllPaymentMethods();
+    setMethods(data);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  function openNew() {
+    setEditItem(null);
+    setForm({ key: '', name: '', description: '', emoji: '💳', active: true, sort_order: methods.length + 1 });
+    setModal(true);
+  }
+
+  function openEdit(m) {
+    setEditItem(m);
+    setForm({ key: m.key, name: m.name, description: m.description ?? '', emoji: m.emoji ?? '💳', active: m.active ?? true, sort_order: m.sort_order ?? 0 });
+    setModal(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    const payload = { key: form.key, name: form.name, description: form.description, emoji: form.emoji, active: form.active, sort_order: form.sort_order };
+    if (editItem) payload.id = editItem.id;
+    await upsertPaymentMethod(payload);
+    setSaving(false);
+    setModal(false);
+    load();
+  }
+
+  async function del(id) {
+    await deletePaymentMethod(id);
+    load();
+  }
+
+  if (loading) return <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />;
+
+  return (
+    <>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, color: DARK.mute }}>{methods.length} méthode(s)</Text>
+        <TouchableOpacity onPress={openNew} style={{ backgroundColor: COLORS.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="plus" size={13} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Nouveau</Text>
+        </TouchableOpacity>
+      </View>
+
+      {methods.map(m => (
+        <DarkCard key={m.id} style={{ marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 }}>
+            <Text style={{ fontSize: 22 }}>{m.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }}>{m.name}</Text>
+              <Text style={{ fontSize: 11, color: DARK.mute, marginTop: 2 }}>{m.description} · {m.active ? 'Actif' : 'Inactif'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => openEdit(m)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(108,77,255,0.18)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
+              <Icon name="eye" size={14} color={COLORS.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => del(m.id)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(209,67,67,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="trash2" size={14} color={COLORS.danger} />
+            </TouchableOpacity>
+          </View>
+        </DarkCard>
+      ))}
+
+      <Modal visible={modal} transparent animationType="slide" onRequestClose={() => setModal(false)}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setModal(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: DARK.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 32 }}>
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: DARK.border, alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: DARK.text, marginBottom: 14 }}>{editItem ? 'Modifier' : 'Nouveau paiement'}</Text>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Clé</Text>
+                <DarkInput value={form.key} onChangeText={v => setForm(f => ({ ...f, key: v }))} placeholder="card" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Emoji</Text>
+                <DarkInput value={form.emoji} onChangeText={v => setForm(f => ({ ...f, emoji: v }))} placeholder="💳" />
+              </View>
+            </View>
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Nom</Text>
+            <DarkInput value={form.name} onChangeText={v => setForm(f => ({ ...f, name: v }))} placeholder="Carte bancaire" style={{ marginBottom: 10 }} />
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Description</Text>
+            <DarkInput value={form.description} onChangeText={v => setForm(f => ({ ...f, description: v }))} placeholder="Visa, Mastercard" style={{ marginBottom: 12 }} />
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={{ fontSize: 13, color: DARK.text }}>Activer</Text>
+              <Switch value={form.active} onValueChange={v => setForm(f => ({ ...f, active: v }))} trackColor={{ false: DARK.border, true: COLORS.primary }} thumbColor="#fff" />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => setModal(false)} style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: DARK.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: DARK.mute, fontWeight: '600', fontSize: 14 }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={save} disabled={saving} style={{ flex: 2, height: 44, borderRadius: 10, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Enregistrer</Text>}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
+/* Notifications sub-tab */
+function NotificationsTab() {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [form, setForm] = useState({ key: '', title: '', body: '', active: true });
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    const data = await getNotificationTemplates();
+    setTemplates(data);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  function openEdit(tpl) {
+    setEditItem(tpl);
+    setForm({ key: tpl.key, title: tpl.title, body: tpl.body, active: tpl.active ?? true });
+    setModal(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    const payload = { ...form };
+    if (editItem) payload.id = editItem.id;
+    await upsertNotificationTemplate(payload);
+    setSaving(false);
+    setModal(false);
+    load();
+  }
+
+  if (loading) return <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />;
+
+  return (
+    <>
+      <Text style={{ fontSize: 12, color: DARK.mute, marginBottom: 12 }}>Modifiez les templates de notifications envoyées aux utilisateurs.</Text>
+
+      {templates.map(tpl => (
+        <DarkCard key={tpl.id} style={{ marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.text }} numberOfLines={1}>{tpl.title}</Text>
+              <Text style={{ fontSize: 10, color: DARK.mute, marginTop: 2 }}>{tpl.key} · {tpl.active ? 'Actif' : 'Inactif'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => openEdit(tpl)} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: 'rgba(108,77,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="eye" size={14} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        </DarkCard>
+      ))}
+
+      <Modal visible={modal} transparent animationType="slide" onRequestClose={() => setModal(false)}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setModal(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: DARK.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 32 }}>
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: DARK.border, alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: DARK.text, marginBottom: 14 }}>Modifier le template</Text>
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Clé</Text>
+            <DarkInput value={form.key} onChangeText={v => setForm(f => ({ ...f, key: v }))} placeholder="order_confirmed" style={{ marginBottom: 10 }} />
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Titre</Text>
+            <DarkInput value={form.title} onChangeText={v => setForm(f => ({ ...f, title: v }))} placeholder="Titre de la notification" style={{ marginBottom: 10 }} />
+
+            <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Corps</Text>
+            <DarkInput value={form.body} onChangeText={v => setForm(f => ({ ...f, body: v }))} placeholder="Contenu de la notification. Utilisez {{variable}} pour les variables." multiline style={{ minHeight: 80, marginBottom: 12 }} />
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={{ fontSize: 13, color: DARK.text }}>Actif</Text>
+              <Switch value={form.active} onValueChange={v => setForm(f => ({ ...f, active: v }))} trackColor={{ false: DARK.border, true: COLORS.primary }} thumbColor="#fff" />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => setModal(false)} style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: DARK.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: DARK.mute, fontWeight: '600', fontSize: 14 }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={save} disabled={saving} style={{ flex: 2, height: 44, borderRadius: 10, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Enregistrer</Text>}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </>
   );
 }
 
@@ -376,6 +1079,7 @@ export default function AdminConsoleScreen({ navigation }) {
   const [loading,      setLoading]      = useState(true);
 
   /* settings & media */
+  const [settingsSubTab,  setSettingsSubTab]  = useState('accueil');
   const [settingsOpen,    setSettingsOpen]    = useState(null);
   const [mediaSubTab,     setMediaSubTab]     = useState('banners');
   const [uploadingCat,    setUploadingCat]    = useState(null);
@@ -1087,25 +1791,16 @@ export default function AdminConsoleScreen({ navigation }) {
           {/* ── SETTINGS ── */}
           {!loading && section === 'settings' && (
             <>
-              <DarkCard style={{ marginBottom: 14 }}>
-                {SETTINGS.map((s, i) => (
-                  <TouchableOpacity
-                    key={s.key}
-                    onPress={() => setSettingsOpen(settingsOpen === s.key ? null : s.key)}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: DARK.border }}
-                  >
-                    <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(108,77,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name={s.icon} size={16} color={COLORS.primary} />
-                    </View>
-                    <Text style={{ flex: 1, fontSize: 13, fontWeight: '500', color: DARK.text }}>{s.label}</Text>
-                    <Text style={{ fontSize: 12, color: DARK.mute }}>{s.detail}</Text>
-                    <Icon name="chevronRight" size={15} color={DARK.mute} />
-                  </TouchableOpacity>
-                ))}
-              </DarkCard>
+              <SubTabBar tabs={SETTINGS_SUB_TABS} active={settingsSubTab} onSelect={setSettingsSubTab} />
+              {settingsSubTab === 'accueil' && <HomepageSectionsTab />}
+              {settingsSubTab === 'config' && <ConfigTab />}
+              {settingsSubTab === 'onboarding' && <OnboardingTab />}
+              {settingsSubTab === 'livraison' && <ShippingTab />}
+              {settingsSubTab === 'paiement' && <PaymentTab />}
+              {settingsSubTab === 'notifications' && <NotificationsTab />}
               <TouchableOpacity
                 onPress={() => navigation.goBack()}
-                style={{ height: 44, borderRadius: 12, backgroundColor: 'rgba(209,67,67,0.15)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                style={{ marginTop: 20, height: 44, borderRadius: 12, backgroundColor: 'rgba(209,67,67,0.15)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               >
                 <Icon name="logOut" size={16} color={COLORS.danger} />
                 <Text style={{ color: COLORS.danger, fontWeight: '600', fontSize: 14 }}>Quitter la console</Text>
