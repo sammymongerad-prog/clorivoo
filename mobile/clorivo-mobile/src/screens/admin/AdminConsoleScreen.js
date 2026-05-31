@@ -1076,6 +1076,28 @@ export default function AdminConsoleScreen({ navigation }) {
   const [rejectNotes,  setRejectNotes]  = useState('');
   const [kycDetailModal, setKycDetailModal] = useState(false);
   const [kycDetailReq,   setKycDetailReq]   = useState(null);
+  const [kycSignedUrls,  setKycSignedUrls]  = useState({});
+
+  async function openKycDetail(req) {
+    setKycDetailReq(req);
+    setKycSignedUrls({});
+    setKycDetailModal(true);
+    const urls = {};
+    for (const [key, url] of [['selfie', req.selfie_url], ['front', req.doc_front_url], ['back', req.doc_back_url]]) {
+      if (!url) continue;
+      try {
+        const parts = url.split('/kyc-docs/');
+        const path = parts[1];
+        if (path) {
+          const { data } = await supabase.storage.from('kyc-docs').createSignedUrl(path, 3600);
+          urls[key] = data?.signedUrl ?? url;
+        } else {
+          urls[key] = url;
+        }
+      } catch { urls[key] = url; }
+    }
+    setKycSignedUrls(urls);
+  }
   const [usersCount,   setUsersCount]   = useState(0);
   const [ordersCount,  setOrdersCount]  = useState(0);
   const [banners,      setBanners]      = useState([]);
@@ -1553,7 +1575,7 @@ export default function AdminConsoleScreen({ navigation }) {
                     </View>
 
                     {/* View full dossier button */}
-                    <TouchableOpacity onPress={() => { setKycDetailReq(req); setKycDetailModal(true); }}
+                    <TouchableOpacity onPress={() => openKycDetail(req)}
                       style={{ borderWidth: 1, borderColor: DARK.border, borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginBottom: 8, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
                       <Icon name="eye" size={14} color={DARK.mute} />
                       <Text style={{ fontSize: 12, color: DARK.mute, fontWeight: '600' }}>Voir le dossier complet</Text>
@@ -1595,8 +1617,8 @@ export default function AdminConsoleScreen({ navigation }) {
                           <>
                             {/* Selfie + name */}
                             <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                              {r.selfie_url
-                                ? <Image source={{ uri: r.selfie_url }} style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: DARK.border }} resizeMode="cover" />
+                              {(kycSignedUrls.selfie || r.selfie_url)
+                                ? <Image source={{ uri: kycSignedUrls.selfie || r.selfie_url }} style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: DARK.border }} resizeMode="cover" />
                                 : <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DARK.border }}>
                                     <Icon name="user" size={40} color={DARK.mute} />
                                   </View>
@@ -1643,17 +1665,17 @@ export default function AdminConsoleScreen({ navigation }) {
                                 DOCUMENT — {docLabels[r.doc_type] ?? r.doc_type ?? '—'}
                               </Text>
                               <View style={{ flexDirection: 'row', gap: 10 }}>
-                                {r.doc_front_url
+                                {(kycSignedUrls.front || r.doc_front_url)
                                   ? <View style={{ flex: 1 }}>
                                       <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 4 }}>RECTO</Text>
-                                      <Image source={{ uri: r.doc_front_url }} style={{ width: '100%', height: 110, borderRadius: 8 }} resizeMode="cover" />
+                                      <Image source={{ uri: kycSignedUrls.front || r.doc_front_url }} style={{ width: '100%', height: 110, borderRadius: 8 }} resizeMode="cover" />
                                     </View>
                                   : null
                                 }
-                                {r.doc_back_url
+                                {(kycSignedUrls.back || r.doc_back_url)
                                   ? <View style={{ flex: 1 }}>
                                       <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 4 }}>VERSO</Text>
-                                      <Image source={{ uri: r.doc_back_url }} style={{ width: '100%', height: 110, borderRadius: 8 }} resizeMode="cover" />
+                                      <Image source={{ uri: kycSignedUrls.back || r.doc_back_url }} style={{ width: '100%', height: 110, borderRadius: 8 }} resizeMode="cover" />
                                     </View>
                                   : null
                                 }
