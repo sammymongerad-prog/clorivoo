@@ -1385,13 +1385,23 @@ export default function AdminConsoleScreen({ navigation }) {
     } finally { setCjCatsLoading(false); }
   }
 
+  function normalizeCjProduct(p) {
+    // CJ API returns inconsistent field names across versions — normalize here
+    const pid = p.pid ?? p.productSku ?? p.skuId ?? '';
+    const name = p.productNameEn ?? p.productName ?? p.name ?? '';
+    const image = p.productImage ?? p.bigImage ?? p.imageUrl ?? p.imgUrl ?? (Array.isArray(p.productImageSet) ? p.productImageSet[0] : null) ?? null;
+    const price = parseFloat(p.sellPrice ?? p.salePrice ?? p.productPrice ?? p.price ?? 0);
+    const images = Array.isArray(p.productImageSet) ? p.productImageSet : (image ? [image] : []);
+    return { ...p, pid, productNameEn: name, bigImage: image, sellPrice: price, productImageSet: images };
+  }
+
   async function loadCjProducts(catId, page = 1, append = false) {
     setCjProductsLoading(true);
     setCjDebug('');
     try {
       const { searchCJProducts } = await import('../../lib/cjapi');
       const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
-      const list = data?.list ?? [];
+      const list = (data?.list ?? []).map(normalizeCjProduct);
       setCjProducts(prev => append ? [...prev, ...list] : list);
       setCjTotal(data?.total ?? 0);
       setCjPage(page);
@@ -1410,7 +1420,7 @@ export default function AdminConsoleScreen({ navigation }) {
     try {
       const { searchCJProducts } = await import('../../lib/cjapi');
       const data = await searchCJProducts(cjApiKey, { keyWord: cjKeyword.trim(), page, pageSize: 50 });
-      const list = data?.list ?? [];
+      const list = (data?.list ?? []).map(normalizeCjProduct);
       setCjProducts(prev => append ? [...prev, ...list] : list);
       setCjTotal(data?.total ?? 0);
       setCjPage(page);
@@ -1436,13 +1446,13 @@ export default function AdminConsoleScreen({ navigation }) {
   }
 
   async function importCjProduct(product, markupPct, categorySlug) {
-    setCjImporting(product.pid);
+    const p = normalizeCjProduct(product);
+    setCjImporting(p.pid);
     try {
       const markup = parseFloat(markupPct) || 30;
-      const basePrice = parseFloat(product.sellPrice ?? product.nowPrice ?? 0);
+      const basePrice = parseFloat(p.sellPrice ?? 0);
       const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
-      const images = product.productImageSet ?? (product.bigImage ? [product.bigImage] : (product.productImage ? [product.productImage] : []));
-      const imgArr = Array.isArray(images) ? images : [images];
+      const imgArr = p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : []);
 
       let catId = null;
       if (categorySlug) {
@@ -1450,21 +1460,21 @@ export default function AdminConsoleScreen({ navigation }) {
         catId = cat?.id ?? null;
       }
 
-      const { data: existing } = await supabase.from('products').select('id').eq('cj_pid', product.pid).maybeSingle();
+      const { data: existing } = await supabase.from('products').select('id').eq('cj_pid', p.pid).maybeSingle();
       if (existing) { Alert.alert('Déjà importé', 'Ce produit est déjà dans votre catalogue.'); return; }
 
       const payload = {
-        title: product.productNameEn || product.productName,
-        description: product.description || null,
+        title: p.productNameEn || '',
+        description: p.description || null,
         price: sellPrice,
         compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
         stock: 999,
         category: categorySlug || 'autre',
         images: imgArr.filter(Boolean).slice(0, 8),
         status: 'active',
-        cj_pid: product.pid,
+        cj_pid: p.pid,
         cj_source: true,
-        cj_category_id: product.categoryId ?? null,
+        cj_category_id: p.categoryId ?? null,
         markup_percent: markup,
       };
 
@@ -1488,21 +1498,21 @@ export default function AdminConsoleScreen({ navigation }) {
         try {
           do {
             const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
-            const list = data?.list ?? [];
+            const list = (data?.list ?? []).map(normalizeCjProduct);
             total = data?.total ?? 0;
             for (const p of list) {
               try {
                 const { data: exists } = await supabase.from('products').select('id').eq('cj_pid', p.pid).maybeSingle();
                 if (exists) { skipped++; continue; }
-                const basePrice = parseFloat(p.sellPrice ?? p.nowPrice ?? 0);
+                const basePrice = parseFloat(p.sellPrice ?? 0);
                 const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
                 await supabase.from('products').insert({
-                  title: p.productNameEn || p.productName,
+                  title: p.productNameEn || '',
                   price: sellPrice,
                   compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
                   stock: 999,
                   category: catName.toLowerCase(),
-                  images: p.bigImage ? [p.bigImage] : [],
+                  images: p.productImageSet?.length ? p.productImageSet.slice(0, 8) : (p.bigImage ? [p.bigImage] : []),
                   status: 'active',
                   cj_pid: p.pid,
                   cj_source: true,

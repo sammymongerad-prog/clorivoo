@@ -95,6 +95,9 @@ async function cjFetch(path, apiKey) {
   if (!isOk(json.code)) {
     throw new Error(json.message || `CJ code ${json.code} — ${path}`);
   }
+  // Log first item keys for product lists to help debug field names
+  const firstItem = json.data?.content?.[0] ?? json.data?.list?.[0];
+  if (firstItem) console.log('[CJ] first item keys:', Object.keys(firstItem).join(','));
   return json.data;
 }
 
