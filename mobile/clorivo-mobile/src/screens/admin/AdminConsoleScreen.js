@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SHADOW } from '../../lib/tokens';
 import { Avatar } from '../../components/UI';
 import Icon from '../../components/Icon';
-import { supabase, uploadImage, sendBroadcastNotification, getNotificationStats } from '../../lib/supabase';
+import { supabase, uploadImage, sendBroadcastNotification, getNotificationStats, sendNotificationToUser, searchUsers, getRecentNotificationsSent } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 import {
   getAppConfig, setAppConfig,
@@ -863,36 +863,34 @@ function NotificationsTab() {
 }
 
 /* ─── Broadcast Notifications ────────────────────────────────────────────── */
-function BroadcastNotifSection() {
-  const SEGMENTS = [
-    { key: 'all',     label: 'Tous les utilisateurs' },
-    { key: 'buyers',  label: 'Acheteurs' },
-    { key: 'sellers', label: 'Vendeurs' },
-  ];
-  const [form, setForm]     = useState({ segment: 'all', title: '', body: '' });
-  const [sending, setSend]  = useState(false);
+const NOTIF_TYPES = [
+  { key: 'promo',   label: 'Promo',    emoji: '📣' },
+  { key: 'system',  label: 'Système',  emoji: '🔔' },
+  { key: 'order',   label: 'Commande', emoji: '📦' },
+  { key: 'message', label: 'Message',  emoji: '💬' },
+];
+const SEGMENTS = [
+  { key: 'all',     label: 'Tous' },
+  { key: 'buyers',  label: 'Acheteurs' },
+  { key: 'sellers', label: 'Vendeurs' },
+];
+
+function AdminNotifSection() {
+  const [tab, setTab]       = useState(0); // 0=broadcast 1=individuel 2=historique
   const [stats, setStats]   = useState(null);
-  const [sent, setSent]     = useState([]);
+  const [history, setHistory] = useState([]);
+  const [histLoading, setHistLoading] = useState(false);
 
   useEffect(() => {
     getNotificationStats().then(setStats).catch(() => {});
-    supabase.from('notifications').select('id,title,body,type,created_at')
-      .order('created_at', { ascending: false }).limit(10)
-      .then(({ data }) => setSent(data ?? []));
   }, []);
 
-  async function handleSend() {
-    if (!form.title.trim() || !form.body.trim()) return Alert.alert('Champs requis', 'Remplissez le titre et le message.');
-    setSend(true);
-    const { error } = await sendBroadcastNotification({ segment: form.segment, type: 'promo', title: form.title, body: form.body });
-    setSend(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
-    Alert.alert('✅ Envoyé', `Notification envoyée au segment "${form.segment}".`);
-    setForm(f => ({ ...f, title: '', body: '' }));
-    supabase.from('notifications').select('id,title,body,type,created_at')
-      .order('created_at', { ascending: false }).limit(10)
-      .then(({ data }) => setSent(data ?? []));
+  function refreshHistory() {
+    setHistLoading(true);
+    getRecentNotificationsSent(30).then(d => { setHistory(d); setHistLoading(false); });
   }
+
+  useEffect(() => { if (tab === 2) refreshHistory(); }, [tab]);
 
   return (
     <>
@@ -908,54 +906,266 @@ function BroadcastNotifSection() {
         </View>
       )}
 
-      {/* Compose */}
-      <DarkCard style={{ marginBottom: 14 }}>
-        <View style={{ padding: 14 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text, marginBottom: 10 }}>📣 Envoyer une notification</Text>
+      {/* Tab bar */}
+      <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 3, marginBottom: 16 }}>
+        {['📣 Broadcast', '👤 Individuel', '📋 Historique'].map((t, i) => (
+          <TouchableOpacity key={i} onPress={() => setTab(i)} style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center',
+            backgroundColor: tab === i ? COLORS.primary : 'transparent' }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: tab === i ? '#fff' : DARK.mute }}>{t}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-          <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 6 }}>Segment</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+      {tab === 0 && <BroadcastTab onSent={() => { getNotificationStats().then(setStats).catch(() => {}); }} />}
+      {tab === 1 && <IndividualTab onSent={() => { getNotificationStats().then(setStats).catch(() => {}); }} />}
+      {tab === 2 && (
+        histLoading ? <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} /> :
+        <NotifHistory items={history} onRefresh={refreshHistory} />
+      )}
+    </>
+  );
+}
+
+function BroadcastTab({ onSent }) {
+  const [form, setForm]   = useState({ segment: 'all', type: 'promo', title: '', body: '' });
+  const [sending, setSend] = useState(false);
+  const [progress, setProgress] = useState(null); // "Envoi en cours…"
+
+  async function handleSend() {
+    if (!form.title.trim() || !form.body.trim()) { Alert.alert('Champs requis', 'Titre et message obligatoires.'); return; }
+    setSend(true);
+    setProgress('Récupération des utilisateurs…');
+    const { data, error } = await sendBroadcastNotification({ segment: form.segment, type: form.type, title: form.title, body: form.body });
+    setSend(false);
+    setProgress(null);
+    if (error) { Alert.alert('Erreur', String(error.message ?? error)); return; }
+    Alert.alert('✅ Envoyé !', `${data?.recipients ?? 0} push envoyées — visible dans l'historique.`);
+    setForm(f => ({ ...f, title: '', body: '' }));
+    onSent?.();
+  }
+
+  return (
+    <DarkCard>
+      <View style={{ padding: 14, gap: 12 }}>
+        {/* Segment */}
+        <View>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: DARK.mute, marginBottom: 8 }}>DESTINATAIRES</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             {SEGMENTS.map(s => (
               <TouchableOpacity key={s.key} onPress={() => setForm(f => ({ ...f, segment: s.key }))}
-                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5,
+                style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1.5,
                   borderColor: form.segment === s.key ? COLORS.primary : DARK.border,
                   backgroundColor: form.segment === s.key ? 'rgba(108,77,255,0.2)' : 'transparent' }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: form.segment === s.key ? COLORS.primary : DARK.mute }}>{s.label}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: form.segment === s.key ? COLORS.primary : DARK.mute }}>{s.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
+        </View>
 
-          <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Titre</Text>
-          <DarkInput value={form.title} onChangeText={v => setForm(f => ({ ...f, title: v }))} placeholder="ex: ⚡ Flash sale — 24h seulement !" style={{ marginBottom: 10 }} />
+        {/* Type */}
+        <View>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: DARK.mute, marginBottom: 8 }}>TYPE</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {NOTIF_TYPES.map(t => (
+              <TouchableOpacity key={t.key} onPress={() => setForm(f => ({ ...f, type: t.key }))}
+                style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1.5,
+                  borderColor: form.type === t.key ? COLORS.primary : DARK.border,
+                  backgroundColor: form.type === t.key ? 'rgba(108,77,255,0.2)' : 'transparent' }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: form.type === t.key ? COLORS.primary : DARK.mute }}>{t.emoji} {t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
-          <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Message</Text>
-          <DarkInput value={form.body} onChangeText={v => setForm(f => ({ ...f, body: v }))} placeholder="ex: -40% sur toute la mode. Offre valable jusqu'à minuit." multiline style={{ minHeight: 70, marginBottom: 14 }} />
+        {/* Titre */}
+        <View>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: DARK.mute, marginBottom: 6 }}>TITRE</Text>
+          <DarkInput value={form.title} onChangeText={v => setForm(f => ({ ...f, title: v }))} placeholder="ex: ⚡ Flash sale — 24h seulement !" />
+        </View>
 
-          <TouchableOpacity onPress={handleSend} disabled={sending}
-            style={{ height: 44, borderRadius: 10, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
-            {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Envoyer la notification</Text>}
-          </TouchableOpacity>
+        {/* Message */}
+        <View>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: DARK.mute, marginBottom: 6 }}>MESSAGE</Text>
+          <DarkInput value={form.body} onChangeText={v => setForm(f => ({ ...f, body: v }))} placeholder="ex: -40% sur toute la mode. Offre valable jusqu'à minuit." multiline style={{ minHeight: 80 }} />
+        </View>
+
+        {/* Preview */}
+        {(form.title || form.body) && (
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 12 }}>
+            <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Aperçu push</Text>
+            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18 }}>{NOTIF_TYPES.find(t => t.key === form.type)?.emoji ?? '🔔'}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }} numberOfLines={1}>{form.title || 'Titre de la notification'}</Text>
+                <Text style={{ fontSize: 12, color: DARK.mute, marginTop: 2 }} numberOfLines={2}>{form.body || 'Corps du message…'}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {progress && <Text style={{ fontSize: 12, color: COLORS.primary, textAlign: 'center' }}>{progress}</Text>}
+
+        <TouchableOpacity onPress={handleSend} disabled={sending}
+          style={{ height: 48, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+          {sending ? <ActivityIndicator color="#fff" size="small" /> : <>
+            <Text style={{ fontSize: 20 }}>📣</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Envoyer à {SEGMENTS.find(s => s.key === form.segment)?.label}</Text>
+          </>}
+        </TouchableOpacity>
+      </View>
+    </DarkCard>
+  );
+}
+
+function IndividualTab({ onSent }) {
+  const [search, setSearch]       = useState('');
+  const [users, setUsers]         = useState([]);
+  const [selected, setSelected]   = useState(null);
+  const [form, setForm]           = useState({ type: 'system', title: '', body: '' });
+  const [sending, setSend]        = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  async function doSearch(q) {
+    setSearch(q);
+    if (q.length < 2) { setUsers([]); return; }
+    setSearching(true);
+    const res = await searchUsers(q);
+    setUsers(res);
+    setSearching(false);
+  }
+
+  async function handleSend() {
+    if (!selected) { Alert.alert('Sélectionnez un utilisateur'); return; }
+    if (!form.title.trim() || !form.body.trim()) { Alert.alert('Champs requis', 'Titre et message obligatoires.'); return; }
+    setSend(true);
+    const { error } = await sendNotificationToUser({ userId: selected.id, type: form.type, title: form.title, body: form.body });
+    setSend(false);
+    if (error) { Alert.alert('Erreur', String(error.message ?? error)); return; }
+    Alert.alert('✅ Envoyé !', `Notification envoyée à ${selected.full_name ?? selected.email}.`);
+    setSelected(null);
+    setSearch('');
+    setUsers([]);
+    setForm({ type: 'system', title: '', body: '' });
+    onSent?.();
+  }
+
+  return (
+    <View style={{ gap: 12 }}>
+      {/* User search */}
+      <DarkCard>
+        <View style={{ padding: 14 }}>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: DARK.mute, marginBottom: 8 }}>DESTINATAIRE</Text>
+          {selected ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(108,77,255,0.15)', borderRadius: 10, padding: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{(selected.full_name?.[0] ?? selected.email?.[0] ?? '?').toUpperCase()}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>{selected.full_name ?? 'Sans nom'}</Text>
+                <Text style={{ fontSize: 11, color: DARK.mute }}>{selected.email} · {selected.role}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setSelected(null); setSearch(''); setUsers([]); }}
+                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: DARK.mute, fontSize: 16 }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <DarkInput value={search} onChangeText={doSearch} placeholder="Rechercher par nom ou email…" />
+              {searching && <ActivityIndicator color={COLORS.primary} size="small" style={{ marginTop: 8 }} />}
+              {users.map(u => (
+                <TouchableOpacity key={u.id} onPress={() => { setSelected(u); setUsers([]); }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: DARK.border }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(108,77,255,0.3)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.primary }}>{(u.full_name?.[0] ?? u.email?.[0] ?? '?').toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }}>{u.full_name ?? '—'}</Text>
+                    <Text style={{ fontSize: 11, color: DARK.mute }}>{u.email} · {u.role}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
         </View>
       </DarkCard>
 
-      {/* Recent sends */}
-      {sent.length > 0 && (
-        <>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.mute, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Récentes</Text>
-          {sent.map(n => (
-            <DarkCard key={n.id} style={{ marginBottom: 8 }}>
-              <View style={{ flexDirection: 'row', gap: 10, padding: 12, alignItems: 'center' }}>
-                <Text style={{ fontSize: 18 }}>{n.type === 'promo' ? '📣' : n.type === 'order' ? '📦' : '🔔'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }} numberOfLines={1}>{n.title}</Text>
-                  <Text style={{ fontSize: 11, color: DARK.mute, marginTop: 2 }} numberOfLines={1}>{n.body}</Text>
-                </View>
-                <Text style={{ fontSize: 11, color: DARK.mute }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
-              </View>
-            </DarkCard>
-          ))}
-        </>
-      )}
+      <DarkCard>
+        <View style={{ padding: 14, gap: 12 }}>
+          {/* Type */}
+          <View>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: DARK.mute, marginBottom: 8 }}>TYPE</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {NOTIF_TYPES.map(t => (
+                <TouchableOpacity key={t.key} onPress={() => setForm(f => ({ ...f, type: t.key }))}
+                  style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1.5,
+                    borderColor: form.type === t.key ? COLORS.primary : DARK.border,
+                    backgroundColor: form.type === t.key ? 'rgba(108,77,255,0.2)' : 'transparent' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: form.type === t.key ? COLORS.primary : DARK.mute }}>{t.emoji} {t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: DARK.mute, marginBottom: 6 }}>TITRE</Text>
+            <DarkInput value={form.title} onChangeText={v => setForm(f => ({ ...f, title: v }))} placeholder="Titre de la notification" />
+          </View>
+
+          <View>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: DARK.mute, marginBottom: 6 }}>MESSAGE</Text>
+            <DarkInput value={form.body} onChangeText={v => setForm(f => ({ ...f, body: v }))} placeholder="Corps du message…" multiline style={{ minHeight: 80 }} />
+          </View>
+
+          <TouchableOpacity onPress={handleSend} disabled={sending || !selected}
+            style={{ height: 48, borderRadius: 12, backgroundColor: selected ? COLORS.primary : 'rgba(108,77,255,0.3)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+            {sending ? <ActivityIndicator color="#fff" size="small" /> : <>
+              <Text style={{ fontSize: 18 }}>📨</Text>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Envoyer à {selected?.full_name?.split(' ')[0] ?? 'l\'utilisateur'}</Text>
+            </>}
+          </TouchableOpacity>
+        </View>
+      </DarkCard>
+    </View>
+  );
+}
+
+function NotifHistory({ items, onRefresh }) {
+  if (items.length === 0) return (
+    <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+      <Text style={{ fontSize: 32 }}>📭</Text>
+      <Text style={{ fontSize: 14, color: DARK.mute, marginTop: 10 }}>Aucune notification envoyée</Text>
+      <TouchableOpacity onPress={onRefresh} style={{ marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: DARK.border }}>
+        <Text style={{ fontSize: 13, color: DARK.mute }}>Actualiser</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const EMOJI = { promo: '📣', order: '📦', message: '💬', system: '🔔', marketing: '📢' };
+  return (
+    <>
+      <TouchableOpacity onPress={onRefresh} style={{ alignSelf: 'flex-end', marginBottom: 10, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: DARK.border }}>
+        <Text style={{ fontSize: 12, color: DARK.mute }}>↻ Actualiser</Text>
+      </TouchableOpacity>
+      {items.map(n => (
+        <DarkCard key={n.id} style={{ marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 10, padding: 12, alignItems: 'center' }}>
+            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(108,77,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 18 }}>{EMOJI[n.type] ?? '🔔'}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }} numberOfLines={1}>{n.title}</Text>
+              <Text style={{ fontSize: 11, color: DARK.mute, marginTop: 2 }} numberOfLines={1}>{n.body}</Text>
+              {n.profiles?.full_name && (
+                <Text style={{ fontSize: 10, color: COLORS.primary, marginTop: 2 }}>→ {n.profiles.full_name}</Text>
+              )}
+            </View>
+            <Text style={{ fontSize: 10, color: DARK.mute }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+          </View>
+        </DarkCard>
+      ))}
     </>
   );
 }
@@ -2882,7 +3092,7 @@ export default function AdminConsoleScreen({ navigation }) {
           {!loading && section === 'transactions' && <ComingSoon icon="zap" label="Transactions" />}
 
           {/* ── NOTIFICATIONS ── */}
-          {!loading && section === 'notifications' && <BroadcastNotifSection />}
+          {!loading && section === 'notifications' && <AdminNotifSection />}
 
           {/* ── REPORTS ── */}
           {!loading && section === 'reports' && (

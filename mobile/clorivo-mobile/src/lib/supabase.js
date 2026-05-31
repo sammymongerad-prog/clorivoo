@@ -407,12 +407,78 @@ export async function upsertNotificationTemplate(template) {
   return { data, error };
 }
 
+// ─── EXPO PUSH (direct — no server, no quota) ─────────────────────
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+
+async function sendExpoPush(messages) {
+  // Expo accepts up to 100 per request; we batch automatically
+  const BATCH = 100;
+  let sent = 0;
+  for (let i = 0; i < messages.length; i += BATCH) {
+    const batch = messages.slice(i, i + BATCH);
+    await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(batch),
+    });
+    sent += batch.length;
+  }
+  return sent;
+}
+
 // ─── NOTIFICATION BROADCAST ───────────────────────────────────────
 export async function sendBroadcastNotification({ segment = 'all', type = 'promo', title, body, data = {} }) {
-  const { data: result, error } = await supabase.functions.invoke('send-broadcast', {
-    body: { segment, type, title, body, data },
-  });
-  return { data: result, error };
+  // 1. Fetch all target push tokens directly (no Edge Function = no quota)
+  let query = supabase.from('profiles').select('id, push_token').not('push_token', 'is', null);
+  if (segment === 'buyers')  query = query.eq('role', 'buyer');
+  if (segment === 'sellers') query = query.eq('role', 'seller');
+  const { data: profiles, error } = await query;
+  if (error) return { data: null, error };
+
+  const valid = (profiles ?? []).filter(p => p.push_token?.startsWith('ExponentPushToken['));
+
+  // 2. Insert in-app notifications in bulk
+  if (valid.length > 0) {
+    await supabase.from('notifications').insert(
+      valid.map(p => ({ user_id: p.id, type, title, body, data }))
+    );
+  }
+
+  // 3. Send push notifications directly to Expo (unlimited, free)
+  const messages = valid.map(p => ({ to: p.push_token, title, body, data, sound: 'default' }));
+  const sent = await sendExpoPush(messages);
+  return { data: { recipients: sent }, error: null };
+}
+
+// ─── SEND TO ONE USER ─────────────────────────────────────────────
+export async function sendNotificationToUser({ userId, type = 'system', title, body, data = {} }) {
+  // Insert in-app notification
+  const { error: insertErr } = await supabase.from('notifications').insert({ user_id: userId, type, title, body, data });
+  if (insertErr) return { error: insertErr };
+
+  // Fetch push token and send if available
+  const { data: profile } = await supabase.from('profiles').select('push_token').eq('id', userId).single();
+  if (profile?.push_token?.startsWith('ExponentPushToken[')) {
+    await sendExpoPush([{ to: profile.push_token, title, body, data, sound: 'default' }]);
+  }
+  return { error: null };
+}
+
+// ─── FETCH USERS FOR ADMIN PICKER ────────────────────────────────
+export async function searchUsers(query) {
+  const { data } = await supabase.from('profiles')
+    .select('id, full_name, email, role, avatar_url')
+    .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+    .limit(20);
+  return data ?? [];
+}
+
+export async function getRecentNotificationsSent(limit = 20) {
+  const { data } = await supabase.from('notifications')
+    .select('id, title, body, type, created_at, user_id, profiles(full_name)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return data ?? [];
 }
 
 export async function getNotificationStats() {
