@@ -1074,6 +1074,8 @@ export default function AdminConsoleScreen({ navigation }) {
   const [rejectModal,  setRejectModal]  = useState(false);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectNotes,  setRejectNotes]  = useState('');
+  const [kycDetailModal, setKycDetailModal] = useState(false);
+  const [kycDetailReq,   setKycDetailReq]   = useState(null);
   const [usersCount,   setUsersCount]   = useState(0);
   const [ordersCount,  setOrdersCount]  = useState(0);
   const [banners,      setBanners]      = useState([]);
@@ -1524,23 +1526,25 @@ export default function AdminConsoleScreen({ navigation }) {
                 </DarkCard>
               )}
 
-              {kycRequests.map((req, i) => (
+              {kycRequests.map((req) => (
                 <DarkCard key={req.id} style={{ marginBottom: 12 }}>
                   <View style={{ padding: 14 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                      {req.doc_front_url ? (
-                        <Image source={{ uri: req.doc_front_url }} style={{ width: 50, height: 36, borderRadius: 6 }} resizeMode="cover" />
-                      ) : (
-                        <View style={{ width: 50, height: 36, borderRadius: 6, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center' }}>
-                          <Icon name="image" size={16} color={DARK.mute} />
-                        </View>
-                      )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      {req.selfie_url
+                        ? <Image source={{ uri: req.selfie_url }} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: DARK.border }} resizeMode="cover" />
+                        : <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: DARK.border }}>
+                            <Icon name="user" size={20} color={DARK.mute} />
+                          </View>
+                      }
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: DARK.text }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: DARK.text }}>
                           {req.first_name ?? ''} {req.last_name ?? ''}
                         </Text>
                         <Text style={{ fontSize: 11, color: DARK.mute, marginTop: 2 }}>
-                          {req.shop_name ?? '—'} · {req.doc_type ?? '—'}
+                          🏪 {req.shop_name ?? '—'}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: DARK.mute }}>
+                          Soumis le {req.submitted_at ? new Date(req.submitted_at).toLocaleDateString('fr-FR') : '—'}
                         </Text>
                       </View>
                       <View style={{ backgroundColor: 'rgba(245,158,11,0.2)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
@@ -1548,29 +1552,138 @@ export default function AdminConsoleScreen({ navigation }) {
                       </View>
                     </View>
 
-                    <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 12 }}>
-                      Soumis le {req.submitted_at ? new Date(req.submitted_at).toLocaleDateString('fr-FR') : '—'}
-                    </Text>
+                    {/* View full dossier button */}
+                    <TouchableOpacity onPress={() => { setKycDetailReq(req); setKycDetailModal(true); }}
+                      style={{ borderWidth: 1, borderColor: DARK.border, borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginBottom: 8, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+                      <Icon name="eye" size={14} color={DARK.mute} />
+                      <Text style={{ fontSize: 12, color: DARK.mute, fontWeight: '600' }}>Voir le dossier complet</Text>
+                    </TouchableOpacity>
 
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity
-                        onPress={() => approveKyc(req)}
-                        style={{ flex: 1, height: 36, borderRadius: 8, backgroundColor: 'rgba(16,185,129,0.15)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
-                      >
-                        <Text style={{ fontSize: 14 }}>✅</Text>
+                      <TouchableOpacity onPress={() => approveKyc(req)}
+                        style={{ flex: 1, height: 38, borderRadius: 8, backgroundColor: 'rgba(16,185,129,0.15)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                        <Icon name="checkCircle" size={14} color="#10B981" />
                         <Text style={{ fontSize: 12, fontWeight: '700', color: '#10B981' }}>Approuver</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => { setRejectTarget(req); setRejectNotes(''); setRejectModal(true); }}
-                        style={{ flex: 1, height: 36, borderRadius: 8, backgroundColor: 'rgba(239,68,68,0.15)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
-                      >
-                        <Text style={{ fontSize: 14 }}>❌</Text>
+                      <TouchableOpacity onPress={() => { setRejectTarget(req); setRejectNotes(''); setRejectModal(true); }}
+                        style={{ flex: 1, height: 38, borderRadius: 8, backgroundColor: 'rgba(239,68,68,0.15)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                        <Icon name="x" size={14} color="#EF4444" />
                         <Text style={{ fontSize: 12, fontWeight: '700', color: '#EF4444' }}>Rejeter</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
                 </DarkCard>
               ))}
+
+              {/* KYC Detail Modal */}
+              <Modal visible={kycDetailModal} animationType="slide" transparent onRequestClose={() => setKycDetailModal(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+                  <View style={{ backgroundColor: DARK.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '94%' }}>
+                    {/* Modal header */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+                      <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', color: DARK.text }}>Dossier KYC</Text>
+                      <TouchableOpacity onPress={() => setKycDetailModal(false)}>
+                        <Icon name="x" size={20} color={DARK.mute} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+                      {kycDetailReq && (() => {
+                        const r = kycDetailReq;
+                        const docLabels = { passport: 'Passeport', id_card: 'Carte nationale d\'identité', work_permit: 'Permis de travail', driver_license: 'Permis de conduire' };
+                        return (
+                          <>
+                            {/* Selfie + name */}
+                            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                              {r.selfie_url
+                                ? <Image source={{ uri: r.selfie_url }} style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: DARK.border }} resizeMode="cover" />
+                                : <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DARK.border }}>
+                                    <Icon name="user" size={40} color={DARK.mute} />
+                                  </View>
+                              }
+                              <Text style={{ fontSize: 18, fontWeight: '800', color: DARK.text, marginTop: 10 }}>{r.first_name} {r.last_name}</Text>
+                              <Text style={{ fontSize: 12, color: DARK.mute }}>{r.nationality} · {r.country}</Text>
+                            </View>
+
+                            {/* Personal info */}
+                            <View style={{ backgroundColor: DARK.bg, borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: DARK.border }}>
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.mute, letterSpacing: 1, marginBottom: 10 }}>INFORMATIONS PERSONNELLES</Text>
+                              {[
+                                ['Date de naissance', r.birth_date],
+                                ['Téléphone', r.phone],
+                                ['Email', r.email],
+                                ['Nationalité', r.nationality],
+                                ['Pays de résidence', r.country],
+                              ].map(([label, val]) => val ? (
+                                <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+                                  <Text style={{ fontSize: 12, color: DARK.mute }}>{label}</Text>
+                                  <Text style={{ fontSize: 12, color: DARK.text, fontWeight: '600', maxWidth: '55%', textAlign: 'right' }}>{val}</Text>
+                                </View>
+                              ) : null)}
+                            </View>
+
+                            {/* Shop info */}
+                            <View style={{ backgroundColor: DARK.bg, borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: DARK.border }}>
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.mute, letterSpacing: 1, marginBottom: 10 }}>BOUTIQUE</Text>
+                              {[
+                                ['Nom', r.shop_name],
+                                ['Catégorie', r.shop_category],
+                                ['Description', r.shop_description],
+                              ].map(([label, val]) => val ? (
+                                <View key={label} style={{ paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+                                  <Text style={{ fontSize: 11, color: DARK.mute }}>{label}</Text>
+                                  <Text style={{ fontSize: 13, color: DARK.text, fontWeight: '600', marginTop: 2 }}>{val}</Text>
+                                </View>
+                              ) : null)}
+                            </View>
+
+                            {/* Document */}
+                            <View style={{ backgroundColor: DARK.bg, borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: DARK.border }}>
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.mute, letterSpacing: 1, marginBottom: 10 }}>
+                                DOCUMENT — {docLabels[r.doc_type] ?? r.doc_type ?? '—'}
+                              </Text>
+                              <View style={{ flexDirection: 'row', gap: 10 }}>
+                                {r.doc_front_url
+                                  ? <View style={{ flex: 1 }}>
+                                      <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 4 }}>RECTO</Text>
+                                      <Image source={{ uri: r.doc_front_url }} style={{ width: '100%', height: 110, borderRadius: 8 }} resizeMode="cover" />
+                                    </View>
+                                  : null
+                                }
+                                {r.doc_back_url
+                                  ? <View style={{ flex: 1 }}>
+                                      <Text style={{ fontSize: 10, color: DARK.mute, marginBottom: 4 }}>VERSO</Text>
+                                      <Image source={{ uri: r.doc_back_url }} style={{ width: '100%', height: 110, borderRadius: 8 }} resizeMode="cover" />
+                                    </View>
+                                  : null
+                                }
+                              </View>
+                            </View>
+
+                            <Text style={{ fontSize: 10, color: DARK.mute, textAlign: 'center', marginBottom: 16 }}>
+                              Soumis le {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}
+                            </Text>
+
+                            {/* Action buttons in modal */}
+                            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 30 }}>
+                              <TouchableOpacity onPress={() => { setKycDetailModal(false); setTimeout(() => approveKyc(r), 300); }}
+                                style={{ flex: 1, height: 46, borderRadius: 10, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+                                <Icon name="checkCircle" size={16} color="#fff" />
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>Approuver</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => { setKycDetailModal(false); setTimeout(() => { setRejectTarget(r); setRejectNotes(''); setRejectModal(true); }, 300); }}
+                                style={{ flex: 1, height: 46, borderRadius: 10, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+                                <Icon name="x" size={16} color="#fff" />
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>Rejeter</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </>
+                        );
+                      })()}
+                    </ScrollView>
+                  </View>
+                </View>
+              </Modal>
 
               {/* Reject modal */}
               <Modal visible={rejectModal} transparent animationType="slide" onRequestClose={() => setRejectModal(false)}>
