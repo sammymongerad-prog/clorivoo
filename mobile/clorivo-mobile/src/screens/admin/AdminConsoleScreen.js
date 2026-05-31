@@ -1139,6 +1139,7 @@ export default function AdminConsoleScreen({ navigation }) {
   const [cjSubTab, setCjSubTab]           = useState('categories');
   const [cjMarkup, setCjMarkup]           = useState('30');
   const [cjImporting, setCjImporting]     = useState(null);
+  const [cjImportProgress, setCjImportProgress] = useState({ active: false, current: 0, total: 0, label: '' });
   const [cjDetailPid, setCjDetailPid]     = useState(null);
   const [cjDetail, setCjDetail]           = useState(null);
   const [cjDetailModal, setCjDetailModal] = useState(false);
@@ -1387,6 +1388,34 @@ export default function AdminConsoleScreen({ navigation }) {
 
   function normalizeCjProduct(p) { return p; } // normalization done in cjapi.js
 
+  // Find or create a category by CJ categoryId + name, returns Supabase category id
+  async function resolveCjCategory(cjCatId, cjCatName) {
+    if (!cjCatId && !cjCatName) return null;
+    const slug = (cjCatName || cjCatId || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    // Try by cj_category_id first
+    if (cjCatId) {
+      const { data: existing } = await supabase.from('categories').select('id').eq('cj_category_id', cjCatId).maybeSingle();
+      if (existing) return existing.id;
+    }
+    // Try by slug
+    const { data: bySlug } = await supabase.from('categories').select('id').eq('slug', slug).maybeSingle();
+    if (bySlug) {
+      if (cjCatId) await supabase.from('categories').update({ cj_category_id: cjCatId }).eq('id', bySlug.id);
+      return bySlug.id;
+    }
+    // Create it
+    const { data: created } = await supabase.from('categories').insert({ name: cjCatName || slug, slug, cj_category_id: cjCatId ?? null }).select('id').single();
+    return created?.id ?? null;
+  }
+
+  // Get or create the system shop used for CJ imports
+  async function getCjSystemShop() {
+    const { data: existing } = await supabase.from('shops').select('id').eq('name', 'Clorivo').maybeSingle();
+    if (existing) return existing.id;
+    const { data: created } = await supabase.from('shops').insert({ name: 'Clorivo', description: 'Produits CJ Dropshipping' }).select('id').single();
+    return created?.id ?? null;
+  }
+
   async function loadCjProducts(catId, page = 1, append = false) {
     if (!append) normalizeCjProduct._logged = false;
     setCjProductsLoading(true);
@@ -1438,53 +1467,48 @@ export default function AdminConsoleScreen({ navigation }) {
     } catch (e) { Alert.alert('Erreur', e.message); setCjDetailModal(false); }
   }
 
-  async function importCjProduct(product, markupPct, categorySlug) {
+  async function importCjProduct(product, markupPct, _categorySlug) {
     const p = normalizeCjProduct(product);
     setCjImporting(p.pid);
+    setCjImportProgress({ active: true, current: 0, total: 1, label: 'Import en cours…' });
     try {
       const markup = parseFloat(markupPct) || 30;
       const basePrice = parseFloat(p.sellPrice ?? 0);
       const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
-      const imgArr = p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : []);
-
-      let catId = null;
-      if (categorySlug) {
-        const { data: cat } = await supabase.from('categories').select('id').eq('slug', categorySlug).maybeSingle();
-        catId = cat?.id ?? null;
-      }
+      const imgArr = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean).slice(0, 8);
 
       const { data: existing } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
       if (existing) { Alert.alert('Déjà importé', 'Ce produit est déjà dans votre catalogue.'); return; }
 
-      // Get or create a system shop for CJ imports
-      let shopId = null;
-      const { data: sysShop } = await supabase.from('shops').select('id').eq('name', 'Clorivo').maybeSingle();
-      shopId = sysShop?.id ?? null;
-      if (!shopId) {
-        const { data: newShop } = await supabase.from('shops').insert({ name: 'Clorivo', description: 'Produits CJ Dropshipping' }).select('id').single();
-        shopId = newShop?.id ?? null;
-      }
+      const [shopId, categoryId] = await Promise.all([
+        getCjSystemShop(),
+        resolveCjCategory(p.categoryId ?? null, cjLevel3?.categoryName ?? cjLevel2?.categoryName ?? cjLevel1?.categoryFirstName ?? null),
+      ]);
 
-      const payload = {
+      setCjImportProgress(prev => ({ ...prev, current: 1 }));
+
+      const { error } = await supabase.from('products').insert({
         title: p.productNameEn || '',
         description: p.description || null,
         price: sellPrice,
         compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
         stock: 999,
-        category: categorySlug || 'autre',
-        images: imgArr.filter(Boolean).slice(0, 8),
+        category: (cjLevel3?.categoryName ?? cjLevel2?.categoryName ?? cjLevel1?.categoryFirstName ?? 'autre').toLowerCase(),
+        images: imgArr,
         status: 'active',
         source: 'cj',
         cj_product_id: p.pid,
         ...(shopId ? { shop_id: shopId } : {}),
-      };
-
-      const { error } = await supabase.from('products').insert(payload);
+        ...(categoryId ? { category_id: categoryId } : {}),
+      });
       if (error) throw error;
-      Alert.alert('Importé !', `"${payload.title}" ajouté au catalogue à $${sellPrice}`);
+      Alert.alert('Importé !', `"${p.productNameEn}" ajouté au catalogue à $${sellPrice}`);
     } catch (e) {
       Alert.alert('Erreur import', e.message);
-    } finally { setCjImporting(null); }
+    } finally {
+      setCjImporting(null);
+      setCjImportProgress({ active: false, current: 0, total: 0, label: '' });
+    }
   }
 
   async function bulkImportCategory(catId, catName, markupPct) {
@@ -1496,46 +1520,51 @@ export default function AdminConsoleScreen({ navigation }) {
       { text: 'Annuler', style: 'cancel' },
       { text: 'Importer', onPress: async () => {
         setCjImportLoading(true);
+        setCjImportProgress({ active: true, current: 0, total: 0, label: 'Initialisation…' });
         try {
-          let bulkShopId = null;
-          const { data: sysShop } = await supabase.from('shops').select('id').eq('name', 'Clorivo').maybeSingle();
-          bulkShopId = sysShop?.id ?? null;
-          if (!bulkShopId) {
-            const { data: ns } = await supabase.from('shops').insert({ name: 'Clorivo', description: 'Produits CJ Dropshipping' }).select('id').single();
-            bulkShopId = ns?.id ?? null;
-          }
+          const [shopId, categoryId] = await Promise.all([
+            getCjSystemShop(),
+            resolveCjCategory(catId, catName),
+          ]);
           do {
             const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
             const list = (data?.list ?? []).map(normalizeCjProduct);
             total = data?.total ?? 0;
+            setCjImportProgress(prev => ({ ...prev, total: total + skipped, label: `Import ${catName}…` }));
             for (const p of list) {
               try {
                 const { data: exists } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
-                if (exists) { skipped++; continue; }
-                const basePrice = parseFloat(p.sellPrice ?? 0);
-                const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
-                const imgs = p.productImageSet?.length ? p.productImageSet.slice(0, 8) : (p.bigImage ? [p.bigImage] : []);
-                await supabase.from('products').insert({
-                  title: p.productNameEn || '',
-                  price: sellPrice,
-                  compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
-                  stock: 999,
-                  category: catName.toLowerCase(),
-                  images: imgs,
-                  status: 'active',
-                  source: 'cj',
-                  cj_product_id: p.pid,
-                  ...(bulkShopId ? { shop_id: bulkShopId } : {}),
-                });
-                imported++;
+                if (exists) { skipped++; } else {
+                  const basePrice = parseFloat(p.sellPrice ?? 0);
+                  const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
+                  const imgs = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean).slice(0, 8);
+                  await supabase.from('products').insert({
+                    title: p.productNameEn || '',
+                    price: sellPrice,
+                    compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
+                    stock: 999,
+                    category: catName.toLowerCase(),
+                    images: imgs,
+                    status: 'active',
+                    source: 'cj',
+                    cj_product_id: p.pid,
+                    ...(shopId ? { shop_id: shopId } : {}),
+                    ...(categoryId ? { category_id: categoryId } : {}),
+                  });
+                  imported++;
+                }
               } catch {}
+              setCjImportProgress(prev => ({ ...prev, current: imported + skipped }));
             }
             page++;
           } while ((page - 1) * 50 < total);
           Alert.alert('Import terminé', `${imported} produits importés, ${skipped} ignorés (déjà existants).`);
           loadCjImported();
         } catch (e) { Alert.alert('Erreur', e.message); }
-        finally { setCjImportLoading(false); }
+        finally {
+          setCjImportLoading(false);
+          setCjImportProgress({ active: false, current: 0, total: 0, label: '' });
+        }
       }},
     ]);
   }
@@ -1884,6 +1913,33 @@ export default function AdminConsoleScreen({ navigation }) {
                   })()
                 }
               </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* CJ Import Progress Overlay */}
+        <Modal visible={cjImportProgress.active} transparent animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+            <View style={{ backgroundColor: DARK.card, borderRadius: 16, padding: 28, width: '100%', maxWidth: 340, alignItems: 'center', gap: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: DARK.text, textAlign: 'center' }}>
+                {cjImportProgress.label || 'Import en cours…'}
+              </Text>
+              {cjImportProgress.total > 0 ? (
+                <>
+                  <View style={{ width: '100%', height: 10, backgroundColor: DARK.bg, borderRadius: 99, overflow: 'hidden' }}>
+                    <View style={{
+                      height: 10, borderRadius: 99, backgroundColor: DARK.accent,
+                      width: `${Math.min(100, Math.round((cjImportProgress.current / cjImportProgress.total) * 100))}%`,
+                    }} />
+                  </View>
+                  <Text style={{ fontSize: 13, color: DARK.mute }}>
+                    {cjImportProgress.current} / {cjImportProgress.total} produits
+                    {' '}({Math.min(100, Math.round((cjImportProgress.current / cjImportProgress.total) * 100))}%)
+                  </Text>
+                </>
+              ) : (
+                <ActivityIndicator color={DARK.accent} size="large" />
+              )}
             </View>
           </View>
         </Modal>
