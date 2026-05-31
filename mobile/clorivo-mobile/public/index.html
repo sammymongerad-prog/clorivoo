@@ -50,12 +50,12 @@
         var r = e.reason;
         showError(r ? String(r) : 'Unhandled Promise Rejection', r && r.stack, null, null);
       });
-      // If bundle never loads after 12s, show message
+      // If bundle never loads after 90s, show message
       setTimeout(function() {
         if (!window.__clorivoBundleReady) {
-          showError('Le bundle JS ne s\'est pas chargé (timeout 12s). Vérifiez que Metro tourne bien.', null, null, null);
+          showError('Le bundle JS ne s\'est pas chargé (timeout 90s). Metro est-il bien démarré sur ce port ?', null, null, null);
         }
-      }, 12000);
+      }, 90000);
     })();
   </script>
 </head>
