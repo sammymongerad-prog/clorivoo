@@ -397,13 +397,13 @@ export async function incrementVideoViews(id) {
 // ─── NOTIFICATION TEMPLATES ───────────────────────────────────────
 export async function getNotificationTemplates() {
   const { data } = await supabase.from('notification_templates')
-    .select('*').order('type');
+    .select('*').order('key');
   return data ?? [];
 }
 
 export async function upsertNotificationTemplate(template) {
   const { data, error } = await supabase.from('notification_templates')
-    .upsert(template, { onConflict: 'type' }).select().single();
+    .upsert(template, { onConflict: 'key' }).select().single();
   return { data, error };
 }
 
