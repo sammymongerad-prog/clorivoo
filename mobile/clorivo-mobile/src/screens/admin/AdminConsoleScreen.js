@@ -1140,6 +1140,7 @@ export default function AdminConsoleScreen({ navigation }) {
   const [cjMarkup, setCjMarkup]           = useState('30');
   const [cjImporting, setCjImporting]     = useState(null);
   const [cjImportProgress, setCjImportProgress] = useState({ active: false, current: 0, total: 0, label: '' });
+  const [cjConfirm, setCjConfirm]         = useState(null); // { catId, catName, markup }
   const [cjDetailPid, setCjDetailPid]     = useState(null);
   const [cjDetail, setCjDetail]           = useState(null);
   const [cjDetailModal, setCjDetailModal] = useState(false);
@@ -1530,71 +1531,64 @@ export default function AdminConsoleScreen({ navigation }) {
     }
   }
 
-  async function bulkImportCategory(catId, catName, markupPct) {
-    const markup = parseFloat(markupPct) || 30;
-    let page = 1, total = 0, imported = 0, skipped = 0;
-    const { searchCJProducts } = await import('../../lib/cjapi');
+  function bulkImportCategory(catId, catName, markupPct) {
+    // Alert.alert callbacks are unreliable on web — use state-driven confirm modal
+    setCjConfirm({ catId, catName, markup: parseFloat(markupPct) || 30 });
+  }
 
-    Alert.alert('Import en masse', `Importer tous les produits de "${catName}" avec ${markup}% de marge ?`, [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Importer', onPress: async () => {
-        setCjImportLoading(true);
-        setCjImportProgress({ active: true, current: 0, total: 0, label: 'Initialisation…' });
-        try {
-          const [shopId, categoryId] = await Promise.all([
-            getCjSystemShop(),
-            resolveCjCategory(catId, catName),
-          ]);
-          do {
-            const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
-            const list = (data?.list ?? []).map(normalizeCjProduct);
-            total = data?.total ?? 0;
-            setCjImportProgress(prev => ({ ...prev, total: total + skipped, label: `Import ${catName}…` }));
-            for (const p of list) {
-              try {
-                const { data: exists } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
-                if (exists) { skipped++; } else {
-                  const basePrice = parseFloat(p.sellPrice ?? 0);
-                  const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
-                  const imgs = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean).slice(0, 8);
-                  await supabase.from('products').insert({
-                    title: p.productNameEn || '',
-                    price: sellPrice,
-                    compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
-                    stock: 999,
-                    category: catName.toLowerCase(),
-                    images: imgs,
-                    status: 'active',
-                    source: 'cj',
-                    cj_product_id: p.pid,
-                    ...(shopId ? { shop_id: shopId } : {}),
-                    ...(categoryId ? { category_id: categoryId } : {}),
-                  });
-                  imported++;
-                }
-              } catch (innerErr) {
-                console.warn('[CJ bulk] insert error:', innerErr?.message);
-              }
-              setCjImportProgress(prev => ({ ...prev, current: imported + skipped }));
+  async function runBulkImport({ catId, catName, markup }) {
+    setCjConfirm(null);
+    setCjImportLoading(true);
+    setCjImportProgress({ active: true, current: 0, total: 0, label: 'Initialisation…' });
+    let page = 1, total = 0, imported = 0, skipped = 0;
+    try {
+      const { searchCJProducts } = await import('../../lib/cjapi');
+      const [shopId, categoryId] = await Promise.all([
+        getCjSystemShop(),
+        resolveCjCategory(catId, catName),
+      ]);
+      do {
+        const data = await searchCJProducts(cjApiKey, { categoryId: catId, page, pageSize: 50 });
+        const list = (data?.list ?? []);
+        total = data?.total ?? 0;
+        setCjImportProgress(prev => ({ ...prev, total, label: `Import ${catName}…` }));
+        for (const p of list) {
+          try {
+            const { data: exists } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
+            if (exists) { skipped++; } else {
+              const basePrice = parseFloat(p.sellPrice ?? 0);
+              const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
+              const imgs = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean).slice(0, 8);
+              const { error: insertErr } = await supabase.from('products').insert({
+                title: p.productNameEn || '',
+                price: sellPrice,
+                compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
+                stock: 999,
+                category: catName.toLowerCase(),
+                images: imgs,
+                status: 'active',
+                source: 'cj',
+                cj_product_id: p.pid,
+                ...(shopId ? { shop_id: shopId } : {}),
+                ...(categoryId ? { category_id: categoryId } : {}),
+              });
+              if (insertErr) { console.warn('[CJ bulk]', insertErr.message); }
+              else { imported++; }
             }
-            page++;
-          } while ((page - 1) * 50 < total);
-          if (imported === 0 && skipped === 0) {
-            Alert.alert('Import terminé', 'Aucun produit importé. Vérifiez la console pour les erreurs.');
-          } else {
-            Alert.alert('Import terminé', `${imported} produits importés, ${skipped} ignorés (déjà existants).`);
-          }
-          loadCjImported();
-        } catch (e) {
-          console.error('[CJ bulk] fatal error:', e.message);
-          Alert.alert('Erreur import', e.message);
+          } catch (innerErr) { console.warn('[CJ bulk] inner error:', innerErr?.message); }
+          setCjImportProgress(prev => ({ ...prev, current: imported + skipped }));
         }
-        finally {
-          setCjImportLoading(false);
-          setCjImportProgress({ active: false, current: 0, total: 0, label: '' });
-        }
-      }},
-    ]);
+        page++;
+      } while ((page - 1) * 50 < total);
+      Alert.alert('Import terminé', `${imported} produits importés, ${skipped} ignorés.`);
+      loadCjImported();
+    } catch (e) {
+      console.error('[CJ bulk] fatal:', e.message);
+      Alert.alert('Erreur import', e.message);
+    } finally {
+      setCjImportLoading(false);
+      setCjImportProgress({ active: false, current: 0, total: 0, label: '' });
+    }
   }
 
   async function loadCjImported() {
@@ -1941,6 +1935,30 @@ export default function AdminConsoleScreen({ navigation }) {
                   })()
                 }
               </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* CJ Bulk Import Confirmation Modal */}
+        <Modal visible={!!cjConfirm} transparent animationType="fade" onRequestClose={() => setCjConfirm(null)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+            <View style={{ backgroundColor: DARK.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 340, gap: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: DARK.text }}>Importer la catégorie</Text>
+              <Text style={{ fontSize: 13, color: DARK.mute, lineHeight: 20 }}>
+                Importer tous les produits de {'\n'}
+                <Text style={{ color: DARK.text, fontWeight: '700' }}>"{cjConfirm?.catName}"</Text>
+                {'\n'}avec <Text style={{ color: DARK.accent, fontWeight: '700' }}>{cjConfirm?.markup}%</Text> de marge ?
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity onPress={() => setCjConfirm(null)}
+                  style={{ flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: DARK.border, alignItems: 'center' }}>
+                  <Text style={{ color: DARK.mute, fontWeight: '600' }}>Annuler</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => runBulkImport(cjConfirm)}
+                  style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: DARK.accent, alignItems: 'center' }}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Importer</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
