@@ -1155,6 +1155,19 @@ export default function AdminConsoleScreen({ navigation }) {
   const [bannerForm,    setBannerForm]    = useState({ ...EMPTY_BANNER_FORM });
   const [savingBanner,  setSavingBanner]  = useState(false);
 
+  // ── Categories & Products management ──
+  const [catSubTab,      setCatSubTab]      = useState('categories'); // 'categories' | 'products'
+  const [allCategories,  setAllCategories]  = useState([]);
+  const [catLoading,     setCatLoading]     = useState(false);
+  const [catFilter,      setCatFilter]      = useState(null); // category id filter for products tab
+  const [adminProducts,  setAdminProducts]  = useState([]);
+  const [prodLoading,    setProdLoading]    = useState(false);
+  const [prodModal,      setProdModal]      = useState(false);
+  const [editingProd,    setEditingProd]    = useState(null);
+  const [prodForm,       setProdForm]       = useState({ title: '', price: '', compare_price: '', stock: '999', category_id: '', description: '', status: 'active', images: [] });
+  const [savingProd,     setSavingProd]     = useState(false);
+  const [deletingProd,   setDeletingProd]   = useState(null);
+
   /* sidebar animation */
   const sidebarAnim = useRef(new Animated.Value(54)).current;
   useEffect(() => {
@@ -1352,11 +1365,19 @@ export default function AdminConsoleScreen({ navigation }) {
       .then(({ data }) => { if (data?.value) { try { setCjApiKey(JSON.parse(data.value)); } catch { setCjApiKey(data.value); } } });
   }, []);
 
-  // Load categories when tab opens
+  // Load CJ categories when tab opens
   useEffect(() => {
     if (section === 'cjdropshipping' && cjConnected && cjCats.length === 0) loadCjCategories();
     if (section === 'cjdropshipping' && cjSubTab === 'imported') loadCjImported();
   }, [section, cjSubTab, cjConnected]);
+
+  // Load categories/products when admin cat section opens
+  useEffect(() => {
+    if (section === 'categories') {
+      if (catSubTab === 'categories') loadAllCategories();
+      if (catSubTab === 'products') loadAdminProducts(catFilter);
+    }
+  }, [section, catSubTab, catFilter]);
 
   async function testCjConnection() {
     if (!cjApiKey.trim()) { Alert.alert('Erreur', 'Entrez votre clé API CJ'); return; }
@@ -1393,27 +1414,44 @@ export default function AdminConsoleScreen({ navigation }) {
   async function resolveCjCategory(cjCatId, cjCatName) {
     if (!cjCatId && !cjCatName) return null;
     try {
-      const slug = (cjCatName || cjCatId || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      // Try by cj_category_id first (column may not exist yet — catch gracefully)
+      const { mapCjCategoryToSlug } = await import('../../lib/cjCategoryMap');
+      const mainSlug = mapCjCategoryToSlug(cjCatName || '');
+      const subSlug = (cjCatName || cjCatId || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+      // Find the main parent category
+      const { data: parent } = await supabase.from('categories').select('id').eq('slug', mainSlug).maybeSingle();
+
+      // Try to find existing subcategory by cj_category_id
       if (cjCatId) {
         try {
-          const { data: existing } = await supabase.from('categories').select('id').eq('cj_category_id', cjCatId).maybeSingle();
-          if (existing) return existing.id;
+          const { data: byCjId } = await supabase.from('categories').select('id').eq('cj_category_id', cjCatId).maybeSingle();
+          if (byCjId) return byCjId.id;
         } catch {}
       }
       // Try by slug
-      const { data: bySlug } = await supabase.from('categories').select('id').eq('slug', slug).maybeSingle();
+      const { data: bySlug } = await supabase.from('categories').select('id').eq('slug', subSlug).maybeSingle();
       if (bySlug) {
         try { if (cjCatId) await supabase.from('categories').update({ cj_category_id: cjCatId }).eq('id', bySlug.id); } catch {}
         return bySlug.id;
       }
-      // Create it — try with cj_category_id, fall back without if column missing
+      // Create subcategory under the correct main parent
+      const insertData = {
+        name: cjCatName || subSlug,
+        slug: subSlug,
+        parent_id: parent?.id ?? null,
+        auto_created: true,
+        is_active: true,
+        ...(cjCatId ? { cj_category_id: cjCatId } : {}),
+      };
       try {
-        const { data: created, error } = await supabase.from('categories').insert({ name: cjCatName || slug, slug, cj_category_id: cjCatId ?? null }).select('id').single();
-        if (!error) return created?.id ?? null;
+        const { data: created, error } = await supabase.from('categories').insert(insertData).select('id').single();
+        if (!error && created) return created.id;
       } catch {}
-      const { data: created2 } = await supabase.from('categories').insert({ name: cjCatName || slug, slug }).select('id').single();
-      return created2?.id ?? null;
+      // Fallback: insert without optional columns
+      const { data: created2 } = await supabase.from('categories')
+        .insert({ name: cjCatName || subSlug, slug: subSlug, parent_id: parent?.id ?? null })
+        .select('id').single();
+      return created2?.id ?? parent?.id ?? null;
     } catch { return null; }
   }
 
@@ -1594,6 +1632,71 @@ export default function AdminConsoleScreen({ navigation }) {
   async function loadCjImported() {
     const { data } = await supabase.from('products').select('id,title,price,images,status,cj_product_id').eq('source', 'cj').order('created_at', { ascending: false }).limit(50);
     setCjImportedProducts(data ?? []);
+  }
+
+  async function loadAllCategories() {
+    setCatLoading(true);
+    const { data } = await supabase.from('categories').select('*').order('parent_id', { ascending: true, nullsFirst: true }).order('position').order('name');
+    setAllCategories(data ?? []);
+    setCatLoading(false);
+  }
+
+  async function toggleCategoryActive(cat) {
+    await supabase.from('categories').update({ is_active: !cat.is_active }).eq('id', cat.id);
+    setAllCategories(prev => prev.map(c => c.id === cat.id ? { ...c, is_active: !c.is_active } : c));
+  }
+
+  async function loadAdminProducts(catId) {
+    setProdLoading(true);
+    let q = supabase.from('products').select('id,title,price,images,status,category_id,source,created_at,categories(name)').order('created_at', { ascending: false }).limit(100);
+    if (catId) q = q.eq('category_id', catId);
+    const { data } = await q;
+    setAdminProducts(data ?? []);
+    setProdLoading(false);
+  }
+
+  function openProdModal(prod = null) {
+    if (prod) {
+      setProdForm({ title: prod.title ?? '', price: String(prod.price ?? ''), compare_price: String(prod.compare_price ?? ''), stock: String(prod.stock ?? 999), category_id: prod.category_id ?? '', description: prod.description ?? '', status: prod.status ?? 'active', images: prod.images ?? [] });
+      setEditingProd(prod);
+    } else {
+      setProdForm({ title: '', price: '', compare_price: '', stock: '999', category_id: catFilter ?? '', description: '', status: 'active', images: [] });
+      setEditingProd(null);
+    }
+    setProdModal(true);
+  }
+
+  async function saveProd() {
+    if (!prodForm.title || !prodForm.price) { Alert.alert('Erreur', 'Titre et prix requis'); return; }
+    setSavingProd(true);
+    const payload = {
+      title: prodForm.title,
+      price: parseFloat(prodForm.price),
+      compare_price: prodForm.compare_price ? parseFloat(prodForm.compare_price) : null,
+      stock: parseInt(prodForm.stock) || 0,
+      description: prodForm.description || null,
+      status: prodForm.status,
+      images: prodForm.images,
+      ...(prodForm.category_id ? { category_id: prodForm.category_id } : {}),
+    };
+    let error;
+    if (editingProd) {
+      ({ error } = await supabase.from('products').update(payload).eq('id', editingProd.id));
+    } else {
+      const shopId = await getCjSystemShop();
+      ({ error } = await supabase.from('products').insert({ ...payload, source: 'manual', ...(shopId ? { shop_id: shopId } : {}) }));
+    }
+    setSavingProd(false);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    setProdModal(false);
+    loadAdminProducts(catFilter);
+  }
+
+  async function deleteProd(id) {
+    setDeletingProd(id);
+    await supabase.from('products').delete().eq('id', id);
+    setAdminProducts(prev => prev.filter(p => p.id !== id));
+    setDeletingProd(null);
   }
 
   function renderCJDropshipping() {
@@ -1986,6 +2089,71 @@ export default function AdminConsoleScreen({ navigation }) {
               ) : (
                 <ActivityIndicator color={DARK.accent} size="large" />
               )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── Product Add/Edit Modal ── */}
+        <Modal visible={prodModal} animationType="slide" transparent onRequestClose={() => setProdModal(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: DARK.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
+                <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: DARK.text }}>{editingProd ? 'Modifier le produit' : 'Nouveau produit'}</Text>
+                <TouchableOpacity onPress={() => setProdModal(false)}><Icon name="x" size={20} color={DARK.mute} /></TouchableOpacity>
+              </View>
+              <ScrollView style={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+                {[
+                  { label: 'Titre *', key: 'title', placeholder: 'Nom du produit' },
+                  { label: 'Prix ($) *', key: 'price', placeholder: '0.00', keyboardType: 'numeric' },
+                  { label: 'Prix barré ($)', key: 'compare_price', placeholder: '0.00', keyboardType: 'numeric' },
+                  { label: 'Stock', key: 'stock', placeholder: '999', keyboardType: 'numeric' },
+                  { label: 'Description', key: 'description', placeholder: 'Description du produit…', multiline: true },
+                ].map(field => (
+                  <View key={field.key} style={{ marginBottom: 14 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: DARK.mute, marginBottom: 6 }}>{field.label}</Text>
+                    <TextInput
+                      value={prodForm[field.key]}
+                      onChangeText={v => setProdForm(prev => ({ ...prev, [field.key]: v }))}
+                      placeholder={field.placeholder}
+                      placeholderTextColor={DARK.mute}
+                      keyboardType={field.keyboardType ?? 'default'}
+                      multiline={field.multiline}
+                      numberOfLines={field.multiline ? 3 : 1}
+                      style={{ backgroundColor: DARK.bg, borderRadius: 10, borderWidth: 1, borderColor: DARK.border, color: DARK.text, padding: 12, fontSize: 13, minHeight: field.multiline ? 72 : undefined }}
+                    />
+                  </View>
+                ))}
+                {/* Category selector */}
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: DARK.mute, marginBottom: 6 }}>Catégorie</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {allCategories.map(cat => (
+                      <TouchableOpacity key={cat.id} onPress={() => setProdForm(prev => ({ ...prev, category_id: cat.id }))}
+                        style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, marginRight: 6, backgroundColor: prodForm.category_id === cat.id ? DARK.accent : DARK.bg, borderWidth: 1, borderColor: prodForm.category_id === cat.id ? DARK.accent : DARK.border }}>
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: prodForm.category_id === cat.id ? '#fff' : DARK.mute }}>
+                          {cat.parent_id ? '  ↳ ' : ''}{cat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                {/* Status */}
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: DARK.mute, marginBottom: 6 }}>Statut</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {['active', 'draft', 'archived'].map(s => (
+                      <TouchableOpacity key={s} onPress={() => setProdForm(prev => ({ ...prev, status: s }))}
+                        style={{ flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: prodForm.status === s ? DARK.accent : DARK.border, backgroundColor: prodForm.status === s ? DARK.accent + '33' : 'transparent', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: prodForm.status === s ? DARK.accent : DARK.mute, textTransform: 'capitalize' }}>{s}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <TouchableOpacity onPress={saveProd} disabled={savingProd}
+                  style={{ backgroundColor: DARK.accent, borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 30 }}>
+                  {savingProd ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{editingProd ? 'Enregistrer les modifications' : 'Créer le produit'}</Text>}
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -2486,38 +2654,120 @@ export default function AdminConsoleScreen({ navigation }) {
           {/* ── CATEGORIES ── */}
           {!loading && section === 'categories' && (
             <>
-              <SectionHeader title="Catégories" subtitle="Images des catégories principales" />
-              {MAIN_CATEGORIES.map(cat => {
-                const catData = categories.find(c => c.slug === cat.slug);
-                const isUploading = uploadingCat === cat.slug;
-                return (
-                  <DarkCard key={cat.slug} style={{ marginBottom: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
-                      {catData?.image_url ? (
-                        <Image source={{ uri: catData.image_url }} style={{ width: 56, height: 56, borderRadius: 10 }} resizeMode="cover" />
-                      ) : (
-                        <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center' }}>
-                          <Icon name="image" size={22} color={DARK.mute} />
+              <SectionHeader title="Catégories & Produits" subtitle="Gérez vos catégories et votre catalogue" />
+
+              {/* Sub-tabs */}
+              <View style={{ flexDirection: 'row', backgroundColor: DARK.card, borderRadius: 10, padding: 3, marginBottom: 14 }}>
+                {[{ key: 'categories', label: 'Catégories' }, { key: 'products', label: 'Produits' }].map(t => (
+                  <TouchableOpacity key={t.key} onPress={() => setCatSubTab(t.key)}
+                    style={{ flex: 1, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: catSubTab === t.key ? DARK.accent : 'transparent' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: catSubTab === t.key ? '#fff' : DARK.mute }}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* ── CATEGORIES TAB ── */}
+              {catSubTab === 'categories' && (
+                <>
+                  {catLoading && <ActivityIndicator color={DARK.accent} style={{ marginVertical: 20 }} />}
+                  {!catLoading && (() => {
+                    const mains = allCategories.filter(c => !c.parent_id);
+                    const subs  = allCategories.filter(c => c.parent_id);
+                    return mains.map(main => (
+                      <View key={main.id} style={{ marginBottom: 14 }}>
+                        {/* Main category row */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DARK.card, borderRadius: 12, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: DARK.border }}>
+                          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: main.color ?? DARK.accent + '33', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                            <Text style={{ fontSize: 18 }}>{main.icon ?? '📦'}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 14, fontWeight: '800', color: DARK.text }}>{main.name}</Text>
+                            <Text style={{ fontSize: 10, color: DARK.mute }}>/{main.slug} · {subs.filter(s => s.parent_id === main.id).length} sous-cat.</Text>
+                          </View>
+                          <TouchableOpacity onPress={() => uploadCategoryImage(main.slug)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, marginRight: 8 }}>
+                            <Text style={{ fontSize: 10, color: DARK.mute }}>Image</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => toggleCategoryActive(main)}
+                            style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: main.is_active !== false ? '#10B98133' : '#EF444433' }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: main.is_active !== false ? '#10B981' : '#EF4444' }}>{main.is_active !== false ? 'Actif' : 'Inactif'}</Text>
+                          </TouchableOpacity>
                         </View>
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: DARK.text }}>{cat.label}</Text>
-                        <Text style={{ fontSize: 10, color: DARK.mute, marginTop: 2 }}>/{cat.slug}</Text>
+                        {/* Sub-categories */}
+                        {subs.filter(s => s.parent_id === main.id).map(sub => (
+                          <View key={sub.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DARK.card, borderRadius: 10, padding: 10, marginBottom: 4, marginLeft: 16, borderWidth: 1, borderColor: DARK.border }}>
+                            {sub.auto_created && (
+                              <View style={{ backgroundColor: '#6366f133', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginRight: 8 }}>
+                                <Text style={{ fontSize: 9, fontWeight: '700', color: '#818CF8' }}>AUTO</Text>
+                              </View>
+                            )}
+                            <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: DARK.text }}>{sub.name}</Text>
+                            <Text style={{ fontSize: 10, color: DARK.mute, marginRight: 10 }}>/{sub.slug}</Text>
+                            <TouchableOpacity onPress={() => toggleCategoryActive(sub)}
+                              style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: sub.is_active !== false ? '#10B98122' : '#EF444422' }}>
+                              <Text style={{ fontSize: 9, fontWeight: '700', color: sub.is_active !== false ? '#10B981' : '#EF4444' }}>{sub.is_active !== false ? '●' : '○'}</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
                       </View>
-                      <TouchableOpacity
-                        onPress={() => uploadCategoryImage(cat.slug)}
-                        disabled={isUploading}
-                        style={{ height: 34, borderRadius: 8, borderWidth: 1, borderColor: COLORS.primary, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}
-                      >
-                        {isUploading
-                          ? <ActivityIndicator color={COLORS.primary} size="small" />
-                          : <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>{catData?.image_url ? 'Remplacer' : 'Ajouter'}</Text>
-                        }
+                    ));
+                  })()}
+                </>
+              )}
+
+              {/* ── PRODUCTS TAB ── */}
+              {catSubTab === 'products' && (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+                      <TouchableOpacity onPress={() => setCatFilter(null)}
+                        style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, backgroundColor: !catFilter ? DARK.accent : DARK.card, borderWidth: 1, borderColor: DARK.border, marginRight: 6 }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: !catFilter ? '#fff' : DARK.mute }}>Tous</Text>
+                      </TouchableOpacity>
+                      {allCategories.filter(c => !c.parent_id).map(cat => (
+                        <TouchableOpacity key={cat.id} onPress={() => setCatFilter(cat.id)}
+                          style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, backgroundColor: catFilter === cat.id ? DARK.accent : DARK.card, borderWidth: 1, borderColor: DARK.border, marginRight: 6 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: catFilter === cat.id ? '#fff' : DARK.mute }}>{cat.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                    <TouchableOpacity onPress={() => openProdModal()}
+                      style={{ backgroundColor: DARK.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Icon name="plus" size={14} color="#fff" />
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>Ajouter</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {prodLoading && <ActivityIndicator color={DARK.accent} style={{ marginVertical: 20 }} />}
+                  {!prodLoading && adminProducts.map(p => (
+                    <View key={p.id} style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: DARK.border }}>
+                      {p.images?.[0]
+                        ? <Image source={{ uri: p.images[0] }} style={{ width: 50, height: 50, borderRadius: 8 }} resizeMode="cover" />
+                        : <View style={{ width: 50, height: 50, borderRadius: 8, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center' }}><Icon name="shoppingBag" size={20} color={DARK.mute} /></View>
+                      }
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: DARK.text }} numberOfLines={1}>{p.title}</Text>
+                        <Text style={{ fontSize: 11, color: DARK.accent, fontWeight: '700' }}>${p.price}</Text>
+                        {p.categories?.name && <Text style={{ fontSize: 10, color: DARK.mute }}>{p.categories.name}</Text>}
+                      </View>
+                      <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 99, backgroundColor: p.status === 'active' ? '#10B98122' : '#EF444422', marginRight: 4 }}>
+                        <Text style={{ fontSize: 9, fontWeight: '700', color: p.status === 'active' ? '#10B981' : '#EF4444' }}>{p.status}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => openProdModal(p)} style={{ padding: 6 }}>
+                        <Icon name="edit" size={15} color={DARK.accent} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => deleteProd(p.id)} disabled={deletingProd === p.id} style={{ padding: 6 }}>
+                        {deletingProd === p.id ? <ActivityIndicator size="small" color="#EF4444" /> : <Icon name="trash" size={15} color="#EF4444" />}
                       </TouchableOpacity>
                     </View>
-                  </DarkCard>
-                );
-              })}
+                  ))}
+                  {!prodLoading && adminProducts.length === 0 && (
+                    <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                      <Icon name="shoppingBag" size={36} color={DARK.mute} />
+                      <Text style={{ color: DARK.mute, marginTop: 10, fontSize: 13 }}>Aucun produit dans cette catégorie</Text>
+                    </View>
+                  )}
+                </>
+              )}
             </>
           )}
 

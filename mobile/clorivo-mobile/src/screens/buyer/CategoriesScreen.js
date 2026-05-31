@@ -9,7 +9,7 @@ import { ProductCard } from '../../components/UI';
 import { getProducts, getCategories, getSubCategories } from '../../lib/supabase';
 import Icon from '../../components/Icon';
 
-const MAIN_CATS = [
+const FALLBACK_CATS = [
   { label: 'Tout',     slug: null,      color: COLORS.primary },
   { label: 'Maison',   slug: 'maison',  color: '#C97B5A' },
   { label: 'Tech',     slug: 'tech',    color: '#4A6FD4' },
@@ -20,50 +20,59 @@ const MAIN_CATS = [
   { label: 'Électro',  slug: 'electro', color: '#3B82F6' },
 ];
 
-const SUB_CATS_STATIC = {
-  null:      ['Tendances', 'Nouveautés', 'Meilleures ventes', 'Promos'],
-  maison:    ['Déco', 'Cuisine', 'Luminaire', 'Textile', 'Rangement'],
-  tech:      ['Audio', 'Smartphones', 'Accessoires', 'Gaming'],
-  beaute:    ['Soin', 'Maquillage', 'Parfum', 'Cheveux'],
-  mode:      ['Femme', 'Homme', 'Sacs', 'Chaussures', 'Bijoux'],
-  enfants:   ['Jouets', 'Vêtements', 'Puériculture'],
-  sport:     ['Fitness', 'Plein air', 'Vélo'],
-  electro:   ['TV & Son', 'Cuisine', 'Gros électro'],
-};
-
 const SORTS = ['Populaire', 'Prix ↑', 'Prix ↓', 'Nouveautés'];
 
 export default function CategoriesScreen({ route, navigation }) {
   const initSlug = route.params?.categorySlug ?? null;
-  const initCat  = MAIN_CATS.find(c => c.slug === initSlug) ?? MAIN_CATS[0];
 
-  const [activeCat, setActiveCat]   = useState(initCat);
-  const [activeSub, setActiveSub]   = useState(0);
+  const [mainCats,  setMainCats]    = useState(FALLBACK_CATS);
+  const [subCatMap, setSubCatMap]   = useState({});
+  const [activeCat, setActiveCat]   = useState(FALLBACK_CATS.find(c => c.slug === initSlug) ?? FALLBACK_CATS[0]);
+  const [activeSub, setActiveSub]   = useState(null); // selected subcategory id
   const [sort, setSort]             = useState(0);
-  const [view, setView]             = useState('grid'); // 'grid' | 'list'
+  const [view, setView]             = useState('grid');
   const [products, setProducts]     = useState([]);
-  const [subCats, setSubCats]       = useState(SUB_CATS_STATIC[initCat.slug] ?? SUB_CATS_STATIC[null]);
+  const [subCats, setSubCats]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
 
+  // Load main categories from Supabase on mount
   useEffect(() => {
-    loadProducts(activeCat.slug);
-    loadSubCats(activeCat.slug);
-    setActiveSub(0);
-  }, [activeCat.slug]);
+    getCategories().then(data => {
+      if (data?.length) {
+        const live = [
+          { label: 'Tout', slug: null, color: COLORS.primary, id: null },
+          ...data.filter(c => c.is_active !== false).map(c => ({
+            id: c.id, label: c.name, slug: c.slug, color: c.color ?? COLORS.primary,
+          })),
+        ];
+        setMainCats(live);
+        // Update activeCat if it matches by slug
+        const matched = live.find(c => c.slug === initSlug) ?? live[0];
+        setActiveCat(matched);
+        // Build subcategory map keyed by parent id
+        const map = {};
+        data.forEach(c => { if (c.parent_id) { map[c.parent_id] = [...(map[c.parent_id] ?? []), c]; } });
+        setSubCatMap(map);
+      }
+    }).catch(() => {});
+  }, []);
 
-  async function loadProducts(slug) {
+  useEffect(() => {
+    loadProducts(activeCat.slug, activeSub);
+    const subs = activeCat.id ? (subCatMap[activeCat.id] ?? []) : [];
+    setSubCats(subs);
+    setActiveSub(null);
+  }, [activeCat.slug, subCatMap]);
+
+  async function loadProducts(slug, subCatId) {
     setLoading(true);
-    const { data } = await getProducts({ categorySlug: slug ?? undefined, limit: 40 });
+    const { data } = await getProducts({ categorySlug: slug ?? undefined, limit: 60 });
     let prods = data ?? [];
     if (sort === 1) prods = [...prods].sort((a, b) => a.price - b.price);
     else if (sort === 2) prods = [...prods].sort((a, b) => b.price - a.price);
     setProducts(prods);
     setLoading(false);
-  }
-
-  async function loadSubCats(slug) {
-    setSubCats(SUB_CATS_STATIC[slug ?? null] ?? SUB_CATS_STATIC[null]);
   }
 
   useEffect(() => {
@@ -108,13 +117,13 @@ export default function CategoriesScreen({ route, navigation }) {
         {/* Category chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingBottom: 10 }}>
-          {MAIN_CATS.map((cat, i) => {
+          {mainCats.map((cat, i) => {
             const active = activeCat.slug === cat.slug;
             return (
-              <TouchableOpacity key={i} onPress={() => setActiveCat(cat)}
+              <TouchableOpacity key={cat.slug ?? 'all'} onPress={() => { setActiveCat(cat); setActiveSub(null); }}
                 style={{ height: 32, paddingHorizontal: 14, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: active ? COLORS.primary : COLORS.white,
-                  borderWidth: 1.5, borderColor: active ? COLORS.primary : COLORS.hairline }}>
+                  backgroundColor: active ? (cat.color ?? COLORS.primary) : COLORS.white,
+                  borderWidth: 1.5, borderColor: active ? (cat.color ?? COLORS.primary) : COLORS.hairline }}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: active ? '#fff' : COLORS.mute }}>{cat.label}</Text>
               </TouchableOpacity>
             );
@@ -140,12 +149,12 @@ export default function CategoriesScreen({ route, navigation }) {
         {/* ── SOUS-CATÉGORIES ── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 4 }}>
-          {subCats.map((s, i) => (
-            <TouchableOpacity key={i} onPress={() => setActiveSub(i)}
+          {subCats.map(s => (
+            <TouchableOpacity key={s.id} onPress={() => setActiveSub(activeSub === s.id ? null : s.id)}
               style={{ height: 32, paddingHorizontal: 14, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center',
-                backgroundColor: activeSub === i ? COLORS.primary : COLORS.white,
-                borderWidth: 1.5, borderColor: activeSub === i ? COLORS.primary : COLORS.hairline }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: activeSub === i ? '#fff' : COLORS.mute }}>{s}</Text>
+                backgroundColor: activeSub === s.id ? COLORS.primary : COLORS.white,
+                borderWidth: 1.5, borderColor: activeSub === s.id ? COLORS.primary : COLORS.hairline }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: activeSub === s.id ? '#fff' : COLORS.mute }}>{s.name}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
