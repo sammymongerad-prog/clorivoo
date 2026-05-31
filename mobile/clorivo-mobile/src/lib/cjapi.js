@@ -1,28 +1,55 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const CJ_BASE = 'https://developers.cjdropshipping.com/api2.0/v1';
 
+// In-memory token cache (works on web + mobile)
+let _memToken = null;
+let _memRefresh = null;
+let _memExpiry = 0;
+
+function isOk(code) {
+  return code === 200 || code === '200';
+}
+
 async function getStoredToken() {
-  try {
-    const raw = await AsyncStorage.getItem('cj_token');
-    if (!raw) return null;
-    const { accessToken, refreshToken, expiresAt } = JSON.parse(raw);
-    if (Date.now() < expiresAt - 60000) return { accessToken, refreshToken };
-    return { accessToken: null, refreshToken };
-  } catch { return null; }
+  // Memory first (works everywhere)
+  if (_memToken && Date.now() < _memExpiry - 60000) return { accessToken: _memToken, refreshToken: _memRefresh };
+  if (_memRefresh) return { accessToken: null, refreshToken: _memRefresh };
+
+  // Persistent storage (mobile only)
+  if (Platform.OS !== 'web') {
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const raw = await AsyncStorage.getItem('cj_token');
+      if (!raw) return null;
+      const { accessToken, refreshToken, expiresAt } = JSON.parse(raw);
+      _memToken = accessToken;
+      _memRefresh = refreshToken;
+      _memExpiry = expiresAt;
+      if (Date.now() < expiresAt - 60000) return { accessToken, refreshToken };
+      return { accessToken: null, refreshToken };
+    } catch { return null; }
+  }
+  return null;
 }
 
 async function storeToken(accessToken, refreshToken) {
-  const expiresAt = Date.now() + 14 * 24 * 60 * 60 * 1000; // 14 days
-  await AsyncStorage.setItem('cj_token', JSON.stringify({ accessToken, refreshToken, expiresAt }));
+  const expiresAt = Date.now() + 14 * 24 * 60 * 60 * 1000;
+  _memToken = accessToken;
+  _memRefresh = refreshToken;
+  _memExpiry = expiresAt;
+  if (Platform.OS !== 'web') {
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      await AsyncStorage.setItem('cj_token', JSON.stringify({ accessToken, refreshToken, expiresAt }));
+    } catch {}
+  }
 }
 
 export async function getCJToken(apiKey) {
-  // Try stored first
   const stored = await getStoredToken();
   if (stored?.accessToken) return stored.accessToken;
 
-  // Try refresh
   if (stored?.refreshToken) {
     try {
       const res = await fetch(`${CJ_BASE}/authentication/refreshAccessToken`, {
@@ -31,14 +58,13 @@ export async function getCJToken(apiKey) {
         body: JSON.stringify({ refreshToken: stored.refreshToken }),
       });
       const json = await res.json();
-      if (json.code === 200 && json.data?.accessToken) {
+      if (isOk(json.code) && json.data?.accessToken) {
         await storeToken(json.data.accessToken, stored.refreshToken);
         return json.data.accessToken;
       }
     } catch {}
   }
 
-  // Get new token
   if (!apiKey) throw new Error('Clé API CJ manquante');
   const res = await fetch(`${CJ_BASE}/authentication/getAccessToken`, {
     method: 'POST',
@@ -46,8 +72,8 @@ export async function getCJToken(apiKey) {
     body: JSON.stringify({ apiKey }),
   });
   const json = await res.json();
-  if (json.code !== 200 || !json.data?.accessToken) {
-    throw new Error(json.message || 'Authentification CJ échouée');
+  if (!isOk(json.code) || !json.data?.accessToken) {
+    throw new Error(json.message || `Auth CJ échouée (code: ${json.code})`);
   }
   await storeToken(json.data.accessToken, json.data.refreshToken);
   return json.data.accessToken;
@@ -59,25 +85,58 @@ async function cjFetch(path, apiKey) {
     headers: { 'CJ-Access-Token': token },
   });
   const json = await res.json();
-  if (json.code !== 200) throw new Error(json.message || `CJ API error: ${path}`);
+  // CJ sometimes returns code as string "200"
+  if (!isOk(json.code)) {
+    throw new Error(json.message || `CJ erreur (code: ${json.code}) — ${path}`);
+  }
   return json.data;
 }
 
 export async function getCJCategories(apiKey) {
-  return cjFetch('/product/getCategory', apiKey);
+  const data = await cjFetch('/product/getCategory', apiKey);
+  // data can be array directly or { categoryList: [...] }
+  if (Array.isArray(data)) return data;
+  if (data?.categoryList) return data.categoryList;
+  if (data?.list) return data.list;
+  return [];
 }
 
 export async function searchCJProducts(apiKey, { categoryId, keyWord, page = 1, pageSize = 50 } = {}) {
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const params = new URLSearchParams({ pageNum: String(page), pageSize: String(pageSize) });
   if (categoryId) params.set('categoryId', categoryId);
   if (keyWord) params.set('keyWord', keyWord);
-  return cjFetch(`/product/listV2?${params}`, apiKey);
+
+  // Try listV2 first, fall back to list
+  try {
+    const data = await cjFetch(`/product/listV2?${params}`, apiKey);
+    return normalizeProductList(data);
+  } catch {
+    const data = await cjFetch(`/product/list?${params}`, apiKey);
+    return normalizeProductList(data);
+  }
+}
+
+function normalizeProductList(data) {
+  if (!data) return { list: [], total: 0 };
+  // Handle both { list, total } and { list, totalCount } and direct arrays
+  if (Array.isArray(data)) return { list: data, total: data.length };
+  const list = data.list ?? data.productList ?? data.records ?? [];
+  const total = data.total ?? data.totalCount ?? data.totalRecord ?? list.length;
+  return { list, total };
 }
 
 export async function getCJProduct(apiKey, pid) {
-  return cjFetch(`/product/query?pid=${pid}`, apiKey);
+  return cjFetch(`/product/query?pid=${encodeURIComponent(pid)}`, apiKey);
 }
 
 export async function clearCJToken() {
-  await AsyncStorage.removeItem('cj_token');
+  _memToken = null;
+  _memRefresh = null;
+  _memExpiry = 0;
+  if (Platform.OS !== 'web') {
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      await AsyncStorage.removeItem('cj_token');
+    } catch {}
+  }
 }
