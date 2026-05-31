@@ -1216,14 +1216,25 @@ function BannerImageUploadButton({ form, setForm }) {
     setUploading(true);
     try {
       const ImagePicker = await import('expo-image-picker');
+
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== 'granted') {
+        Alert.alert('Permission refusée', 'Autorisez l\'accès à la galerie dans les réglages.');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
+        allowsEditing: true,
+        aspect: [16, 6],
       });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
+      if (!result.canceled && result.assets?.length > 0) {
         const asset = result.assets[0];
-        const path = `banners/${Date.now()}.jpg`;
-        const url = await uploadImage(asset.uri, 'banners', path);
+        const ext  = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+        const path = `banners/${Date.now()}.${ext}`;
+        const { url, error } = await uploadImage('banners', path, asset.uri);
+        if (error) { Alert.alert('Erreur upload', error.message); return; }
         if (url) setForm(f => ({ ...f, image_url: url }));
       }
     } catch (e) {

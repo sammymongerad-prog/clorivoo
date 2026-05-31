@@ -346,8 +346,18 @@ export async function uploadFile(path, blob, contentType = 'image/jpeg') {
 export async function uploadImage(bucket, path, uri) {
   const response = await fetch(uri);
   const blob = await response.blob();
-  const { data, error } = await supabase.storage.from(bucket).upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
-  if (error) return { url: null, error };
+  const contentType = blob.type?.startsWith('image/') ? blob.type : 'image/jpeg';
+  const { error } = await supabase.storage.from(bucket).upload(path, blob, { upsert: true, contentType });
+  if (error) {
+    // Bucket may not exist — try creating it (public) then retry
+    if (error.message?.includes('Bucket not found') || error.statusCode === 400) {
+      await supabase.storage.createBucket(bucket, { public: true }).catch(() => {});
+      const { error: err2 } = await supabase.storage.from(bucket).upload(path, blob, { upsert: true, contentType });
+      if (err2) return { url: null, error: err2 };
+    } else {
+      return { url: null, error };
+    }
+  }
   const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
   return { url: publicUrl, error: null };
 }
