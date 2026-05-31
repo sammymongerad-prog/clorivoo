@@ -460,7 +460,9 @@ values
   ('products',       'products',       true),
   ('shop-assets',    'shop-assets',    true),
   ('kyc-documents',  'kyc-documents',  false),
-  ('avatars',        'avatars',        true)
+  ('avatars',        'avatars',        true),
+  ('banners',        'banners',        true),
+  ('categories',     'categories',     true)
 on conflict (id) do nothing;
 
 do $$ begin
@@ -488,6 +490,26 @@ do $$ begin
   if not exists (select 1 from pg_policies where policyname = 'Users can upload avatar' and tablename = 'objects') then
     create policy "Users can upload avatar" on storage.objects for insert
       with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+  end if;
+  -- Banners bucket (admin only write, public read)
+  if not exists (select 1 from pg_policies where policyname = 'Banners are public' and tablename = 'objects') then
+    create policy "Banners are public" on storage.objects for select using (bucket_id = 'banners');
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'Admins can upload banners' and tablename = 'objects') then
+    create policy "Admins can upload banners" on storage.objects for insert
+      with check (bucket_id = 'banners' and auth.role() = 'authenticated');
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'Admins can delete banners' and tablename = 'objects') then
+    create policy "Admins can delete banners" on storage.objects for delete
+      using (bucket_id = 'banners' and auth.role() = 'authenticated');
+  end if;
+  -- Categories bucket (public read, authenticated write)
+  if not exists (select 1 from pg_policies where policyname = 'Categories images are public' and tablename = 'objects') then
+    create policy "Categories images are public" on storage.objects for select using (bucket_id = 'categories');
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'Admins can upload category images' and tablename = 'objects') then
+    create policy "Admins can upload category images" on storage.objects for insert
+      with check (bucket_id = 'categories' and auth.role() = 'authenticated');
   end if;
 end $$;
 

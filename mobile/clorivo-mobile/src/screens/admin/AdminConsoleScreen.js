@@ -1224,7 +1224,7 @@ function BannerImageUploadButton({ form, setForm }) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? 'Images',
         quality: 0.8,
         allowsEditing: true,
         aspect: [16, 6],
@@ -1644,11 +1644,15 @@ export default function AdminConsoleScreen({ navigation }) {
     setUploadingCat(slug);
     try {
       const ImagePicker = await import('expo-image-picker');
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== 'granted') { Alert.alert('Permission refusée', 'Autorisez l\'accès à la galerie dans les réglages.'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? 'Images', quality: 0.8 });
+      if (!result.canceled && result.assets?.length > 0) {
         const asset = result.assets[0];
-        const path = `categories/${slug}-${Date.now()}.jpg`;
-        const url = await uploadImage(asset.uri, 'banners', path);
+        const ext  = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+        const path = `categories/${slug}-${Date.now()}.${ext}`;
+        const { url, error } = await uploadImage('categories', path, asset.uri);
+        if (error) { Alert.alert('Erreur upload', error.message); return; }
         if (url) {
           await supabase.from('categories').update({ image_url: url }).eq('slug', slug);
           setCategories(prev => prev.map(c => c.slug === slug ? { ...c, image_url: url } : c));
