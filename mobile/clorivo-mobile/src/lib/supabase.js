@@ -297,13 +297,11 @@ export async function getOrCreateConversation(buyerId, sellerId, shopId, product
 
 // ─── BANNERS (homepage CMS) ───────────────────────────────────────
 export async function getBanners() {
-  const now = new Date().toISOString();
-  const { data } = await supabase.from('banners')
+  const { data, error } = await supabase.from('banners')
     .select('*')
     .eq('is_active', true)
-    .or(`starts_at.is.null,starts_at.lte.${now}`)
-    .or(`ends_at.is.null,ends_at.gte.${now}`)
     .order('position');
+  if (error) { console.warn('getBanners error:', error.message); return []; }
   return data ?? [];
 }
 
@@ -508,7 +506,10 @@ export async function getUnreadNotificationCount(userId) {
 }
 
 export function subscribeToNotifications(userId, callback) {
-  const channel = supabase.channel(`notifications:${userId}`)
+  // Use a unique channel name per subscription instance to avoid
+  // "cannot add callbacks after subscribe()" on remount / StrictMode
+  const channelName = `notifications:${userId}:${Date.now()}`;
+  const channel = supabase.channel(channelName)
     .on('postgres_changes', {
       event: 'INSERT',
       schema: 'public',

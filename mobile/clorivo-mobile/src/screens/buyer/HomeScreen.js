@@ -541,9 +541,9 @@ export default function HomeScreen({ navigation }) {
                   <View style={{ flex: 1, zIndex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 4 }} numberOfLines={2}>{b.title}</Text>
                     {b.subtitle && <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }} numberOfLines={2}>{b.subtitle}</Text>}
-                    {b.cta_text && (
+                    {(b.cta || b.cta_text) && (
                       <View style={{ marginTop: 6, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>{b.cta_text}</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>{b.cta || b.cta_text}</Text>
                       </View>
                     )}
                   </View>
