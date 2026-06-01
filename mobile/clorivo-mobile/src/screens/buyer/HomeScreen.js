@@ -542,22 +542,22 @@ export default function HomeScreen({ navigation }) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingBottom: 4 }}>
               {banners.map((b, i) => (
                 <TouchableOpacity key={b.id}
-                  style={{ width: 268, height: 112, borderRadius: 14, backgroundColor: b.bg_color ?? COLORS.primary, flexDirection: 'row', alignItems: 'center', padding: 12, overflow: 'hidden' }}>
+                  style={{ width: 300, height: 140, borderRadius: 16, backgroundColor: b.bg_color ?? COLORS.primary, flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 0, paddingVertical: 14, overflow: 'hidden' }}>
                   <View style={{ position: 'absolute', right: -20, top: -20, width: 110, height: 110, borderRadius: 55, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                  <View style={{ flex: 1, zIndex: 1 }}>
+                  <View style={{ flex: 1, zIndex: 1, paddingRight: 8 }}>
                     <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 4 }} numberOfLines={2}>{b.title}</Text>
                     {b.subtitle && <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }} numberOfLines={2}>{b.subtitle}</Text>}
                     {!!b.cta_text && (
-                      <View style={{ marginTop: 6, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
+                      <View style={{ marginTop: 8, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
                         <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>{b.cta_text}</Text>
                       </View>
                     )}
                   </View>
                   {b.image_url
-                    ? <Image source={{ uri: b.image_url }} style={{ width: 78, height: 88, borderRadius: 10 }} resizeMode="cover" />
+                    ? <Image source={{ uri: b.image_url }} style={{ width: 110, height: 140, borderBottomRightRadius: 16, borderTopRightRadius: 16 }} resizeMode="cover" />
                     : (
-                      <View style={{ width: 78, height: 88, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ fontSize: 38 }}>{BANNER_EMOJI[i % BANNER_EMOJI.length]}</Text>
+                      <View style={{ width: 90, height: 90, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Text style={{ fontSize: 42 }}>{BANNER_EMOJI[i % BANNER_EMOJI.length]}</Text>
                       </View>
                     )
                   }
