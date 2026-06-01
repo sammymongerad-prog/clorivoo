@@ -31,14 +31,58 @@ function useCountdown(seconds) {
 
 // ── Static shortcuts (navigation buttons, not data) ────────────────
 const SHORTCUTS = [
-  { emoji: '🏷️', label: 'Offres',     badge: null,      badgeBg: null },
-  { emoji: '🔗', label: 'Parrainage', badge: 'GAGNE $', badgeBg: COLORS.success },
-  { emoji: '⚡',  label: 'Flash Live', badge: 'LIVE',    badgeBg: COLORS.danger },
-  { emoji: '⭐',  label: 'Coupons',   badge: null,       badgeBg: null },
-  { emoji: '🏪', label: 'Boutiques',  badge: null,       badgeBg: null },
-  { emoji: '📦', label: 'Suivi',      badge: null,       badgeBg: null },
-  { emoji: '💳', label: 'Paiements',  badge: 'NOUVEAU', badgeBg: '#2563EB' },
+  { type: 'combo',   label: 'Offres',     badge: null,      badgeBg: null,        route: 'Categories' },
+  { emoji: '🔗',    label: 'Parrainage', badge: 'GAGNE $', badgeBg: COLORS.success, route: null },
+  { type: 'special', label: 'Flash Live', badge: 'LIVE',    badgeBg: COLORS.danger,  route: 'Categories' },
+  { emoji: '⭐',    label: 'Coupons',   badge: null,       badgeBg: null,         route: null },
+  { emoji: '🏪',   label: 'Boutiques',  badge: null,       badgeBg: null,         route: null },
+  { emoji: '📦',   label: 'Suivi',      badge: null,       badgeBg: null,         route: 'Orders' },
+  { emoji: '💳',   label: 'Paiements',  badge: 'NOUVEAU', badgeBg: '#2563EB',    route: null },
 ];
+
+function ComboOfferIcon() {
+  return (
+    <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#4B2E9B', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        {/* Sparkles */}
+        <View style={{ position: 'absolute', top: 3, left: 5, width: 4, height: 4, borderRadius: 2, backgroundColor: '#F59E0B' }} />
+        <View style={{ position: 'absolute', top: 5, right: 6, width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#FBBF24' }} />
+        <View style={{ position: 'absolute', bottom: 4, left: 4, width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#F59E0B' }} />
+        {/* SUPER text */}
+        <View style={{ backgroundColor: '#F59E0B', borderRadius: 3, paddingHorizontal: 5, paddingVertical: 1, marginBottom: 1 }}>
+          <Text style={{ fontSize: 7, fontWeight: '900', color: '#4B2E9B', letterSpacing: 0.3 }}>SUPER</Text>
+        </View>
+        {/* COMBO text */}
+        <View style={{ backgroundColor: '#fff', borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1, marginBottom: 1 }}>
+          <Text style={{ fontSize: 8, fontWeight: '900', color: '#4B2E9B', letterSpacing: 0.3 }}>COMBO</Text>
+        </View>
+        {/* OFFER text */}
+        <View style={{ backgroundColor: '#F59E0B', borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1 }}>
+          <Text style={{ fontSize: 6, fontWeight: '900', color: '#4B2E9B', letterSpacing: 0.3 }}>OFFRE</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function SpecialOfferIcon() {
+  return (
+    <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Yellow background layer */}
+      <View style={{ position: 'absolute', width: 38, height: 28, backgroundColor: '#F59E0B', borderRadius: 4, transform: [{ rotate: '-4deg' }], top: 8, left: 3 }} />
+      {/* Red background layer */}
+      <View style={{ position: 'absolute', width: 38, height: 28, backgroundColor: '#EF4444', borderRadius: 4, transform: [{ rotate: '3deg' }], top: 6, left: 3 }} />
+      {/* Black main card */}
+      <View style={{ position: 'absolute', width: 40, height: 30, backgroundColor: '#111', borderRadius: 5, top: 7, left: 2, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 7, fontWeight: '900', color: '#fff', letterSpacing: 0.3 }}>SPECIAL</Text>
+        <Text style={{ fontSize: 8, fontWeight: '900', color: '#F59E0B', letterSpacing: 0.3 }}>OFFRE</Text>
+      </View>
+      {/* Dots */}
+      <View style={{ position: 'absolute', bottom: 3, right: 2, width: 4, height: 4, borderRadius: 2, backgroundColor: '#EF4444' }} />
+      <View style={{ position: 'absolute', top: 3, right: 4, width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#F59E0B' }} />
+    </View>
+  );
+}
 
 const CHIP_CATS = [
   { label: 'Tout',    slug: null },
@@ -390,16 +434,31 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 20, paddingBottom: 4 }}>
             {SHORTCUTS.map((s, i) => (
-              <TouchableOpacity key={i} style={{ alignItems: 'center', gap: 6, width: 52 }}>
-                <View style={{ position: 'relative', height: 40, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 28 }}>{s.emoji}</Text>
-                  {s.badge && (
-                    <View style={{ position: 'absolute', bottom: -4, backgroundColor: s.badgeBg, borderRadius: 9999, paddingHorizontal: 5, paddingVertical: 1 }}>
-                      <Text style={{ fontSize: 7, fontWeight: '800', color: '#fff' }}>{s.badge}</Text>
-                    </View>
+              <TouchableOpacity key={i} onPress={() => s.route && navigation.navigate(s.route)}
+                style={{ alignItems: 'center', gap: 6, width: 52 }}>
+                <View style={{ position: 'relative', height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                  {s.type === 'combo' ? <ComboOfferIcon /> :
+                   s.type === 'special' ? <SpecialOfferIcon /> : (
+                    <>
+                      <Text style={{ fontSize: 28 }}>{s.emoji}</Text>
+                      {s.badge && (
+                        <View style={{ position: 'absolute', bottom: -4, backgroundColor: s.badgeBg, borderRadius: 9999, paddingHorizontal: 5, paddingVertical: 1 }}>
+                          <Text style={{ fontSize: 7, fontWeight: '800', color: '#fff' }}>{s.badge}</Text>
+                        </View>
+                      )}
+                    </>
                   )}
                 </View>
-                <Text style={{ fontSize: 11, fontWeight: '500', color: COLORS.ink, textAlign: 'center', lineHeight: 14, marginTop: s.badge ? 6 : 0 }}>{s.label}</Text>
+                {s.type === 'special' && s.badge ? (
+                  <View style={{ alignItems: 'center', gap: 2 }}>
+                    <View style={{ backgroundColor: COLORS.danger, borderRadius: 999, paddingHorizontal: 5, paddingVertical: 1 }}>
+                      <Text style={{ fontSize: 7, fontWeight: '800', color: '#fff' }}>{s.badge}</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '500', color: COLORS.ink, textAlign: 'center', lineHeight: 14 }}>{s.label}</Text>
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 11, fontWeight: '500', color: COLORS.ink, textAlign: 'center', lineHeight: 14, marginTop: s.badge ? 6 : 0 }}>{s.label}</Text>
+                )}
               </TouchableOpacity>
             ))}
           </ScrollView>
