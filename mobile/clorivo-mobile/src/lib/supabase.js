@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const SUPABASE_URL      = 'https://vcptpgmsxwynbobsmmdd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjcHRwZ21zeHd5bmJvYnNtbWRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzg4MjMsImV4cCI6MjA5NTcxNDgyM30.QrmdCraB77J3A6U3IBlZX-ZqzTuTbc-GkcdOFMXvCUk';
@@ -341,8 +342,29 @@ export async function uploadFile(path, blob, contentType = 'image/jpeg') {
   return publicUrl;
 }
 
+// Resize image so the longest dimension is at least `minPx` pixels (default 900).
+// This ensures 3× sharpness for displays up to 300px wide.
+async function resizeForSharpness(uri, minPx = 900) {
+  try {
+    const img = await ImageManipulator.manipulateAsync(uri, [], { format: ImageManipulator.SaveFormat.JPEG });
+    const { width, height } = img;
+    const longest = Math.max(width, height);
+    if (longest >= minPx) return uri; // already big enough
+    const scale = minPx / longest;
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: Math.round(width * scale), height: Math.round(height * scale) } }],
+      { compress: 0.92, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    return result.uri;
+  } catch {
+    return uri; // fallback: upload original
+  }
+}
+
 export async function uploadImage(bucket, path, uri) {
-  const response = await fetch(uri);
+  const processedUri = await resizeForSharpness(uri);
+  const response = await fetch(processedUri);
   const blob = await response.blob();
   const contentType = blob.type?.startsWith('image/') ? blob.type : 'image/jpeg';
   const { error } = await supabase.storage.from(bucket).upload(path, blob, { upsert: true, contentType });
