@@ -188,14 +188,17 @@ export default function ShopSetupScreen({ navigation }) {
         logo_url: logoUrl,
       };
       if (shop) {
-        await updateShop(shop.id, payload);
+        const { data, error } = await updateShop(shop.id, payload);
+        if (error) throw error;
+        if (data) setShop(data);
       } else {
-        const newShop = await createShop({ ...payload, seller_id: session.user.id });
-        setShop(newShop);
+        const { data, error } = await createShop({ ...payload, seller_id: session.user.id });
+        if (error) throw error;
+        if (data) setShop(data);
       }
       Alert.alert('Sauvegardé !');
-    } catch {
-      Alert.alert('Erreur lors de la sauvegarde');
+    } catch (e) {
+      Alert.alert('Erreur lors de la sauvegarde', e?.message ?? '');
     }
     setSaving(false);
   }
@@ -250,20 +253,21 @@ export default function ShopSetupScreen({ navigation }) {
         cta_text: bCtaText,
         cta_url: bCtaUrl,
         image_url: bImageUrl,
+        is_active: true,
       };
-      if (existing?.id) payload.id = existing.id;
-      const { data, error } = await supabase
-        .from('shop_banners')
-        .upsert(payload, { onConflict: 'id' })
-        .select()
-        .single();
-      if (error) { Alert.alert('Erreur sauvegarde bannière'); setBSaving(false); return; }
+      let data, error;
+      if (existing?.id) {
+        ({ data, error } = await supabase.from('shop_banners').update(payload).eq('id', existing.id).select().single());
+      } else {
+        ({ data, error } = await supabase.from('shop_banners').insert(payload).select().single());
+      }
+      if (error) { Alert.alert('Erreur sauvegarde bannière', error.message); setBSaving(false); return; }
       const updated = [...banners];
       updated[editingBannerIdx] = data;
       setBanners(updated);
       setBannerModal(false);
-    } catch {
-      Alert.alert('Erreur sauvegarde bannière');
+    } catch (e) {
+      Alert.alert('Erreur sauvegarde bannière', e?.message ?? '');
     }
     setBSaving(false);
   }
@@ -294,13 +298,14 @@ export default function ShopSetupScreen({ navigation }) {
     if (!shop) return;
     setCatalogueSaving(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from('shops')
         .update({ featured_category_ids: featuredCategoryIds, featured_product_ids: featuredProductIds })
         .eq('id', shop.id);
+      if (error) throw error;
       Alert.alert('Sauvegardé !');
-    } catch {
-      Alert.alert('Erreur sauvegarde catalogue');
+    } catch (e) {
+      Alert.alert('Erreur sauvegarde catalogue', e?.message ?? '');
     }
     setCatalogueSaving(false);
   }
@@ -309,13 +314,14 @@ export default function ShopSetupScreen({ navigation }) {
     if (!shop) return;
     setTickerSaving(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from('shops')
         .update({ ticker_text: tickerText, ticker_active: tickerActive })
         .eq('id', shop.id);
+      if (error) throw error;
       Alert.alert('Sauvegardé !');
-    } catch {
-      Alert.alert('Erreur sauvegarde ticker');
+    } catch (e) {
+      Alert.alert('Erreur sauvegarde ticker', e?.message ?? '');
     }
     setTickerSaving(false);
   }
