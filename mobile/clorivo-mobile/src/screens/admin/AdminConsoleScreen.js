@@ -38,7 +38,7 @@ const BANNER_COLORS = ['#6C4DFF', '#C97B5A', '#3B82F6', '#10B981', '#EF4444', '#
 const EMPTY_BANNER_FORM = {
   title: '',
   subtitle: '',
-  cta: '',
+  cta_text: '',
   bg_color: '#6C4DFF',
   image_url: '',
   position: 0,
@@ -1291,8 +1291,8 @@ function BannerModal({ visible, form, setForm, onSave, onCancel, saving }) {
           />
           <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 5 }}>Texte du bouton CTA</Text>
           <TextInput
-            value={form.cta}
-            onChangeText={v => setForm(f => ({ ...f, cta: v }))}
+            value={form.cta_text}
+            onChangeText={v => setForm(f => ({ ...f, cta_text: v }))}
             placeholder="Ex: Découvrir"
             placeholderTextColor={DARK.mute}
             style={{ backgroundColor: DARK.bg, borderRadius: 8, borderWidth: 1, borderColor: DARK.border, color: DARK.text, paddingHorizontal: 12, paddingVertical: 9, fontSize: 13, marginBottom: 10 }}
@@ -1607,7 +1607,7 @@ export default function AdminConsoleScreen({ navigation }) {
   function openBannerModal(banner) {
     if (banner) {
       setEditingBanner(banner);
-      setBannerForm({ title: banner.title ?? '', subtitle: banner.subtitle ?? '', cta: banner.cta ?? '', bg_color: banner.bg_color ?? '#6C4DFF', image_url: banner.image_url ?? '', position: banner.position ?? 0, is_active: banner.is_active ?? true, _isNew: false });
+      setBannerForm({ title: banner.title ?? '', subtitle: banner.subtitle ?? '', cta_text: banner.cta_text ?? '', bg_color: banner.bg_color ?? '#6C4DFF', image_url: banner.image_url ?? '', position: banner.position ?? 0, is_active: banner.is_active ?? true, _isNew: false });
     } else {
       setEditingBanner(null);
       setBannerForm({ ...EMPTY_BANNER_FORM, _isNew: true });
@@ -1617,7 +1617,7 @@ export default function AdminConsoleScreen({ navigation }) {
 
   async function saveBanner() {
     setSavingBanner(true);
-    const payload = { title: bannerForm.title, subtitle: bannerForm.subtitle, cta: bannerForm.cta, bg_color: bannerForm.bg_color, image_url: bannerForm.image_url || null, position: bannerForm.position, is_active: bannerForm.is_active };
+    const payload = { title: bannerForm.title, subtitle: bannerForm.subtitle, cta_text: bannerForm.cta_text, bg_color: bannerForm.bg_color, image_url: bannerForm.image_url || null, position: bannerForm.position, is_active: bannerForm.is_active };
     try {
       if (editingBanner) {
         await supabase.from('banners').update(payload).eq('id', editingBanner.id);

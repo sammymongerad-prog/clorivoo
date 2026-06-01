@@ -72,3 +72,10 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS push_sent_at timestamptz;
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
   ON notifications(user_id, read_at)
   WHERE read_at IS NULL;
+
+-- Fix banners: migrate cta → cta_text if old column exists
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='banners' AND column_name='cta') THEN
+    UPDATE banners SET cta_text = cta WHERE cta_text IS NULL AND cta IS NOT NULL;
+  END IF;
+END $$;
