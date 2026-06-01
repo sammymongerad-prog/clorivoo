@@ -28,10 +28,13 @@ import { registerForPushNotifications } from './src/lib/notifications';
 import { COLORS } from './src/lib/tokens';
 import Icon from './src/components/Icon';
 
-import SplashScreen      from './src/screens/auth/SplashScreen';
-import OnboardingScreen  from './src/screens/auth/OnboardingScreen';
-import LoginScreen       from './src/screens/auth/LoginScreen';
-import RegisterScreen    from './src/screens/auth/RegisterScreen';
+import SplashScreen         from './src/screens/auth/SplashScreen';
+import OnboardingScreen     from './src/screens/auth/OnboardingScreen';
+import LoginScreen          from './src/screens/auth/LoginScreen';
+import RegisterScreen       from './src/screens/auth/RegisterScreen';
+import OtpScreen            from './src/screens/auth/OtpScreen';
+import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
+import ResetPasswordScreen  from './src/screens/auth/ResetPasswordScreen';
 
 import HomeScreen          from './src/screens/buyer/HomeScreen';
 import ShopScreen          from './src/screens/buyer/ShopScreen';
@@ -120,6 +123,9 @@ function AppNavigator() {
       <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
       <Stack.Screen name="Login"           component={LoginScreen} />
       <Stack.Screen name="Register"        component={RegisterScreen} />
+      <Stack.Screen name="Otp"             component={OtpScreen} />
+      <Stack.Screen name="ForgotPassword"  component={ForgotPasswordScreen} />
+      <Stack.Screen name="ResetPassword"   component={ResetPasswordScreen} />
       <Stack.Screen name="Tabs"            component={BuyerTabs} />
       <Stack.Screen name="Product"         component={ProductScreen} />
       <Stack.Screen name="Shop"            component={ShopScreen} />

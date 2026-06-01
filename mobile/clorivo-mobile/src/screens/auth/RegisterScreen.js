@@ -11,7 +11,6 @@ export default function RegisterScreen({ navigation }) {
   const [agreed, setAgreed]     = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
-  const [success, setSuccess]   = useState(false);
 
   const strength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3;
   const strengthColors = ['', COLORS.danger, COLORS.warning, COLORS.success];
@@ -30,21 +29,8 @@ export default function RegisterScreen({ navigation }) {
         setError('Cet email est déjà utilisé. Connectez-vous.');
       else setError(err.message);
     } else {
-      setSuccess(true);
+      navigation.navigate('Otp', { email: email.trim() });
     }
-  }
-
-  if (success) {
-    return (
-      <View style={{ flex: 1, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Text style={{ fontSize: 56, marginBottom: 16 }}>✅</Text>
-        <Text style={{ fontSize: 22, fontWeight: '800', color: COLORS.ink, textAlign: 'center', marginBottom: 8 }}>Compte créé !</Text>
-        <Text style={{ fontSize: 15, color: COLORS.mute, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
-          Vérifiez votre boîte mail et confirmez votre adresse pour vous connecter.
-        </Text>
-        <Btn size="lg" onPress={() => navigation.replace('Login')}>Se connecter</Btn>
-      </View>
-    );
   }
 
   return (

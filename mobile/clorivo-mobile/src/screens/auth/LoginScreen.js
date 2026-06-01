@@ -114,7 +114,7 @@ export default function LoginScreen({ navigation }) {
             </View>
             <Text style={{ fontSize: 13, color: COLORS.mute }}>Se souvenir de moi</Text>
           </TouchableOpacity>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
             <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.primary }}>Mot de passe oublié ?</Text>
           </TouchableOpacity>
         </View>
