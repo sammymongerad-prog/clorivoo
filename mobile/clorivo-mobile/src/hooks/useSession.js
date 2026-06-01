@@ -11,11 +11,23 @@ export function SessionProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
 
-    // 1. Authoritative initial load
+    // 1. Authoritative initial load (5s timeout fallback → treat as logged out)
+    const sessionTimeout = setTimeout(() => {
+      if (cancelled || initialLoadDone.current) return;
+      initialLoadDone.current = true;
+      setSession(null);
+    }, 5000);
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      clearTimeout(sessionTimeout);
       if (cancelled) return;
       initialLoadDone.current = true;
       setSession(s ?? null);
+    }).catch(() => {
+      clearTimeout(sessionTimeout);
+      if (cancelled) return;
+      initialLoadDone.current = true;
+      setSession(null);
     });
 
     // 2. Listen for subsequent changes
