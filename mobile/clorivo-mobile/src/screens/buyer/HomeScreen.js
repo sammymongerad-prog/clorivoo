@@ -72,6 +72,7 @@ export default function HomeScreen({ navigation }) {
   const [videos, setVideos]         = useState([]);
   const [cartCount, setCartCount]   = useState(0);
   const [unreadMsgs, setUnreadMsgs] = useState(0);
+  const [loaded, setLoaded]         = useState(false);
   const { unreadCount: unreadNotifs } = useNotifications();
   const [address, setAddress]       = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,6 +122,8 @@ export default function HomeScreen({ navigation }) {
       }
     } catch (e) {
       console.warn('HomeScreen load error:', e);
+    } finally {
+      setLoaded(true);
     }
   }
 
@@ -582,9 +585,9 @@ export default function HomeScreen({ navigation }) {
           </View>
           {featuredProds.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-              <Text style={{ fontSize: 36 }}>🔍</Text>
+              <Text style={{ fontSize: 36 }}>{search ? '🔍' : loaded ? '🛍️' : '⏳'}</Text>
               <Text style={{ fontSize: 16, color: COLORS.mute, marginTop: 12 }}>
-                {search ? 'Aucun produit trouvé' : 'Chargement…'}
+                {search ? 'Aucun produit trouvé' : loaded ? 'Aucun produit disponible' : 'Chargement…'}
               </Text>
             </View>
           ) : (
