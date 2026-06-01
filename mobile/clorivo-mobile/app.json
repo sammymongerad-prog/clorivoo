@@ -9,6 +9,7 @@
     "splash": {
       "backgroundColor": "#6C4DFF"
     },
+    "scheme": "clorivo",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.clorivo.app"

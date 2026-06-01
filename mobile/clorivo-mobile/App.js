@@ -163,6 +163,24 @@ function AppNavigator() {
   );
 }
 
+const linking = {
+  prefixes: ['clorivo://', 'https://clorivo.app', 'http://localhost:8081'],
+  config: {
+    screens: {
+      ResetPassword: 'reset-password',
+      Otp: 'verify',
+      Login: 'login',
+      Register: 'register',
+      Tabs: {
+        screens: {
+          Home: 'home',
+          Profile: 'profile',
+        },
+      },
+    },
+  },
+};
+
 export default function App() {
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -174,7 +192,7 @@ export default function App() {
     <ErrorBoundary>
       <SessionProvider>
         <CMSProvider>
-          <NavigationContainer>
+          <NavigationContainer linking={linking}>
             <StatusBar style="dark" />
             <AppNavigator />
           </NavigationContainer>
