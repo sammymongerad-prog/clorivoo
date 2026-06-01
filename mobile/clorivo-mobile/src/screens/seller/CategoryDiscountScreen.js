@@ -19,8 +19,11 @@ export default function CategoryDiscountScreen({ navigation }) {
     (async () => {
       const cats = await getCategories();
       setCategories(cats);
-      const { data } = await supabase.from('seller_discounts')
-        .select('*').eq('seller_id', session.user.id).catch(() => ({ data: [] }));
+      let data = [];
+      try {
+        const res = await supabase.from('seller_discounts').select('*').eq('seller_id', session.user.id);
+        data = res.data ?? [];
+      } catch {}
       const map = {};
       (data ?? []).forEach(d => { map[d.category_id] = d; });
       setDiscounts(map);

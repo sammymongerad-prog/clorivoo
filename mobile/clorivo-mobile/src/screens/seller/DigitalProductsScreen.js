@@ -15,14 +15,15 @@ export default function DigitalProductsScreen({ navigation }) {
   useFocusEffect(useCallback(() => {
     if (!session?.user) return;
     (async () => {
-      const { data } = await supabase.from('products')
-        .select('*')
-        .eq('seller_id', session.user.id)
-        .eq('type', 'digital')
-        .order('created_at', { ascending: false })
-        .limit(50)
-        .catch(() => ({ data: [] }));
-      setProducts(data ?? []);
+      try {
+        const { data } = await supabase.from('products')
+          .select('*')
+          .eq('seller_id', session.user.id)
+          .eq('type', 'digital')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        setProducts(data ?? []);
+      } catch { setProducts([]); }
       setLoading(false);
     })();
   }, [session]));

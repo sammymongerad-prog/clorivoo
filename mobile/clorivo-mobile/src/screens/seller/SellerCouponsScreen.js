@@ -23,12 +23,13 @@ export default function SellerCouponsScreen({ navigation }) {
     (async () => {
       const { data: shop } = await supabase.from('shops').select('id').eq('seller_id', session.user.id).maybeSingle();
       setShopId(shop?.id ?? null);
-      const { data } = await supabase.from('coupons')
-        .select('*')
-        .eq('shop_id', shop?.id ?? '')
-        .order('created_at', { ascending: false })
-        .catch(() => ({ data: [] }));
-      setCoupons(data ?? []);
+      try {
+        const { data } = await supabase.from('coupons')
+          .select('*')
+          .eq('shop_id', shop?.id ?? '')
+          .order('created_at', { ascending: false });
+        setCoupons(data ?? []);
+      } catch { setCoupons([]); }
       setLoading(false);
     })();
   }, [session]));
@@ -63,7 +64,7 @@ export default function SellerCouponsScreen({ navigation }) {
 
   async function toggleActive(coupon) {
     const updated = !coupon.is_active;
-    await supabase.from('coupons').update({ is_active: updated }).eq('id', coupon.id).catch(() => {});
+    try { await supabase.from('coupons').update({ is_active: updated }).eq('id', coupon.id); } catch {}
     setCoupons(prev => prev.map(c => c.id === coupon.id ? { ...c, is_active: updated } : c));
   }
 

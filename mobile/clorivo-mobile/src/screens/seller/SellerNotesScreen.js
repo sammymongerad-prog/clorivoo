@@ -55,9 +55,9 @@ export default function SellerNotesScreen({ navigation }) {
       setNotes(all.filter(n => n.seller_id === session.user.id).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)));
     } else {
       if (id) {
-        await supabase.from('seller_notes').update({ content, updated_at: now }).eq('id', id).catch(() => {});
+        try { await supabase.from('seller_notes').update({ content, updated_at: now }).eq('id', id); } catch {}
       } else {
-        await supabase.from('seller_notes').insert({ seller_id: session.user.id, content, updated_at: now }).catch(() => {});
+        try { await supabase.from('seller_notes').insert({ seller_id: session.user.id, content, updated_at: now }); } catch {}
       }
       await loadNotes();
     }
@@ -76,7 +76,7 @@ export default function SellerNotesScreen({ navigation }) {
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(all));
           setNotes(prev => prev.filter(n => n.id !== id));
         } else {
-          await supabase.from('seller_notes').delete().eq('id', id).catch(() => {});
+          try { await supabase.from('seller_notes').delete().eq('id', id); } catch {}
           setNotes(prev => prev.filter(n => n.id !== id));
         }
       }},
