@@ -32,12 +32,12 @@ function useCountdown(seconds) {
 // ── Static shortcuts (navigation buttons, not data) ────────────────
 const SHORTCUTS = [
   { type: 'combo',   label: 'Offres',     route: 'Categories' },
-  { type: 'moneybag', label: 'Parrainage', route: null },
+  { type: 'img',     label: 'Parrainage', route: null,         img: require('../../../assets/icons/parrainage.jpg') },
   { type: 'special', label: 'Flash Live', route: 'Categories' },
   { emoji: '⭐',    label: 'Coupons',    route: null },
-  { type: 'cart',   label: 'Boutiques',  route: null },
-  { type: 'truck',  label: 'Suivi',      route: 'Orders' },
-  { emoji: '💳',   label: 'Paiements',  badge: 'NOUVEAU', badgeBg: '#2563EB', route: null },
+  { type: 'img',     label: 'Boutiques',  route: null,         img: require('../../../assets/icons/boutique.jpg') },
+  { type: 'img',     label: 'Suivi',      route: 'Orders',     img: require('../../../assets/icons/suivit.jpg') },
+  { emoji: '💳',    label: 'Paiements',  badge: 'NOUVEAU',    badgeBg: '#2563EB', route: null },
 ];
 
 function ComboOfferIcon() {
@@ -75,80 +75,6 @@ function SpecialOfferIcon() {
   );
 }
 
-function TruckIcon() {
-  return (
-    <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Truck body */}
-      <View style={{ position: 'absolute', left: 2, top: 12, width: 26, height: 18, backgroundColor: '#9CA3AF', borderRadius: 3, borderWidth: 2, borderColor: '#374151' }} />
-      {/* Cab */}
-      <View style={{ position: 'absolute', left: 24, top: 16, width: 14, height: 14, backgroundColor: '#EF4444', borderRadius: 3, borderWidth: 2, borderColor: '#374151' }} />
-      {/* Window */}
-      <View style={{ position: 'absolute', left: 26, top: 18, width: 7, height: 6, backgroundColor: '#67E8F9', borderRadius: 1.5, borderWidth: 1, borderColor: '#374151' }} />
-      {/* Wheels */}
-      <View style={{ position: 'absolute', left: 7, top: 27, width: 9, height: 9, borderRadius: 4.5, backgroundColor: '#374151', borderWidth: 2, borderColor: '#1F2937' }} />
-      <View style={{ position: 'absolute', left: 7, top: 27, width: 9, height: 9, borderRadius: 4.5, borderWidth: 2, borderColor: '#9CA3AF', opacity: 0.4 }} />
-      <View style={{ position: 'absolute', left: 29, top: 27, width: 9, height: 9, borderRadius: 4.5, backgroundColor: '#374151', borderWidth: 2, borderColor: '#1F2937' }} />
-      <View style={{ position: 'absolute', left: 29, top: 27, width: 9, height: 9, borderRadius: 4.5, borderWidth: 2, borderColor: '#9CA3AF', opacity: 0.4 }} />
-      {/* Pin */}
-      <View style={{ position: 'absolute', right: 1, top: 6, width: 12, height: 16, borderRadius: 6, backgroundColor: '#60A5FA', borderWidth: 2, borderColor: '#1E3A8A', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 }}>
-        <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#1E40AF', borderWidth: 1, borderColor: '#1E3A8A' }} />
-      </View>
-      <View style={{ position: 'absolute', right: 5, top: 22, width: 3, height: 5, backgroundColor: '#60A5FA', borderWidth: 1, borderColor: '#1E3A8A', borderBottomLeftRadius: 2, borderBottomRightRadius: 2 }} />
-    </View>
-  );
-}
-
-function CartIcon() {
-  return (
-    <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Handle */}
-      <View style={{ position: 'absolute', left: 3, top: 8, width: 8, height: 14, backgroundColor: '#F87171', borderRadius: 4, borderWidth: 2, borderColor: '#111' }} />
-      {/* Cart basket */}
-      <View style={{ position: 'absolute', left: 8, top: 16, width: 34, height: 20, backgroundColor: '#E5E7EB', borderRadius: 3, borderWidth: 2, borderColor: '#111' }}>
-        {[0,1,2,3,4].map(j => (
-          <View key={j} style={{ position: 'absolute', left: 4 + j * 6, top: 0, bottom: 0, width: 1.5, backgroundColor: '#9CA3AF' }} />
-        ))}
-      </View>
-      {/* Yellow bag */}
-      <View style={{ position: 'absolute', left: 10, top: 7, width: 14, height: 18, backgroundColor: '#FCD34D', borderRadius: 3, borderWidth: 2, borderColor: '#111' }}>
-        <View style={{ width: 6, height: 4, borderRadius: 3, borderWidth: 2, borderColor: '#111', alignSelf: 'center', marginTop: -3, backgroundColor: 'transparent' }} />
-        {[0,1,2].map(j => (
-          <View key={j} style={{ position: 'absolute', left: 2 + j * 4, top: 4, bottom: 2, width: 1.5, backgroundColor: '#B45309', opacity: 0.5 }} />
-        ))}
-      </View>
-      {/* Pink bag */}
-      <View style={{ position: 'absolute', left: 22, top: 6, width: 14, height: 18, backgroundColor: '#FB7185', borderRadius: 3, borderWidth: 2, borderColor: '#111' }}>
-        <View style={{ width: 6, height: 4, borderRadius: 3, borderWidth: 2, borderColor: '#111', alignSelf: 'center', marginTop: -3, backgroundColor: 'transparent' }} />
-        {[0,1,2].map(j => (
-          <View key={j} style={{ position: 'absolute', left: 2 + j * 4, top: 4, bottom: 2, width: 1.5, backgroundColor: '#9F1239', opacity: 0.5 }} />
-        ))}
-      </View>
-      {/* Wheels */}
-      <View style={{ position: 'absolute', left: 14, top: 37, width: 8, height: 8, borderRadius: 4, backgroundColor: '#3B82F6', borderWidth: 2, borderColor: '#111' }} />
-      <View style={{ position: 'absolute', right: 6, top: 37, width: 8, height: 8, borderRadius: 4, backgroundColor: '#3B82F6', borderWidth: 2, borderColor: '#111' }} />
-      {/* Sparkles */}
-      <View style={{ position: 'absolute', top: 4, right: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: '#FCD34D' }} />
-      <View style={{ position: 'absolute', bottom: 10, left: 2, width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#4ADE80' }} />
-    </View>
-  );
-}
-
-function MoneyBagIcon() {
-  return (
-    <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Bag body */}
-      <View style={{ position: 'absolute', left: 6, top: 14, width: 36, height: 30, borderRadius: 18, backgroundColor: '#16A34A', borderWidth: 2.5, borderColor: '#111' }} />
-      {/* Bag top knot */}
-      <View style={{ position: 'absolute', left: 17, top: 6, width: 14, height: 12, borderRadius: 7, backgroundColor: '#15803D', borderWidth: 2, borderColor: '#111' }} />
-      {/* Rope */}
-      <View style={{ position: 'absolute', left: 16, top: 16, width: 16, height: 4, borderRadius: 2, backgroundColor: '#CA8A04', borderWidth: 1, borderColor: '#92400E' }} />
-      {/* Dollar sign */}
-      <View style={{ position: 'absolute', left: 15, top: 22, width: 18, height: 16, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 14, fontWeight: '900', color: '#FCD34D', textShadowColor: '#92400E', textShadowOffset: { width: 0.5, height: 0.5 }, textShadowRadius: 1 }}>$</Text>
-      </View>
-    </View>
-  );
-}
 
 const CHIP_CATS = [
   { label: 'Tout',    slug: null },
@@ -503,11 +429,9 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity key={i} onPress={() => s.route && navigation.navigate(s.route)}
                 style={{ alignItems: 'center', gap: 6, width: 56 }}>
                 <View style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}>
-                  {s.type === 'combo'    ? <ComboOfferIcon /> :
-                   s.type === 'special'  ? <SpecialOfferIcon /> :
-                   s.type === 'truck'    ? <TruckIcon /> :
-                   s.type === 'cart'     ? <CartIcon /> :
-                   s.type === 'moneybag' ? <MoneyBagIcon /> : (
+                  {s.type === 'combo'   ? <ComboOfferIcon /> :
+                   s.type === 'special' ? <SpecialOfferIcon /> :
+                   s.type === 'img'     ? <Image source={s.img} style={{ width: 48, height: 48, resizeMode: 'contain' }} /> : (
                     <View style={{ position: 'relative' }}>
                       <Text style={{ fontSize: 30 }}>{s.emoji}</Text>
                       {s.badge && (
