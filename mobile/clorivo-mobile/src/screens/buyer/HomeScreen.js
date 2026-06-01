@@ -411,7 +411,7 @@ export default function HomeScreen({ navigation }) {
             <SectionHeader title="Boutiques populaires" onSeeAll={() => {}} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 4 }}>
               {shops.map((shop, i) => (
-                <TouchableOpacity key={shop.id ?? i} style={{ alignItems: 'center', gap: 6, width: 60 }}>
+                <TouchableOpacity key={shop.id ?? i} onPress={() => navigation.navigate('Shop', { shopId: shop.id })} style={{ alignItems: 'center', gap: 6, width: 60 }}>
                   <View style={{ position: 'relative' }}>
                     <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: shop.brand_color ?? COLORS.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.hairline }}>
                       {shop.logo_url

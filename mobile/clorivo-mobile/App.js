@@ -34,6 +34,7 @@ import LoginScreen       from './src/screens/auth/LoginScreen';
 import RegisterScreen    from './src/screens/auth/RegisterScreen';
 
 import HomeScreen          from './src/screens/buyer/HomeScreen';
+import ShopScreen          from './src/screens/buyer/ShopScreen';
 import ProductScreen       from './src/screens/buyer/ProductScreen';
 import CartScreen          from './src/screens/buyer/CartScreen';
 import CheckoutScreen      from './src/screens/buyer/CheckoutScreen';
@@ -121,6 +122,7 @@ function AppNavigator() {
       <Stack.Screen name="Register"        component={RegisterScreen} />
       <Stack.Screen name="Tabs"            component={BuyerTabs} />
       <Stack.Screen name="Product"         component={ProductScreen} />
+      <Stack.Screen name="Shop"            component={ShopScreen} />
       <Stack.Screen name="Checkout"        component={CheckoutScreen} />
       <Stack.Screen name="Tracking"        component={TrackingScreen} />
       <Stack.Screen name="Messages"        component={MessagesScreen} />

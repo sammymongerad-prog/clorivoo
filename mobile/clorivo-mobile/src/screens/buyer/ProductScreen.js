@@ -107,7 +107,7 @@ export default function ProductScreen({ route, navigation }) {
           </View>
 
           {/* Seller strip */}
-          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: COLORS.hairline, borderRadius: RADIUS.md }}>
+          <TouchableOpacity onPress={() => product.shops?.id && navigation.navigate('Shop', { shopId: product.shops.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: COLORS.hairline, borderRadius: RADIUS.md }}>
             <Avatar size={40} initials={(product.shops?.name?.[0] ?? 'L').toUpperCase()} bg={COLORS.primarySoft} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
