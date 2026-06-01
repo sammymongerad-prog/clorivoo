@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import * as ImageManipulator from 'expo-image-manipulator';
 
 const SUPABASE_URL      = 'https://vcptpgmsxwynbobsmmdd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjcHRwZ21zeHd5bmJvYnNtbWRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzg4MjMsImV4cCI6MjA5NTcxNDgyM30.QrmdCraB77J3A6U3IBlZX-ZqzTuTbc-GkcdOFMXvCUk';
@@ -343,13 +342,14 @@ export async function uploadFile(path, blob, contentType = 'image/jpeg') {
 }
 
 // Resize image so the longest dimension is at least `minPx` pixels (default 900).
-// This ensures 3× sharpness for displays up to 300px wide.
+// Uses dynamic import so expo-image-manipulator doesn't crash on web.
 async function resizeForSharpness(uri, minPx = 900) {
   try {
+    const ImageManipulator = await import('expo-image-manipulator');
     const img = await ImageManipulator.manipulateAsync(uri, [], { format: ImageManipulator.SaveFormat.JPEG });
     const { width, height } = img;
     const longest = Math.max(width, height);
-    if (longest >= minPx) return uri; // already big enough
+    if (longest >= minPx) return uri;
     const scale = minPx / longest;
     const result = await ImageManipulator.manipulateAsync(
       uri,
