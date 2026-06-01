@@ -46,16 +46,29 @@ import CategoriesScreen    from './src/screens/buyer/CategoriesScreen';
 
 import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
 
-import SellerDashboardScreen from './src/screens/seller/SellerDashboardScreen';
-import AddProductScreen      from './src/screens/seller/AddProductScreen';
-import SellerOrdersScreen    from './src/screens/seller/SellerOrdersScreen';
-import ShopSetupScreen       from './src/screens/seller/ShopSetupScreen';
-import ManageVideosScreen    from './src/screens/seller/ManageVideosScreen';
-import BecomeSellerScreen    from './src/screens/seller/BecomeSellerScreen';
-import AdminConsoleScreen    from './src/screens/admin/AdminConsoleScreen';
-import AddressScreen         from './src/screens/buyer/AddressScreen';
-import SettingsScreen        from './src/screens/buyer/SettingsScreen';
-import HelpScreen            from './src/screens/buyer/HelpScreen';
+import SellerDashboardScreen  from './src/screens/seller/SellerDashboardScreen';
+import AddProductScreen       from './src/screens/seller/AddProductScreen';
+import SellerOrdersScreen     from './src/screens/seller/SellerOrdersScreen';
+import ShopSetupScreen        from './src/screens/seller/ShopSetupScreen';
+import ManageVideosScreen     from './src/screens/seller/ManageVideosScreen';
+import BecomeSellerScreen     from './src/screens/seller/BecomeSellerScreen';
+import SellerProductsScreen   from './src/screens/seller/SellerProductsScreen';
+import CategoryDiscountScreen from './src/screens/seller/CategoryDiscountScreen';
+import BulkUploadScreen       from './src/screens/seller/BulkUploadScreen';
+import DigitalProductsScreen  from './src/screens/seller/DigitalProductsScreen';
+import ProductReviewsScreen   from './src/screens/seller/ProductReviewsScreen';
+import SellerNotesScreen      from './src/screens/seller/SellerNotesScreen';
+import UploadedFilesScreen    from './src/screens/seller/UploadedFilesScreen';
+import SellerCouponsScreen    from './src/screens/seller/SellerCouponsScreen';
+import PaymentHistoryScreen   from './src/screens/seller/PaymentHistoryScreen';
+import WithdrawScreen         from './src/screens/seller/WithdrawScreen';
+import CommissionHistoryScreen from './src/screens/seller/CommissionHistoryScreen';
+import ProductQueriesScreen   from './src/screens/seller/ProductQueriesScreen';
+import SellerSupportScreen    from './src/screens/seller/SellerSupportScreen';
+import AdminConsoleScreen     from './src/screens/admin/AdminConsoleScreen';
+import AddressScreen          from './src/screens/buyer/AddressScreen';
+import SettingsScreen         from './src/screens/buyer/SettingsScreen';
+import HelpScreen             from './src/screens/buyer/HelpScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -115,13 +128,26 @@ function AppNavigator() {
       <Stack.Screen name="Notifications"   component={NotificationsScreen} />
       <Stack.Screen name="Orders"          component={OrdersScreen} />
       <Stack.Screen name="Categories"      component={CategoriesScreen} />
-      <Stack.Screen name="SellerDashboard" component={SellerDashboardScreen} />
-      <Stack.Screen name="AddProduct"      component={AddProductScreen} />
-      <Stack.Screen name="SellerOrders"    component={SellerOrdersScreen} />
-      <Stack.Screen name="ShopSetup"       component={ShopSetupScreen} />
-      <Stack.Screen name="BecomeSeller"    component={BecomeSellerScreen} />
-      <Stack.Screen name="ManageVideos"    component={ManageVideosScreen} />
-      <Stack.Screen name="AdminConsole"    component={AdminConsoleScreen} />
+      <Stack.Screen name="SellerDashboard"   component={SellerDashboardScreen} />
+      <Stack.Screen name="AddProduct"        component={AddProductScreen} />
+      <Stack.Screen name="SellerOrders"      component={SellerOrdersScreen} />
+      <Stack.Screen name="ShopSetup"         component={ShopSetupScreen} />
+      <Stack.Screen name="BecomeSeller"      component={BecomeSellerScreen} />
+      <Stack.Screen name="ManageVideos"      component={ManageVideosScreen} />
+      <Stack.Screen name="SellerProducts"    component={SellerProductsScreen} />
+      <Stack.Screen name="CategoryDiscount"  component={CategoryDiscountScreen} />
+      <Stack.Screen name="BulkUpload"        component={BulkUploadScreen} />
+      <Stack.Screen name="DigitalProducts"   component={DigitalProductsScreen} />
+      <Stack.Screen name="ProductReviews"    component={ProductReviewsScreen} />
+      <Stack.Screen name="SellerNotes"       component={SellerNotesScreen} />
+      <Stack.Screen name="UploadedFiles"     component={UploadedFilesScreen} />
+      <Stack.Screen name="SellerCoupons"     component={SellerCouponsScreen} />
+      <Stack.Screen name="PaymentHistory"    component={PaymentHistoryScreen} />
+      <Stack.Screen name="Withdraw"          component={WithdrawScreen} />
+      <Stack.Screen name="CommissionHistory" component={CommissionHistoryScreen} />
+      <Stack.Screen name="ProductQueries"    component={ProductQueriesScreen} />
+      <Stack.Screen name="SellerSupport"     component={SellerSupportScreen} />
+      <Stack.Screen name="AdminConsole"      component={AdminConsoleScreen} />
       <Stack.Screen name="Address"         component={AddressScreen} />
       <Stack.Screen name="Settings"        component={SettingsScreen} />
       <Stack.Screen name="Help"            component={HelpScreen} />

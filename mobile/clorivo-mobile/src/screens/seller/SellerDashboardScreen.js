@@ -3,8 +3,9 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
-import { getSellerStats, getProducts, getSellerOrders } from '../../lib/supabase';
+import { getSellerStats, getSellerOrders, getProducts } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
+import Icon from '../../components/Icon';
 
 function StatCard({ emoji, label, value, color }) {
   return (
@@ -16,11 +17,31 @@ function StatCard({ emoji, label, value, color }) {
   );
 }
 
+function MenuRow({ icon, label, onPress, accent }) {
+  return (
+    <TouchableOpacity onPress={onPress}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.hairline }}>
+      <View style={{ width: 36, height: 36, borderRadius: RADIUS.sm, backgroundColor: accent ? accent + '20' : COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={18} color={accent ?? COLORS.primary} />
+      </View>
+      <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: COLORS.ink }}>{label}</Text>
+      <Icon name="chevronRight" size={16} color={COLORS.mute} />
+    </TouchableOpacity>
+  );
+}
+
+function SectionHeader({ label }) {
+  return (
+    <View style={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: 6 }}>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mute, letterSpacing: 1, textTransform: 'uppercase' }}>{label}</Text>
+    </View>
+  );
+}
+
 export default function SellerDashboardScreen({ navigation }) {
   const session = useSession();
-  const [stats, setStats]     = useState(null);
-  const [orders, setOrders]   = useState([]);
-  const [products, setProducts] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(useCallback(() => {
@@ -28,13 +49,11 @@ export default function SellerDashboardScreen({ navigation }) {
     Promise.all([
       getSellerStats(session.user.id),
       getSellerOrders(session.user.id, 5),
-      getProducts({ seller_id: session.user.id, limit: 5 }),
-    ]).then(([s, o, { data: p }]) => {
+    ]).then(([s, o]) => {
       setStats(s);
       setOrders(o ?? []);
-      setProducts(p ?? []);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, [session]));
 
   if (loading) return (
@@ -57,87 +76,75 @@ export default function SellerDashboardScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
-        {/* Quick actions */}
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity onPress={() => navigation.navigate('AddProduct')}
-            style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: 14, alignItems: 'center', gap: 6, ...SHADOW.sm }}>
-            <Text style={{ fontSize: 24 }}>📦</Text>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.ink }}>Ajouter produit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('ManageVideos')}
-            style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: 14, alignItems: 'center', gap: 6, ...SHADOW.sm }}>
-            <Text style={{ fontSize: 24 }}>🎬</Text>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.ink }}>Gérer les vidéos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('ShopSetup')}
-            style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: 14, alignItems: 'center', gap: 6, ...SHADOW.sm }}>
-            <Text style={{ fontSize: 24 }}>🏪</Text>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.ink }}>Ma boutique</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* KPI cards */}
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <StatCard emoji="💰" label="Revenus (30j)" value={`$${(stats?.revenue_30d ?? 0).toFixed(0)}`} color={COLORS.primary} />
-          <StatCard emoji="📦" label="Commandes" value={stats?.orders_count ?? 0} />
-        </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <StatCard emoji="🛍️" label="Produits actifs" value={stats?.products_count ?? 0} />
-          <StatCard emoji="⭐" label="Note moyenne" value={`${(stats?.avg_rating ?? 4.8).toFixed(1)}`} color="#F59E0B" />
-        </View>
-
-        {/* Recent orders */}
-        <View style={{ backgroundColor: COLORS.white, borderRadius: RADIUS.md, overflow: 'hidden' }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.hairline }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.ink }}>Dernières commandes</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('SellerOrders')}>
-              <Text style={{ fontSize: 13, color: COLORS.primary }}>Voir tout</Text>
-            </TouchableOpacity>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* KPI Stats */}
+        <View style={{ padding: 16, gap: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <StatCard emoji="💰" label="Revenus (30j)" value={`$${(stats?.revenue_30d ?? 0).toFixed(0)}`} color={COLORS.primary} />
+            <StatCard emoji="📦" label="Commandes" value={stats?.orders_count ?? 0} />
           </View>
-          {orders.length === 0 ? (
-            <View style={{ padding: 20, alignItems: 'center' }}>
-              <Text style={{ color: COLORS.mute }}>Aucune commande pour l'instant</Text>
-            </View>
-          ) : orders.map(o => (
-            <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: COLORS.hairline }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.ink }}>#{o.id.slice(0, 8).toUpperCase()}</Text>
-                <Text style={{ fontSize: 12, color: COLORS.mute }}>{new Date(o.created_at).toLocaleDateString('fr-FR')}</Text>
-              </View>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.primary }}>${Number(o.total_amount).toFixed(2)}</Text>
-              <View style={{ backgroundColor: STATUS_COLOR[o.status] + '20', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 }}>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: STATUS_COLOR[o.status] }}>{STATUS_LABEL[o.status] ?? o.status}</Text>
-              </View>
-            </View>
-          ))}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <StatCard emoji="🛍️" label="Produits actifs" value={stats?.products_count ?? 0} />
+            <StatCard emoji="⭐" label="Note moyenne" value={`${(stats?.avg_rating ?? 4.8).toFixed(1)}`} color="#F59E0B" />
+          </View>
         </View>
 
-        {/* Products */}
-        <View style={{ backgroundColor: COLORS.white, borderRadius: RADIUS.md, overflow: 'hidden' }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.hairline }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.ink }}>Mes produits</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('AddProduct')}>
-              <Text style={{ fontSize: 13, color: COLORS.primary }}>+ Ajouter</Text>
-            </TouchableOpacity>
-          </View>
-          {products.length === 0 ? (
-            <View style={{ padding: 20, alignItems: 'center' }}>
-              <Text style={{ color: COLORS.mute }}>Aucun produit — créez votre premier produit !</Text>
+        {/* Recent orders mini preview */}
+        {orders.length > 0 && (
+          <View style={{ marginHorizontal: 16, marginBottom: 8, backgroundColor: COLORS.white, borderRadius: RADIUS.md, overflow: 'hidden', ...SHADOW.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: COLORS.hairline }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.ink }}>Dernières commandes</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('SellerOrders')}>
+                <Text style={{ fontSize: 13, color: COLORS.primary }}>Voir tout</Text>
+              </TouchableOpacity>
             </View>
-          ) : products.map(p => (
-            <TouchableOpacity key={p.id} onPress={() => navigation.navigate('AddProduct', { product: p })}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: COLORS.hairline }}>
-              <View style={{ width: 44, height: 44, borderRadius: RADIUS.sm, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 22 }}>🛍️</Text>
+            {orders.slice(0, 3).map(o => (
+              <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.hairline }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.ink }}>#{o.id.slice(0, 8).toUpperCase()}</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.mute }}>{new Date(o.created_at).toLocaleDateString('fr-FR')}</Text>
+                </View>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.primary }}>${Number(o.total_amount).toFixed(2)}</Text>
+                <View style={{ backgroundColor: (STATUS_COLOR[o.status] ?? COLORS.mute) + '20', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: STATUS_COLOR[o.status] ?? COLORS.mute }}>{STATUS_LABEL[o.status] ?? o.status}</Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.ink }} numberOfLines={1}>{p.title}</Text>
-                <Text style={{ fontSize: 12, color: COLORS.mute }}>Stock: {p.stock ?? 0}</Text>
-              </View>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.primary }}>${Number(p.price).toFixed(2)}</Text>
-            </TouchableOpacity>
-          ))}
+            ))}
+          </View>
+        )}
+
+        {/* Full navigation menu */}
+        <View style={{ backgroundColor: COLORS.white, marginHorizontal: 16, borderRadius: RADIUS.md, overflow: 'hidden', ...SHADOW.sm }}>
+          <SectionHeader label="Produits" />
+          <MenuRow icon="package" label="Mes produits" onPress={() => navigation.navigate('SellerProducts')} />
+          <MenuRow icon="tag" label="Remises par catégorie" onPress={() => navigation.navigate('CategoryDiscount')} />
+          <MenuRow icon="upload" label="Import en masse" onPress={() => navigation.navigate('BulkUpload')} />
+          <MenuRow icon="zap" label="Produits digitaux" onPress={() => navigation.navigate('DigitalProducts')} />
+          <MenuRow icon="star" label="Avis produits" onPress={() => navigation.navigate('ProductReviews')} />
+
+          <SectionHeader label="Gestion" />
+          <MenuRow icon="truck" label="Commandes" onPress={() => navigation.navigate('SellerOrders')} />
+          <MenuRow icon="store" label="Ma boutique" onPress={() => navigation.navigate('ShopSetup')} />
+          <MenuRow icon="tag" label="Coupons" onPress={() => navigation.navigate('SellerCoupons')} accent="#10B981" />
+          <MenuRow icon="help" label="Questions produits" onPress={() => navigation.navigate('ProductQueries')} accent="#3B82F6" />
+
+          <SectionHeader label="Finances" />
+          <MenuRow icon="creditCard" label="Historique paiements" onPress={() => navigation.navigate('PaymentHistory')} accent="#8B5CF6" />
+          <MenuRow icon="arrowRight" label="Demande de retrait" onPress={() => navigation.navigate('Withdraw')} accent={COLORS.success} />
+          <MenuRow icon="barChart" label="Commissions" onPress={() => navigation.navigate('CommissionHistory')} accent="#F59E0B" />
+
+          <SectionHeader label="Contenu" />
+          <MenuRow icon="film" label="Gérer les vidéos" onPress={() => navigation.navigate('ManageVideos')} accent="#EF4444" />
+          <MenuRow icon="upload" label="Fichiers uploadés" onPress={() => navigation.navigate('UploadedFiles')} accent="#6366F1" />
+
+          <SectionHeader label="Communication" />
+          <MenuRow icon="message" label="Conversations" onPress={() => navigation.navigate('Messages')} accent="#0EA5E9" />
+          <MenuRow icon="messageSquare" label="Support" onPress={() => navigation.navigate('SellerSupport')} accent="#F97316" />
+
+          <SectionHeader label="Outils" />
+          <MenuRow icon="edit" label="Mes notes" onPress={() => navigation.navigate('SellerNotes')} accent="#84CC16" />
+
+          <View style={{ height: 4 }} />
         </View>
       </ScrollView>
     </SafeAreaView>
