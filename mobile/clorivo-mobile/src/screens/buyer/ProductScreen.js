@@ -130,18 +130,29 @@ function parseVariantGroups(variants) {
 }
 
 // Find a variant entry matching the current selection map
+// Handles both variantProperty ("Color:Red;Size:M") and variantKeyEn/variantValueEn formats
+function getVariantProps(v) {
+  if (v.variantProperty) {
+    const props = {};
+    v.variantProperty.split(';').forEach(pair => {
+      const idx = pair.indexOf(':');
+      if (idx !== -1) props[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim();
+    });
+    return props;
+  }
+  if (v.variantKeyEn && v.variantValueEn) {
+    return { [v.variantKeyEn.trim()]: v.variantValueEn.trim() };
+  }
+  return null; // variant has no parseable properties → skip it
+}
+
 function findVariant(variants, selection) {
   if (!Array.isArray(variants) || variants.length === 0) return null;
+  if (Object.keys(selection).length === 0) return variants[0] ?? null;
   return variants.find(v => {
-    if (v.variantProperty) {
-      const props = {};
-      v.variantProperty.split(';').forEach(pair => {
-        const idx = pair.indexOf(':');
-        if (idx !== -1) props[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim();
-      });
-      return Object.entries(selection).every(([k, val]) => props[k] === val);
-    }
-    return true;
+    const props = getVariantProps(v);
+    if (!props) return false; // skip variants with no parseable properties
+    return Object.entries(selection).every(([k, val]) => props[k] === val);
   }) ?? null;
 }
 
@@ -231,27 +242,51 @@ function VariantGroup({ label, values, selected, onSelect, variantImages }) {
           if (isColor) {
             const hex = colorForName(val);
             const img = variantImages?.[val];
+            // For long color names (e.g. "Pink ball knife"), show a small image or colored chip instead of a circle
+            const isLongName = val.length > 12;
+            if (isLongName && !hex && !img) {
+              // Show as chip with colored left border
+              return (
+                <TouchableOpacity key={val} onPress={() => onSelect(val)}
+                  style={{
+                    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+                    borderWidth: 1.5, borderLeftWidth: 4,
+                    borderColor: isSelected ? COLORS.primary : COLORS.hairline,
+                    borderLeftColor: isSelected ? COLORS.primary : '#aaa',
+                    backgroundColor: isSelected ? COLORS.primarySoft : COLORS.white,
+                  }}>
+                  <Text style={{ fontSize: 12, fontWeight: isSelected ? '700' : '400', color: isSelected ? COLORS.primaryDeep : COLORS.mute }}>
+                    {val}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }
             return (
-              <TouchableOpacity key={val} onPress={() => onSelect(val)}
-                style={{
-                  width: 38, height: 38, borderRadius: 19,
-                  borderWidth: isSelected ? 2.5 : 1.5,
-                  borderColor: isSelected ? COLORS.primary : COLORS.hairline,
-                  overflow: 'hidden',
-                  alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: hex ?? COLORS.paper,
-                  ...SHADOW.sm,
-                }}>
-                {img
-                  ? <Image source={{ uri: img }} style={{ width: 34, height: 34, borderRadius: 17 }} resizeMode="cover" />
-                  : !hex
-                    ? <Text style={{ fontSize: 8 }} numberOfLines={1}>{val.slice(0, 3)}</Text>
-                    : null
-                }
-              </TouchableOpacity>
+              <View key={val} style={{ alignItems: 'center', gap: 4 }}>
+                <TouchableOpacity onPress={() => onSelect(val)}
+                  style={{
+                    width: 40, height: 40, borderRadius: 20,
+                    borderWidth: isSelected ? 3 : 1.5,
+                    borderColor: isSelected ? COLORS.primary : COLORS.hairline,
+                    overflow: 'hidden',
+                    alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: hex ?? '#E5E7EB',
+                    ...SHADOW.sm,
+                  }}>
+                  {img
+                    ? <Image source={{ uri: img }} style={{ width: 36, height: 36, borderRadius: 18 }} resizeMode="cover" />
+                    : !hex
+                      ? <Text style={{ fontSize: 9, textAlign: 'center', color: '#555' }} numberOfLines={2}>{val.slice(0, 6)}</Text>
+                      : null
+                  }
+                </TouchableOpacity>
+                {isSelected && (
+                  <Text style={{ fontSize: 9, color: COLORS.primary, fontWeight: '600', maxWidth: 50, textAlign: 'center' }} numberOfLines={1}>{val}</Text>
+                )}
+              </View>
             );
           }
-          // Generic chip
+          // Generic chip (size, style, etc.)
           return (
             <TouchableOpacity key={val} onPress={() => onSelect(val)}
               style={{
@@ -337,19 +372,16 @@ export default function ProductScreen({ route, navigation }) {
     const defaults = {};
     Object.entries(groups).forEach(([key, vals]) => { defaults[key] = vals[0]; });
     setSelection(defaults);
-    // Build color image map
+    // Build color image map — support both variantProperty and variantKeyEn formats
     const imgMap = {};
+    const COLOR_KEYS = ['color', 'couleur', 'colour'];
     variants.forEach(v => {
       if (!v.variantImage) return;
-      if (v.variantProperty) {
-        v.variantProperty.split(';').forEach(pair => {
-          const idx = pair.indexOf(':');
-          if (idx === -1) return;
-          const key = pair.slice(0, idx).trim().toLowerCase();
-          const val = pair.slice(idx + 1).trim();
-          if (['color','couleur','colour'].includes(key)) imgMap[val] = v.variantImage;
-        });
-      }
+      const props = getVariantProps(v);
+      if (!props) return;
+      Object.entries(props).forEach(([key, val]) => {
+        if (COLOR_KEYS.includes(key.toLowerCase())) imgMap[val] = v.variantImage;
+      });
     });
     setVarImages(imgMap);
   }
@@ -423,10 +455,19 @@ export default function ProductScreen({ route, navigation }) {
   // Resolve current price from selected variant
   const activeVariant = findVariant(product?.variants ?? [], selection);
   const basePrice = +(product?.price ?? 0);
-  const variantPrice = activeVariant?.variantPrice
-    ? parseFloat(activeVariant.variantPrice) * (basePrice / (parseFloat(product?.variants?.[0]?.variantPrice ?? basePrice) || basePrice))
-    : null;
-  const displayPrice = variantPrice ?? basePrice;
+
+  function resolveVariantPrice(variant) {
+    if (!variant) return null;
+    // Prefer pre-computed sellPrice (markup already applied during import)
+    if (variant.sellPrice && variant.sellPrice > 0) return parseFloat(variant.sellPrice);
+    // Fall back: apply stored markup_percent to CJ base price
+    const cjPrice = parseFloat(variant.cj_price ?? variant.variantPrice ?? 0);
+    if (!cjPrice) return null;
+    const markup = parseFloat(product?.markup_percent ?? 30);
+    return parseFloat((cjPrice * (1 + markup / 100)).toFixed(2));
+  }
+
+  const displayPrice = resolveVariantPrice(activeVariant) ?? basePrice;
 
   const discount = product?.compare_price && product.compare_price > displayPrice
     ? Math.round((1 - displayPrice / product.compare_price) * 100) : null;

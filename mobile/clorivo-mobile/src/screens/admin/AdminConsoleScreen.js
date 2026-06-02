@@ -1853,15 +1853,50 @@ export default function AdminConsoleScreen({ navigation }) {
     } catch (e) { Alert.alert('Erreur', e.message); setCjDetailModal(false); }
   }
 
+  // Enrich each CJ variant with markup-adjusted sellPrice and normalise field names
+  function buildVariantsWithMarkup(variantList, markupPct) {
+    if (!Array.isArray(variantList) || variantList.length === 0) return [];
+    const markup = parseFloat(markupPct) || 30;
+    return variantList.map(v => ({
+      ...v,
+      // Store CJ base price separately so we can always recalculate
+      cj_price: parseFloat(v.variantPrice ?? v.sellPrice ?? 0),
+      // Markup-adjusted price shown to buyers
+      sellPrice: parseFloat((parseFloat(v.variantPrice ?? v.sellPrice ?? 0) * (1 + markup / 100)).toFixed(2)),
+    }));
+  }
+
+  function totalStockFromVariants(variants) {
+    if (!Array.isArray(variants) || variants.length === 0) return 0;
+    const total = variants.reduce((sum, v) => sum + (parseInt(v.variantStock ?? v.stock ?? 0, 10) || 0), 0);
+    return total > 0 ? total : 0;
+  }
+
   async function importCjProduct(product, markupPct, _categorySlug) {
     const p = normalizeCjProduct(product);
     setCjImporting(p.pid);
     setCjImportProgress({ active: true, current: 0, total: 1, label: 'Import en cours…' });
     try {
       const markup = parseFloat(markupPct) || 30;
-      const basePrice = parseFloat(p.sellPrice ?? 0);
+
+      // Fetch full product detail to get variantList, full image set and description
+      let detail = p;
+      if (!Array.isArray(p.variantList) || p.variantList.length === 0) {
+        setCjImportProgress(prev => ({ ...prev, label: 'Récupération des variantes…' }));
+        try {
+          const { getCJProduct } = await import('../../lib/cjapi');
+          const fetched = await getCJProduct(cjApiKey, p.pid);
+          if (fetched) detail = { ...p, ...fetched, pid: p.pid };
+        } catch (e) { console.warn('[CJ import] detail fetch failed:', e.message); }
+      }
+
+      const basePrice = parseFloat(detail.sellPrice ?? p.sellPrice ?? 0);
       const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
-      const imgArr = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean);
+      const allImages = (detail.productImageSet?.length
+        ? detail.productImageSet
+        : detail.bigImage ? [detail.bigImage] : []
+      ).filter(Boolean);
+      const variantList = buildVariantsWithMarkup(detail.variantList ?? [], markup);
 
       const { data: existing } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
       if (existing) { Alert.alert('Déjà importé', 'Ce produit est déjà dans votre catalogue.'); return; }
@@ -1873,24 +1908,24 @@ export default function AdminConsoleScreen({ navigation }) {
 
       setCjImportProgress(prev => ({ ...prev, current: 1 }));
 
-      const variantList = Array.isArray(p.variantList) ? p.variantList : [];
       const { error } = await supabase.from('products').insert({
-        title: p.productNameEn || '',
-        description: p.description || null,
+        title: detail.productNameEn || p.productNameEn || '',
+        description: detail.description || p.description || null,
         price: sellPrice,
         compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
-        stock: 999,
+        stock: totalStockFromVariants(variantList) || 999,
         category: (cjLevel3?.categoryName ?? cjLevel2?.categoryName ?? cjLevel1?.categoryFirstName ?? 'autre').toLowerCase(),
-        images: imgArr,
+        images: allImages,
         status: 'active',
         source: 'cj',
         cj_product_id: p.pid,
+        markup_percent: markup,
         variants: variantList,
         ...(shopId ? { shop_id: shopId } : {}),
         ...(categoryId ? { category_id: categoryId } : {}),
       });
       if (error) throw error;
-      Alert.alert('Importé !', `"${p.productNameEn}" ajouté au catalogue à $${sellPrice}`);
+      Alert.alert('Importé !', `"${detail.productNameEn || p.productNameEn}" ajouté au catalogue à $${sellPrice}${variantList.length ? ` · ${variantList.length} variantes` : ''}`);
     } catch (e) {
       Alert.alert('Erreur import', e.message);
     } finally {
@@ -1910,7 +1945,7 @@ export default function AdminConsoleScreen({ navigation }) {
     setCjImportProgress({ active: true, current: 0, total: 0, label: 'Initialisation…' });
     let page = 1, total = 0, imported = 0, skipped = 0;
     try {
-      const { searchCJProducts } = await import('../../lib/cjapi');
+      const { searchCJProducts, getCJProduct } = await import('../../lib/cjapi');
       const [shopId, categoryId] = await Promise.all([
         getCjSystemShop(),
         resolveCjCategory(catId, catName),
@@ -1924,26 +1959,41 @@ export default function AdminConsoleScreen({ navigation }) {
           try {
             const { data: exists } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
             if (exists) { skipped++; } else {
-              const basePrice = parseFloat(p.sellPrice ?? 0);
+              // Fetch full detail to get variantList, all images, description
+              let detail = p;
+              try {
+                const fetched = await getCJProduct(cjApiKey, p.pid);
+                if (fetched) detail = { ...p, ...fetched, pid: p.pid };
+              } catch { /* use list data if detail fails */ }
+
+              const basePrice = parseFloat(detail.sellPrice ?? p.sellPrice ?? 0);
               const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
-              const imgs = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean).slice(0, 8);
+              const imgs = (detail.productImageSet?.length
+                ? detail.productImageSet
+                : detail.bigImage ? [detail.bigImage] : []
+              ).filter(Boolean);
+              const variantList = buildVariantsWithMarkup(detail.variantList ?? [], markup);
+
               const { error: insertErr } = await supabase.from('products').insert({
-                title: p.productNameEn || '',
-                description: p.description || null,
+                title: detail.productNameEn || p.productNameEn || '',
+                description: detail.description || p.description || null,
                 price: sellPrice,
                 compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
-                stock: 999,
+                stock: totalStockFromVariants(variantList) || 999,
                 category: catName.toLowerCase(),
                 images: imgs,
                 status: 'active',
                 source: 'cj',
                 cj_product_id: p.pid,
-                variants: Array.isArray(p.variantList) ? p.variantList : [],
+                markup_percent: markup,
+                variants: variantList,
                 ...(shopId ? { shop_id: shopId } : {}),
                 ...(categoryId ? { category_id: categoryId } : {}),
               });
               if (insertErr) { console.warn('[CJ bulk]', insertErr.message); }
               else { imported++; }
+              // Throttle to respect CJ rate limits
+              await new Promise(r => setTimeout(r, 250));
             }
           } catch (innerErr) { console.warn('[CJ bulk] inner error:', innerErr?.message); }
           setCjImportProgress(prev => ({ ...prev, current: imported + skipped }));
@@ -1975,7 +2025,7 @@ export default function AdminConsoleScreen({ navigation }) {
       // Fetch all CJ products missing variants OR description OR with fewer than 2 images
       const { data: toSync } = await supabase
         .from('products')
-        .select('id,cj_product_id,variants,description,images')
+        .select('id,cj_product_id,variants,description,images,markup_percent')
         .eq('source', 'cj')
         .not('cj_product_id', 'is', null);
 
@@ -1992,7 +2042,8 @@ export default function AdminConsoleScreen({ navigation }) {
           const detail = await getCJProduct(cjApiKey, prod.cj_product_id);
           if (!detail) { failed++; continue; }
 
-          const variants = Array.isArray(detail.variantList) ? detail.variantList : [];
+          const markup = parseFloat(prod.markup_percent ?? 30);
+          const variants = buildVariantsWithMarkup(detail.variantList ?? [], markup);
           const allImages = (detail.productImageSet?.length
             ? detail.productImageSet
             : detail.productImage ? [detail.productImage] : []
