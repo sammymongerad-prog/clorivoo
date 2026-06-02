@@ -1470,6 +1470,8 @@ export default function AdminConsoleScreen({ navigation }) {
   const [cjDetailCategory, setCjDetailCategory] = useState('');
   const [cjImportedProducts, setCjImportedProducts] = useState([]);
   const [cjImportLoading, setCjImportLoading] = useState(false);
+  const [cjSyncLoading, setCjSyncLoading] = useState(false);
+  const [cjSyncProgress, setCjSyncProgress] = useState({ current: 0, total: 0, label: '' });
 
   /* banner CMS */
   const [bannerModal,   setBannerModal]   = useState(false);
@@ -1960,8 +1962,66 @@ export default function AdminConsoleScreen({ navigation }) {
   }
 
   async function loadCjImported() {
-    const { data } = await supabase.from('products').select('id,title,price,images,status,cj_product_id').eq('source', 'cj').order('created_at', { ascending: false }).limit(50);
+    const { data } = await supabase.from('products').select('id,title,price,images,status,cj_product_id,variants,description').eq('source', 'cj').order('created_at', { ascending: false }).limit(200);
     setCjImportedProducts(data ?? []);
+  }
+
+  async function syncAllCjProducts() {
+    if (!cjApiKey.trim()) { Alert.alert('Erreur', 'Entrez votre clé API CJ d\'abord.'); return; }
+    setCjSyncLoading(true);
+    let synced = 0, failed = 0;
+    try {
+      const { getCJProduct } = await import('../../lib/cjapi');
+      // Fetch all CJ products missing variants OR description OR with fewer than 2 images
+      const { data: toSync } = await supabase
+        .from('products')
+        .select('id,cj_product_id,variants,description,images')
+        .eq('source', 'cj')
+        .not('cj_product_id', 'is', null);
+
+      const needSync = (toSync ?? []).filter(p =>
+        !Array.isArray(p.variants) || p.variants.length === 0 ||
+        !p.description ||
+        !Array.isArray(p.images) || p.images.length < 2
+      );
+
+      setCjSyncProgress({ current: 0, total: needSync.length, label: 'Synchronisation…' });
+
+      for (const prod of needSync) {
+        try {
+          const detail = await getCJProduct(cjApiKey, prod.cj_product_id);
+          if (!detail) { failed++; continue; }
+
+          const variants = Array.isArray(detail.variantList) ? detail.variantList : [];
+          const allImages = (detail.productImageSet?.length
+            ? detail.productImageSet
+            : detail.productImage ? [detail.productImage] : []
+          ).filter(Boolean);
+          const description = detail.description ?? detail.productDescription ?? null;
+
+          const updates = {};
+          if (variants.length > 0) updates.variants = variants;
+          if (allImages.length > 0) updates.images = allImages;
+          if (description) updates.description = description;
+
+          if (Object.keys(updates).length > 0) {
+            await supabase.from('products').update(updates).eq('id', prod.id);
+          }
+          synced++;
+        } catch { failed++; }
+        setCjSyncProgress(prev => ({ ...prev, current: prev.current + 1 }));
+        // Small delay to avoid CJ rate limits
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      Alert.alert('Sync terminée', `${synced} produit(s) mis à jour${failed > 0 ? `, ${failed} erreurs` : ''}.`);
+      loadCjImported();
+    } catch (e) {
+      Alert.alert('Erreur sync', e.message);
+    } finally {
+      setCjSyncLoading(false);
+      setCjSyncProgress({ current: 0, total: 0, label: '' });
+    }
   }
 
   async function loadAllCategories() {
@@ -2277,6 +2337,26 @@ export default function AdminConsoleScreen({ navigation }) {
             {/* ── IMPORTED tab ── */}
             {cjSubTab === 'imported' && (
               <View>
+                {/* Sync button */}
+                <TouchableOpacity
+                  onPress={syncAllCjProducts}
+                  disabled={cjSyncLoading}
+                  style={{ backgroundColor: cjSyncLoading ? DARK.border : '#7C3AED', borderRadius: 10, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  {cjSyncLoading
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Icon name="refresh" size={14} color="#fff" />
+                  }
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
+                    {cjSyncLoading
+                      ? `Sync en cours… ${cjSyncProgress.current}/${cjSyncProgress.total}`
+                      : 'Synchroniser variantes + photos + descriptions'}
+                  </Text>
+                </TouchableOpacity>
+                {cjSyncLoading && cjSyncProgress.total > 0 && (
+                  <View style={{ marginBottom: 10, backgroundColor: DARK.border, borderRadius: 6, height: 6, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.round(cjSyncProgress.current / cjSyncProgress.total * 100)}%`, height: 6, backgroundColor: '#7C3AED', borderRadius: 6 }} />
+                  </View>
+                )}
                 <Text style={{ fontSize: 12, color: DARK.mute, marginBottom: 10 }}>{cjImportedProducts.length} produits importés depuis CJ</Text>
                 {cjImportedProducts.map(p => (
                   <View key={p.id} style={{ backgroundColor: DARK.card, borderRadius: 10, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: DARK.border }}>
@@ -2286,7 +2366,21 @@ export default function AdminConsoleScreen({ navigation }) {
                     }
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: DARK.text }} numberOfLines={1}>{p.title}</Text>
-                      <Text style={{ fontSize: 11, color: DARK.accent, fontWeight: '700' }}>${p.price} · Marge {p.markup_percent ?? '—'}%</Text>
+                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
+                        <Text style={{ fontSize: 10, color: DARK.accent, fontWeight: '700' }}>${p.price}</Text>
+                        {Array.isArray(p.variants) && p.variants.length > 0
+                          ? <Text style={{ fontSize: 9, color: '#10B981', fontWeight: '600' }}>✓ variantes</Text>
+                          : <Text style={{ fontSize: 9, color: '#F59E0B', fontWeight: '600' }}>⚠ sans variantes</Text>
+                        }
+                        {p.description
+                          ? <Text style={{ fontSize: 9, color: '#10B981', fontWeight: '600' }}>✓ desc</Text>
+                          : <Text style={{ fontSize: 9, color: '#F59E0B', fontWeight: '600' }}>⚠ sans desc</Text>
+                        }
+                        {Array.isArray(p.images) && p.images.length > 1
+                          ? <Text style={{ fontSize: 9, color: '#10B981', fontWeight: '600' }}>✓ {p.images.length} photos</Text>
+                          : <Text style={{ fontSize: 9, color: '#F59E0B', fontWeight: '600' }}>⚠ peu de photos</Text>
+                        }
+                      </View>
                     </View>
                     <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, backgroundColor: p.status === 'active' ? '#10B98133' : '#EF444433' }}>
                       <Text style={{ fontSize: 9, fontWeight: '700', color: p.status === 'active' ? '#10B981' : '#EF4444' }}>{p.status}</Text>
