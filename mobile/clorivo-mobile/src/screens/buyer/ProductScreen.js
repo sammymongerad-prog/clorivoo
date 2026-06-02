@@ -247,7 +247,6 @@ export default function ProductScreen({ route, navigation }) {
   async function fetchCJVariants(cjPid) {
     setVarLoading(true);
     try {
-      // Get stored API key
       const { data: cfg } = await supabase.from('app_config').select('value').eq('key', 'cj.apiKey').maybeSingle();
       const apiKey = cfg?.value ? JSON.parse(cfg.value) : null;
       if (!apiKey) return;
@@ -256,12 +255,29 @@ export default function ProductScreen({ route, navigation }) {
       const detail = await getCJProduct(apiKey, cjPid);
       if (!detail) return;
 
-      const variants = detail.variantList ?? [];
-      if (variants.length > 0) {
-        applyVariants(variants);
-        // Save to DB so next time is instant
-        await supabase.from('products').update({ variants }).eq('id', product.id);
-      }
+      const variants  = detail.variantList ?? [];
+      const allImages = (detail.productImageSet?.length
+        ? detail.productImageSet
+        : detail.productImage ? [detail.productImage] : []
+      ).filter(Boolean);
+      const description = detail.description ?? detail.productDescription ?? null;
+
+      // Apply variants to UI
+      if (variants.length > 0) applyVariants(variants);
+
+      // Update local product state with full data
+      setProduct(prev => ({
+        ...prev,
+        ...(allImages.length > 0 ? { images: allImages } : {}),
+        ...(description && !prev.description ? { description } : {}),
+        variants,
+      }));
+
+      // Persist to DB so next open is instant
+      const updates = { variants };
+      if (allImages.length > 0) updates.images = allImages;
+      if (description && !product.description) updates.description = description;
+      await supabase.from('products').update(updates).eq('id', product.id);
     } catch (e) {
       console.warn('[ProductScreen] fetchCJVariants error:', e.message);
     } finally {

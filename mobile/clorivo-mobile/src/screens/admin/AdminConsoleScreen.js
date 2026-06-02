@@ -1859,7 +1859,7 @@ export default function AdminConsoleScreen({ navigation }) {
       const markup = parseFloat(markupPct) || 30;
       const basePrice = parseFloat(p.sellPrice ?? 0);
       const sellPrice = parseFloat((basePrice * (1 + markup / 100)).toFixed(2));
-      const imgArr = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean).slice(0, 8);
+      const imgArr = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean);
 
       const { data: existing } = await supabase.from('products').select('id').eq('cj_product_id', p.pid).maybeSingle();
       if (existing) { Alert.alert('Déjà importé', 'Ce produit est déjà dans votre catalogue.'); return; }
@@ -1927,6 +1927,7 @@ export default function AdminConsoleScreen({ navigation }) {
               const imgs = (p.productImageSet?.length ? p.productImageSet : (p.bigImage ? [p.bigImage] : [])).filter(Boolean).slice(0, 8);
               const { error: insertErr } = await supabase.from('products').insert({
                 title: p.productNameEn || '',
+                description: p.description || null,
                 price: sellPrice,
                 compare_price: parseFloat((sellPrice * 1.2).toFixed(2)),
                 stock: 999,
@@ -1935,6 +1936,7 @@ export default function AdminConsoleScreen({ navigation }) {
                 status: 'active',
                 source: 'cj',
                 cj_product_id: p.pid,
+                variants: Array.isArray(p.variantList) ? p.variantList : [],
                 ...(shopId ? { shop_id: shopId } : {}),
                 ...(categoryId ? { category_id: categoryId } : {}),
               });
