@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
 import { Btn, Avatar } from '../../components/UI';
 import { getProduct, upsertCartItem, supabase } from '../../lib/supabase';
+import { getShippingMethods } from '../../lib/cms';
 import { useSession } from '../../hooks/useSession';
 import { sendLocalNotification } from '../../lib/notifications';
 
@@ -327,6 +328,12 @@ export default function ProductScreen({ route, navigation }) {
   // Groups + clean text parsed from description when no CJ variants available
   const [descGroups, setDescGroups] = useState({});
   const [cleanDesc, setCleanDesc]   = useState(null);
+  const [shippingMethods, setShippingMethods] = useState([]);
+
+  // Fetch shipping methods on mount
+  useEffect(() => {
+    getShippingMethods().then(methods => { if (methods?.length) setShippingMethods(methods); });
+  }, []);
 
   // Always reload full product from DB to get fresh variants/description/source fields
   useEffect(() => {
@@ -623,19 +630,24 @@ export default function ProductScreen({ route, navigation }) {
 
             {activeTab === 2 && (
               <View style={{ gap: 12 }}>
-                {[
-                  { emoji: '🚚', title: 'Standard', detail: '7 à 15 jours ouvrés', price: 'Gratuit dès $30' },
-                  { emoji: '⚡', title: 'Express',  detail: '3 à 5 jours ouvrés',  price: '$8.99' },
-                ].map((m, i) => (
-                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: COLORS.hairline, borderRadius: RADIUS.md }}>
-                    <Text style={{ fontSize: 22 }}>{m.emoji}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '600', color: COLORS.ink }}>{m.title}</Text>
-                      <Text style={{ fontSize: 12, color: COLORS.mute }}>{m.detail}</Text>
+                {(shippingMethods.length > 0 ? shippingMethods : [
+                  { emoji: '🚚', name: 'Standard', estimated_days: '7 à 15 jours ouvrés', price: null, free_threshold: 30 },
+                  { emoji: '⚡', name: 'Express',  estimated_days: '3 à 5 jours ouvrés',  price: 8.99, free_threshold: null },
+                ]).map((m, i) => {
+                  const priceLabel = m.free_threshold
+                    ? `Gratuit dès $${m.free_threshold}`
+                    : m.price != null ? `$${m.price}` : '';
+                  return (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: COLORS.hairline, borderRadius: RADIUS.md }}>
+                      <Text style={{ fontSize: 22 }}>{m.emoji}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: '600', color: COLORS.ink }}>{m.name}</Text>
+                        <Text style={{ fontSize: 12, color: COLORS.mute }}>{m.estimated_days ?? m.description}</Text>
+                      </View>
+                      <Text style={{ fontWeight: '600', color: COLORS.ink }}>{priceLabel}</Text>
                     </View>
-                    <Text style={{ fontWeight: '600', color: COLORS.ink }}>{m.price}</Text>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             )}
           </View>

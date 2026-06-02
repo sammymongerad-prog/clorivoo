@@ -12,7 +12,7 @@ import Icon from '../../components/Icon';
 import {
   getProducts, getShops, getBanners,
   getCart, getConversations, getProfile, getProductVideos,
-  updateProfile,
+  updateProfile, supabase,
 } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -162,10 +162,10 @@ const CAT_COLOR = { maison: '#C97B5A', mode: '#9B59B6', tech: '#4A6FD4', beaute:
 const BANNER_EMOJI = ['🏺', '☕', '💡', '🕯️', '👜', '🧴'];
 
 const CATEGORIES_TILES = [
-  { label: 'Maison & Déco',  sub: '1 200+ articles', slug: 'maison',  emoji: '🏠', color: '#C97B5A' },
-  { label: 'Mode & Style',   sub: '3 400+ articles', slug: 'mode',    emoji: '👗', color: '#9B59B6' },
-  { label: 'Tech & Gadgets', sub: '890 articles',    slug: 'tech',    emoji: '📱', color: '#4A6FD4' },
-  { label: 'Beauté & Soin',  sub: '560 articles',    slug: 'beaute',  emoji: '💄', color: '#E67E22' },
+  { label: 'Maison & Déco',  slug: 'maison',  emoji: '🏠', color: '#C97B5A' },
+  { label: 'Mode & Style',   slug: 'mode',    emoji: '👗', color: '#9B59B6' },
+  { label: 'Tech & Gadgets', slug: 'tech',    emoji: '📱', color: '#4A6FD4' },
+  { label: 'Beauté & Soin',  slug: 'beaute',  emoji: '💄', color: '#E67E22' },
 ];
 
 export default function HomeScreen({ navigation }) {
@@ -180,6 +180,7 @@ export default function HomeScreen({ navigation }) {
   const [loaded, setLoaded]         = useState(false);
   const { unreadCount: unreadNotifs } = useNotifications();
   const [address, setAddress]       = useState(null);
+  const [catCounts, setCatCounts]   = useState({});
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]         = useState('');
   const [activeChip, setActiveChip] = useState(0);
@@ -211,6 +212,17 @@ export default function HomeScreen({ navigation }) {
       if (sh?.length)     setShops(sh.filter(s => s?.name));
       if (bnrs?.length)   setBanners(bnrs);
       if (vids?.length)   setVideos(vids);
+
+      // Fetch real category counts from DB
+      const { data: catRows } = await supabase
+        .from('products')
+        .select('category')
+        .in('category', ['maison', 'mode', 'tech', 'beaute']);
+      if (catRows) {
+        const counts = {};
+        catRows.forEach(r => { if (r.category) counts[r.category] = (counts[r.category] ?? 0) + 1; });
+        setCatCounts(counts);
+      }
 
       if (userId) {
         const [cartItems, convs, profile] = await Promise.all([
@@ -619,7 +631,7 @@ export default function HomeScreen({ navigation }) {
                 <Text style={{ position: 'absolute', right: 12, top: 10, fontSize: 36 }}>{cat.emoji}</Text>
                 <View style={{ position: 'absolute', bottom: 10, left: 12 }}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{cat.label}</Text>
-                  <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>{cat.sub}</Text>
+                  <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>{`${catCounts[cat.slug] ?? 0} articles`}</Text>
                 </View>
               </TouchableOpacity>
             ))}
