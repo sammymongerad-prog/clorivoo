@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image,
   TextInput, RefreshControl, Modal, Platform, ActivityIndicator,
+  FlatList, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -27,6 +28,61 @@ function useCountdown(seconds) {
   const m = String(Math.floor((left % 3600) / 60)).padStart(2, '0');
   const s = String(left % 60).padStart(2, '0');
   return `${h}:${m}:${s}`;
+}
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const BANNER_W = SCREEN_W - 32;
+
+const LOCAL_BANNERS = [
+  { id: '1', source: require('../../../assets/banners/MEN.png') },
+  { id: '2', source: require('../../../assets/banners/MODE_FEMME.png') },
+  { id: '3', source: require('../../../assets/banners/toys_kid.jpeg') },
+];
+
+function HeroBannerCarousel() {
+  const [active, setActive] = useState(0);
+  const flatRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActive(prev => {
+        const next = (prev + 1) % LOCAL_BANNERS.length;
+        flatRef.current?.scrollToIndex({ index: next, animated: true });
+        return next;
+      });
+    }, 3500);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <View>
+      <FlatList
+        ref={flatRef}
+        data={LOCAL_BANNERS}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={b => b.id}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / BANNER_W);
+          setActive(idx);
+        }}
+        getItemLayout={(_, i) => ({ length: BANNER_W, offset: BANNER_W * i, index: i })}
+        renderItem={({ item }) => (
+          <Image
+            source={item.source}
+            style={{ width: BANNER_W, height: 180, borderRadius: RADIUS.lg }}
+            resizeMode="cover"
+          />
+        )}
+      />
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 }}>
+        {LOCAL_BANNERS.map((_, i) => (
+          <View key={i} style={{ width: i === active ? 20 : 6, height: 6, borderRadius: 3, backgroundColor: i === active ? COLORS.primary : COLORS.hairline }} />
+        ))}
+      </View>
+    </View>
+  );
 }
 
 // ── Static shortcuts (navigation buttons, not data) ────────────────
@@ -388,29 +444,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* ── HERO BANNER ───────────────────────── */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-          <TouchableOpacity activeOpacity={0.9}
-            style={{ borderRadius: RADIUS.lg, backgroundColor: COLORS.primary, padding: 20, overflow: 'hidden' }}>
-            <View style={{ position: 'absolute', right: -20, top: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.07)' }} />
-            <View style={{ position: 'absolute', right: 20, bottom: -30, width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.05)' }} />
-            <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.8)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
-              Offre printemps · expire dans
-            </Text>
-            <Text style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.95)', marginBottom: 8 }}>
-              {heroBannerCountdown}
-            </Text>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 12, lineHeight: 28 }}>
-              Jusqu'à 70% offerts{'\n'}sur Maison & Cuisine
-            </Text>
-            <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: RADIUS.full, paddingHorizontal: 16, paddingVertical: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Acheter maintenant →</Text>
-            </View>
-          </TouchableOpacity>
-          {/* Dots */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 8 }}>
-            {[0,1,2,3].map(i => (
-              <View key={i} style={{ width: i === 0 ? 16 : 5, height: 5, borderRadius: 9999, backgroundColor: i === 0 ? COLORS.primary : COLORS.hairline }} />
-            ))}
-          </View>
+          <HeroBannerCarousel />
         </View>
 
         {/* ── CLORI+ + SHORTCUTS ────────────────── */}
