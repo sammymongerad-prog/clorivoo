@@ -692,14 +692,24 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {/* ── VIDÉOS PRODUITS ──────────────────── */}
-        {videos.length > 0 && (
+        {(videos.length > 0 || products.length > 0) && (
           <View style={{ paddingTop: 20 }}>
             <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
               <Text style={{ fontSize: 17, fontWeight: '700', color: COLORS.ink, letterSpacing: -0.3 }}>Vidéos produits</Text>
               <Text style={{ fontSize: 12, color: COLORS.mute, marginTop: 2 }}>Découvrez les produits en action</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingBottom: 4 }}>
-              {videos.map((v, i) => {
+              {(videos.length > 0
+                ? videos
+                : products.slice(0, 8).map(p => ({
+                    id: p.id + '_thumb',
+                    video_url: null,
+                    thumbnail_url: p.images?.[0] ?? null,
+                    caption: p.name,
+                    views: Math.floor(Math.random() * 9000) + 500,
+                    products: p,
+                  }))
+              ).map((v, i) => {
                 const prod = v.products;
                 const thumb = v.thumbnail_url ?? prod?.images?.[0];
                 const viewsLabel = v.views >= 1000 ? `${(v.views / 1000).toFixed(1)}k` : String(v.views ?? 0);

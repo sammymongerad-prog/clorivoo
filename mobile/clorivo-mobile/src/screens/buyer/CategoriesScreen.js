@@ -23,11 +23,9 @@ const FALLBACK_CATS = [
 const SORTS = ['Populaire', 'Prix ↑', 'Prix ↓', 'Nouveautés'];
 
 export default function CategoriesScreen({ route, navigation }) {
-  const initSlug = route.params?.categorySlug ?? null;
-
   const [mainCats,  setMainCats]    = useState(FALLBACK_CATS);
   const [subCatMap, setSubCatMap]   = useState({});
-  const [activeCat, setActiveCat]   = useState(FALLBACK_CATS.find(c => c.slug === initSlug) ?? FALLBACK_CATS[0]);
+  const [activeCat, setActiveCat]   = useState(FALLBACK_CATS[0]);
   const [activeSub, setActiveSub]   = useState(null); // selected subcategory id
   const [sort, setSort]             = useState(0);
   const [view, setView]             = useState('grid');
@@ -35,6 +33,7 @@ export default function CategoriesScreen({ route, navigation }) {
   const [subCats, setSubCats]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
+  const [catsReady, setCatsReady]   = useState(false);
 
   // Load main categories from Supabase on mount
   useEffect(() => {
@@ -47,16 +46,24 @@ export default function CategoriesScreen({ route, navigation }) {
           })),
         ];
         setMainCats(live);
-        // Update activeCat if it matches by slug
-        const matched = live.find(c => c.slug === initSlug) ?? live[0];
-        setActiveCat(matched);
         // Build subcategory map keyed by parent id
         const map = {};
         data.forEach(c => { if (c.parent_id) { map[c.parent_id] = [...(map[c.parent_id] ?? []), c]; } });
         setSubCatMap(map);
+        setCatsReady(true);
+      } else {
+        setCatsReady(true);
       }
-    }).catch(() => {});
+    }).catch(() => { setCatsReady(true); });
   }, []);
+
+  // When categories are ready OR route params change, update activeCat
+  useEffect(() => {
+    if (!catsReady) return;
+    const slug = route.params?.categorySlug ?? null;
+    const matched = mainCats.find(c => c.slug === slug) ?? mainCats[0];
+    setActiveCat(matched);
+  }, [catsReady, route.params?.categorySlug]);
 
   useEffect(() => {
     const subs = activeCat.id ? (subCatMap[activeCat.id] ?? []) : [];
