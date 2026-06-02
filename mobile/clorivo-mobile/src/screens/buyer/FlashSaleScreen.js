@@ -1,17 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Animated, Image, ActivityIndicator } from 'react-native';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
+import { getProducts } from '../../lib/supabase';
 
 const INITIAL_SECONDS = 2 * 3600; // 2h
-
-const FLASH_PRODUCTS = [
-  { id: '1', name: 'AirPods Pro Clone', originalPrice: 149.99, flashPrice: 39.99, saved: 73, color: '#4A6FD4', emoji: '🎧', stock: 2, totalStock: 10 },
-  { id: '2', name: 'Montre Sport X9', originalPrice: 299.00, flashPrice: 79.00, saved: 74, color: '#6C4DFF', emoji: '⌚', stock: 5, totalStock: 15 },
-  { id: '3', name: 'Sac à dos Urban', originalPrice: 89.00, flashPrice: 29.00, saved: 67, color: '#E67E22', emoji: '🎒', stock: 3, totalStock: 8 },
-  { id: '4', name: 'Sneakers Limited', originalPrice: 179.00, flashPrice: 59.00, saved: 67, color: '#EF4444', emoji: '👟', stock: 1, totalStock: 5 },
-  { id: '5', name: 'Lunettes de soleil', originalPrice: 120.00, flashPrice: 34.99, saved: 71, color: '#10B981', emoji: '🕶️', stock: 7, totalStock: 20 },
-  { id: '6', name: 'Parfum Prestige', originalPrice: 199.00, flashPrice: 49.00, saved: 75, color: '#9B59B6', emoji: '🌸', stock: 4, totalStock: 12 },
-];
 
 function useCountdown(seconds) {
   const [left, setLeft] = useState(seconds);
@@ -38,9 +30,19 @@ function StockBar({ stock, total }) {
   );
 }
 
+// Deterministic mock stock per product id
+function getMockStock(id) {
+  const n = parseInt(String(id).replace(/\D/g, '').slice(-4) || '0', 10);
+  const total = 5 + (n % 16);
+  const stock = 1 + (n % total);
+  return { stock, total };
+}
+
 export default function FlashSaleScreen({ navigation }) {
   const countdown = useCountdown(INITIAL_SECONDS);
   const blinkAnim = useRef(new Animated.Value(1)).current;
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Animated.loop(
@@ -49,6 +51,20 @@ export default function FlashSaleScreen({ navigation }) {
         Animated.timing(blinkAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       ])
     ).start();
+  }, []);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const result = await getProducts({ limit: 50 });
+        const promos = (result.data ?? []).filter(p => p.compare_price && p.compare_price > p.price);
+        setProducts(promos);
+      } catch (e) {
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   const [hh, mm, ss] = countdown.split(':');
@@ -89,34 +105,51 @@ export default function FlashSaleScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Loading */}
+        {loading && (
+          <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        )}
+
         {/* Products */}
-        <View style={{ padding: 16, gap: 12 }}>
-          {FLASH_PRODUCTS.map(item => (
-            <View key={item.id} style={{ flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.hairline, ...SHADOW.sm }}>
-              {/* Image placeholder */}
-              <View style={{ width: 100, backgroundColor: item.color, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 40 }}>{item.emoji}</Text>
-                <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: COLORS.danger, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>-{item.saved}%</Text>
+        {!loading && (
+          <View style={{ padding: 16, gap: 12 }}>
+            {products.map(item => {
+              const saved = Math.round((1 - item.price / item.compare_price) * 100);
+              const { stock, total } = getMockStock(item.id);
+              return (
+                <View key={item.id} style={{ flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.hairline, ...SHADOW.sm }}>
+                  {/* Image */}
+                  <View style={{ width: 100, backgroundColor: COLORS.paper, alignItems: 'center', justifyContent: 'center' }}>
+                    {item.images?.[0] ? (
+                      <Image source={{ uri: item.images[0] }} style={{ width: 100, height: '100%' }} resizeMode="cover" />
+                    ) : (
+                      <Text style={{ fontSize: 40 }}>🛍️</Text>
+                    )}
+                    <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: COLORS.danger, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>-{saved}%</Text>
+                    </View>
+                  </View>
+                  {/* Info */}
+                  <View style={{ flex: 1, padding: 12 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.ink, marginBottom: 4 }} numberOfLines={1}>{item.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <Text style={{ fontSize: 18, fontWeight: '900', color: COLORS.primary }}>{Number(item.price).toFixed(2)}€</Text>
+                      <Text style={{ fontSize: 13, color: COLORS.mute, textDecorationLine: 'line-through' }}>{Number(item.compare_price).toFixed(2)}€</Text>
+                    </View>
+                    <StockBar stock={stock} total={total} />
+                    <TouchableOpacity style={{ marginTop: 10, backgroundColor: stock <= 2 ? COLORS.danger : COLORS.primary, borderRadius: 10, paddingVertical: 8, alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+                        {stock <= 2 ? '⚡ Acheter vite !' : 'Acheter'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-              {/* Info */}
-              <View style={{ flex: 1, padding: 12 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.ink, marginBottom: 4 }} numberOfLines={1}>{item.name}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '900', color: COLORS.primary }}>{item.flashPrice.toFixed(2)}€</Text>
-                  <Text style={{ fontSize: 13, color: COLORS.mute, textDecorationLine: 'line-through' }}>{item.originalPrice.toFixed(2)}€</Text>
-                </View>
-                <StockBar stock={item.stock} total={item.totalStock} />
-                <TouchableOpacity style={{ marginTop: 10, backgroundColor: item.stock <= 2 ? COLORS.danger : COLORS.primary, borderRadius: 10, paddingVertical: 8, alignItems: 'center' }}>
-                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
-                    {item.stock <= 2 ? '⚡ Acheter vite !' : 'Acheter'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

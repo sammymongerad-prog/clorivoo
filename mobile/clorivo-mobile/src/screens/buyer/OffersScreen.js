@@ -1,20 +1,28 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
+import { getProducts } from '../../lib/supabase';
 
 const FILTERS = ['Tout', 'Flash', '-50%', 'Nouveaux'];
 
-const MOCK_OFFERS = [
-  { id: '1', name: 'Sneakers Urban Pro', originalPrice: 89.99, promoPrice: 39.99, discount: 56, color: '#6C4DFF', emoji: '👟', badge: '-56%' },
-  { id: '2', name: 'Sac à main Cuir', originalPrice: 149.00, promoPrice: 59.00, discount: 60, color: '#E67E22', emoji: '👜', badge: '-60%' },
-  { id: '3', name: 'Écouteurs Bluetooth', originalPrice: 79.99, promoPrice: 34.99, discount: 56, color: '#4A6FD4', emoji: '🎧', badge: 'FLASH' },
-  { id: '4', name: 'Montre Connectée', originalPrice: 199.00, promoPrice: 89.00, discount: 55, color: '#10B981', emoji: '⌚', badge: '-55%' },
-  { id: '5', name: 'Parfum Luxe 50ml', originalPrice: 120.00, promoPrice: 49.00, discount: 59, color: '#9B59B6', emoji: '🌸', badge: 'NOUVEAU' },
-  { id: '6', name: 'Chaussures Running', originalPrice: 110.00, promoPrice: 44.00, discount: 60, color: '#EF4444', emoji: '🏃', badge: '-60%' },
-];
-
 export default function OffersScreen({ navigation }) {
   const [activeFilter, setActiveFilter] = useState(0);
+  const [offers, setOffers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const result = await getProducts({ limit: 50 });
+        const promos = (result.data ?? []).filter(p => p.compare_price && p.compare_price > p.price);
+        setOffers(promos);
+      } catch (e) {
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white }}>
@@ -56,31 +64,55 @@ export default function OffersScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Loading */}
+        {loading && (
+          <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        )}
+
+        {/* Empty state */}
+        {!loading && offers.length === 0 && (
+          <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+            <Text style={{ fontSize: 36 }}>🏷️</Text>
+            <Text style={{ fontSize: 16, color: COLORS.mute, marginTop: 12 }}>Aucune offre disponible pour le moment</Text>
+          </View>
+        )}
+
         {/* Cards */}
-        <View style={{ paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingBottom: 24 }}>
-          {MOCK_OFFERS.map(item => (
-            <View key={item.id} style={{ width: '47%', backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.hairline, ...SHADOW.sm }}>
-              {/* Image placeholder */}
-              <View style={{ height: 110, backgroundColor: item.color, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 44 }}>{item.emoji}</Text>
-                {/* Badge */}
-                <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: COLORS.danger, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 }}>
-                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{item.badge}</Text>
+        {!loading && offers.length > 0 && (
+          <View style={{ paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingBottom: 24 }}>
+            {offers.map(item => {
+              const discount = Math.round((1 - item.price / item.compare_price) * 100);
+              return (
+                <View key={item.id} style={{ width: '47%', backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.hairline, ...SHADOW.sm }}>
+                  {/* Image */}
+                  <View style={{ height: 110, backgroundColor: COLORS.paper, alignItems: 'center', justifyContent: 'center' }}>
+                    {item.images?.[0] ? (
+                      <Image source={{ uri: item.images[0] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : (
+                      <Text style={{ fontSize: 44 }}>🛍️</Text>
+                    )}
+                    {/* Badge */}
+                    <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: COLORS.danger, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 }}>
+                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>-{discount}%</Text>
+                    </View>
+                  </View>
+                  <View style={{ padding: 10 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.ink, marginBottom: 4 }} numberOfLines={1}>{item.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.primary }}>{Number(item.price).toFixed(2)}€</Text>
+                      <Text style={{ fontSize: 11, color: COLORS.mute, textDecorationLine: 'line-through' }}>{Number(item.compare_price).toFixed(2)}€</Text>
+                    </View>
+                    <TouchableOpacity style={{ backgroundColor: COLORS.primary, borderRadius: 10, paddingVertical: 7, alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Voir l'offre</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-              <View style={{ padding: 10 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.ink, marginBottom: 4 }} numberOfLines={1}>{item.name}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.primary }}>{item.promoPrice.toFixed(2)}€</Text>
-                  <Text style={{ fontSize: 11, color: COLORS.mute, textDecorationLine: 'line-through' }}>{item.originalPrice.toFixed(2)}€</Text>
-                </View>
-                <TouchableOpacity style={{ backgroundColor: COLORS.primary, borderRadius: 10, paddingVertical: 7, alignItems: 'center' }}>
-                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Voir l'offre</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

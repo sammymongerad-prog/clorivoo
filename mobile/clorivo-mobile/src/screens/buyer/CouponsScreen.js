@@ -1,34 +1,41 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
+import { supabase } from '../../lib/supabase';
 
-const TABS = [
-  { label: 'Disponibles', count: 3 },
-  { label: 'Utilisés', count: 2 },
-  { label: 'Expirés', count: 1 },
+const FALLBACK_COUPONS = [
+  { id: 'c1', code: 'SAVE10EUR', discount_value: 10, discount_type: 'fixed', min_order_amount: 50, expires_at: '2025-06-30', usage_limit: null, usage_count: 0, is_active: true },
+  { id: 'c2', code: 'FLASH15', discount_value: 15, discount_type: 'percent', min_order_amount: null, expires_at: '2025-07-15', usage_limit: null, usage_count: 0, is_active: true },
+  { id: 'c3', code: 'BIENV5', discount_value: 5, discount_type: 'fixed', min_order_amount: null, expires_at: '2025-12-31', usage_limit: 1, usage_count: 0, is_active: true },
 ];
 
-const COUPONS = {
-  0: [
-    { id: 'c1', code: 'SAVE10EUR', value: '-10€', condition: 'Commande min. 50€', expiry: '30 juin 2025', type: 'fixed' },
-    { id: 'c2', code: 'FLASH15', value: '-15%', condition: 'Valable sur toute la boutique', expiry: '15 juil. 2025', type: 'percent' },
-    { id: 'c3', code: 'BIENV5', value: '-5€', condition: 'Offre de bienvenue · 1 utilisation', expiry: '31 déc. 2025', type: 'fixed' },
-  ],
-  1: [
-    { id: 'c4', code: 'PROMO20', value: '-20€', condition: 'Commande min. 100€', expiry: '1 juin 2025', type: 'fixed', used: true },
-    { id: 'c5', code: 'ETE10', value: '-10%', condition: 'Collection été', expiry: '10 juin 2025', type: 'percent', used: true },
-  ],
-  2: [
-    { id: 'c6', code: 'HIVER8', value: '-8€', condition: 'Commande min. 40€', expiry: '31 janv. 2025', type: 'fixed', expired: true },
-  ],
-};
+function formatValue(coupon) {
+  if (coupon.discount_type === 'percent') return `-${coupon.discount_value}%`;
+  return `-${coupon.discount_value}€`;
+}
+
+function formatExpiry(dateStr) {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch (_) {
+    return dateStr;
+  }
+}
+
+function buildCondition(coupon) {
+  const parts = [];
+  if (coupon.min_order_amount) parts.push(`Commande min. ${coupon.min_order_amount}€`);
+  if (coupon.usage_limit === 1) parts.push('1 utilisation');
+  return parts.join(' · ') || 'Valable sur toute la boutique';
+}
 
 function CouponCard({ coupon, faded }) {
   function copyCode() {
     Alert.alert('Copié !', `Le code ${coupon.code} a été copié.`);
   }
 
-  const accentColor = faded ? COLORS.mute : (coupon.type === 'percent' ? COLORS.primary : '#D97706');
+  const accentColor = faded ? COLORS.mute : (coupon.discount_type === 'percent' ? COLORS.primary : '#D97706');
 
   return (
     <View style={{
@@ -48,7 +55,7 @@ function CouponCard({ coupon, faded }) {
           {/* Value badge */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <View style={{ backgroundColor: faded ? COLORS.hairline : accentColor + '18', borderRadius: RADIUS.sm, paddingHorizontal: 12, paddingVertical: 6 }}>
-              <Text style={{ fontSize: 22, fontWeight: '900', color: faded ? COLORS.mute : accentColor }}>{coupon.value}</Text>
+              <Text style={{ fontSize: 22, fontWeight: '900', color: faded ? COLORS.mute : accentColor }}>{formatValue(coupon)}</Text>
             </View>
             {coupon.used && (
               <View style={{ backgroundColor: COLORS.mute + '22', borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 4 }}>
@@ -61,8 +68,13 @@ function CouponCard({ coupon, faded }) {
               </View>
             )}
           </View>
-          <Text style={{ fontSize: 12, color: faded ? COLORS.mute : COLORS.ink, marginBottom: 4 }}>{coupon.condition}</Text>
-          <Text style={{ fontSize: 11, color: COLORS.mute }}>Expire le {coupon.expiry}</Text>
+          <Text style={{ fontSize: 12, color: faded ? COLORS.mute : COLORS.ink, marginBottom: 4 }}>{buildCondition(coupon)}</Text>
+          {coupon.expires_at && (
+            <Text style={{ fontSize: 11, color: COLORS.mute }}>Expire le {formatExpiry(coupon.expires_at)}</Text>
+          )}
+          {coupon.usage_limit && (
+            <Text style={{ fontSize: 11, color: COLORS.mute, marginTop: 2 }}>{coupon.usage_count ?? 0} / {coupon.usage_limit} utilisations</Text>
+          )}
         </View>
       </View>
 
@@ -92,7 +104,40 @@ function CouponCard({ coupon, faded }) {
 
 export default function CouponsScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState(0);
+  const [coupons, setCoupons] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data, error } = await supabase.from('coupons').select('*').eq('is_active', true);
+        if (error || !data || data.length === 0) {
+          setCoupons(FALLBACK_COUPONS);
+        } else {
+          setCoupons(data);
+        }
+      } catch (e) {
+        setCoupons(FALLBACK_COUPONS);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
   const faded = activeTab > 0;
+
+  const TABS = [
+    { label: 'Disponibles', count: coupons.filter(c => !c.used && !c.expired).length },
+    { label: 'Utilisés', count: coupons.filter(c => c.used).length },
+    { label: 'Expirés', count: coupons.filter(c => c.expired).length },
+  ];
+
+  const displayedCoupons = activeTab === 0
+    ? coupons.filter(c => !c.used && !c.expired)
+    : activeTab === 1
+    ? coupons.filter(c => c.used)
+    : coupons.filter(c => c.expired);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white }}>
@@ -119,11 +164,23 @@ export default function CouponsScreen({ navigation }) {
         ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 14 }}>
-        {COUPONS[activeTab].map(coupon => (
-          <CouponCard key={coupon.id} coupon={coupon} faded={faded} />
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 14 }}>
+          {displayedCoupons.length === 0 && (
+            <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+              <Text style={{ fontSize: 36 }}>🎟️</Text>
+              <Text style={{ fontSize: 16, color: COLORS.mute, marginTop: 12 }}>Aucun coupon dans cette catégorie</Text>
+            </View>
+          )}
+          {displayedCoupons.map(coupon => (
+            <CouponCard key={coupon.id} coupon={coupon} faded={faded} />
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
