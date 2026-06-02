@@ -1427,6 +1427,9 @@ export default function AdminConsoleScreen({ navigation }) {
   }
   const [usersCount,   setUsersCount]   = useState(0);
   const [ordersCount,  setOrdersCount]  = useState(0);
+  const [productsCount, setProductsCount] = useState(0);
+  const [sellersCount,  setSellersCount]  = useState(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [banners,      setBanners]      = useState([]);
   const [categories,   setCategories]   = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -1514,33 +1517,40 @@ export default function AdminConsoleScreen({ navigation }) {
       const [
         { count: uc },
         { count: oc },
+        { count: pc },
+        { count: sc },
+        { count: unreadC },
         { data: recentUsers },
         { data: recentSellers },
         { data: bannersData },
         { data: catsData },
         { data: settingsData },
         { data: featProdsData },
-        { data: ordersData },
         { data: recentOrdersData },
         { data: productsData },
         { data: revenueData },
       ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('orders').select('id', { count: 'exact', head: true }),
+        supabase.from('products').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'seller'),
+        supabase.from('notifications').select('id', { count: 'exact', head: true }).is('read_at', null),
         supabase.from('profiles').select('id,full_name,email,role,created_at').order('created_at', { ascending: false }).limit(10),
         supabase.from('shops').select('id,name,is_verified,is_active,seller_id').order('created_at', { ascending: false }).limit(10),
         supabase.from('banners').select('*').order('position'),
         supabase.from('categories').select('slug,name,image_url').in('slug', MAIN_CATEGORIES.map(c => c.slug)),
         supabase.from('platform_settings').select('key,value').eq('key', 'featured_products').limit(1),
-        supabase.from('products').select('id,name').limit(50),
-        supabase.from('orders').select('id,total_amount,status,created_at,buyer_id').order('created_at', { ascending: false }).limit(5),
-        supabase.from('orders').select('id,total_amount,status,created_at,buyer_id').order('created_at', { ascending: false }).limit(5),
+        supabase.from('products').select('id,title').limit(50),
+        supabase.from('orders').select('id,total_amount,status,created_at,buyer_id').order('created_at', { ascending: false }).limit(20),
         supabase.from('products').select('id,title,price,status,images').limit(20),
         supabase.from('orders').select('total_amount'),
       ]);
 
       setUsersCount(uc ?? 0);
       setOrdersCount(oc ?? 0);
+      setProductsCount(pc ?? 0);
+      setSellersCount(sc ?? 0);
+      setUnreadNotifCount(unreadC ?? 0);
       setUsers(recentUsers ?? []);
       setSellers(recentSellers ?? []);
       setBanners(bannersData ?? []);
@@ -2659,11 +2669,13 @@ export default function AdminConsoleScreen({ navigation }) {
         <TouchableOpacity style={{ marginRight: 14 }}>
           <Icon name="search" size={18} color={DARK.mute} />
         </TouchableOpacity>
-        <TouchableOpacity style={{ marginRight: 14, position: 'relative' }}>
+        <TouchableOpacity style={{ marginRight: 14, position: 'relative' }} onPress={() => setSection('notifications')}>
           <Icon name="bell" size={18} color={DARK.mute} />
-          <View style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.danger, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 8, color: '#fff', fontWeight: '700' }}>3</Text>
-          </View>
+          {unreadNotifCount > 0 && (
+            <View style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.danger, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 8, color: '#fff', fontWeight: '700' }}>{unreadNotifCount > 9 ? '9+' : String(unreadNotifCount)}</Text>
+            </View>
+          )}
         </TouchableOpacity>
         <Avatar size={28} initials={initials} bg={COLORS.primary} />
       </View>
@@ -2713,10 +2725,10 @@ export default function AdminConsoleScreen({ navigation }) {
 
               {/* KPI 2x2 grid */}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
-                <KpiCard label="Revenus totaux"  value={'$' + revenue.toFixed(0)} delta="+12.5%" icon="creditCard" color="#6C4DFF" />
-                <KpiCard label="Commandes"       value={String(ordersCount)}       delta="+8.3%"  icon="package"    color="#10B981" />
-                <KpiCard label="Utilisateurs"    value={String(usersCount)}        delta="+15.7%" icon="user"       color="#3B82F6" />
-                <KpiCard label="Vendeurs actifs" value={String(sellers.length)}    delta="+9.2%"  icon="store"      color="#F59E0B" />
+                <KpiCard label="Revenus totaux"  value={'$' + revenue.toFixed(0)} delta="total" icon="creditCard" color="#6C4DFF" />
+                <KpiCard label="Commandes"       value={String(ordersCount)}       delta="total"  icon="package"    color="#10B981" />
+                <KpiCard label="Utilisateurs"    value={String(usersCount)}        delta="total" icon="user"       color="#3B82F6" />
+                <KpiCard label="Vendeurs actifs" value={String(sellersCount)}      delta="total"  icon="store"      color="#F59E0B" />
               </View>
 
               {/* Sales bar chart */}
@@ -2819,7 +2831,7 @@ export default function AdminConsoleScreen({ navigation }) {
           {!loading && section === 'users' && (
             <>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-                {[['Total', String(usersCount)], ['Vendeurs', String(sellers.length)], ['Admins', '1']].map(([k, v], i) => (
+                {[['Total', String(usersCount)], ['Vendeurs', String(sellersCount)], ['Admins', '1']].map(([k, v], i) => (
                   <View key={i} style={{ flex: 1, backgroundColor: DARK.card, borderRadius: 10, padding: 10 }}>
                     <Text style={{ fontSize: 10, color: DARK.mute }}>{k}</Text>
                     <Text style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: '700', color: DARK.text, marginTop: 2 }}>{v}</Text>
@@ -3068,7 +3080,7 @@ export default function AdminConsoleScreen({ navigation }) {
           {/* ── PRODUCTS ── */}
           {!loading && section === 'products' && (
             <>
-              <SectionHeader title="Produits" subtitle={`${products.length} produits`} />
+              <SectionHeader title="Produits" subtitle={`${productsCount} produits au total (affichage: ${products.length})`} />
               <DarkCard>
                 {products.length === 0 && (
                   <Text style={{ fontSize: 13, color: DARK.mute, padding: 16 }}>Aucun produit</Text>
@@ -3435,7 +3447,7 @@ export default function AdminConsoleScreen({ navigation }) {
                           <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: isSelected ? COLORS.primary : DARK.border, backgroundColor: isSelected ? COLORS.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                             {isSelected && <Icon name="checkCircle" size={12} color="#fff" />}
                           </View>
-                          <Text style={{ flex: 1, fontSize: 13, color: DARK.text }} numberOfLines={1}>{p.name}</Text>
+                          <Text style={{ flex: 1, fontSize: 13, color: DARK.text }} numberOfLines={1}>{p.title}</Text>
                           <Text style={{ fontSize: 10, color: DARK.mute, fontFamily: 'monospace' }} numberOfLines={1}>{p.id.slice(0, 8)}…</Text>
                         </TouchableOpacity>
                       );
