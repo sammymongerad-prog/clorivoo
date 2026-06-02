@@ -136,7 +136,7 @@ export default function ProfileScreen({ navigation }) {
   async function handleSignOut() {
     showAlert('Déconnexion', 'Êtes-vous sûr ?', [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Déconnexion', style: 'destructive', onPress: () => signOut() },
+      { text: 'Déconnexion', style: 'destructive', onPress: async () => { await signOut(); navigation.reset({ index: 0, routes: [{ name: 'Login' }] }); } },
     ]);
   }
 

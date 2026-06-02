@@ -52,7 +52,7 @@ export default function CartScreen({ navigation }) {
           <Text style={{ fontSize: 48, marginBottom: 16 }}>🛒</Text>
           <Text style={{ fontSize: 17, fontWeight: '700', color: COLORS.ink, marginBottom: 8 }}>Connectez-vous</Text>
           <Text style={{ fontSize: 14, color: COLORS.mute, textAlign: 'center', marginBottom: 24 }}>Créez un compte pour accéder à votre panier</Text>
-          <Btn onPress={() => navigation.navigate('Auth')}>Se connecter</Btn>
+          <Btn onPress={() => navigation.navigate('Login')}>Se connecter</Btn>
         </View>
       ) : items.length === 0 ? (
         <EmptyState icon="🛒" title="Panier vide" subtitle="Ajoutez des produits pour commencer vos achats" />

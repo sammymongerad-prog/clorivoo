@@ -483,6 +483,14 @@ export default function ProductScreen({ route, navigation }) {
 
   async function addToCart() {
     if (!session?.user) { Alert.alert('Connexion requise', 'Connectez-vous pour ajouter au panier.'); return; }
+    const requiredGroups = Object.keys(activeGroups);
+    if (requiredGroups.length > 0) {
+      const missing = requiredGroups.filter(k => !selection[k]);
+      if (missing.length > 0) {
+        Alert.alert('Sélection requise', `Veuillez choisir : ${missing.join(', ')}`);
+        return;
+      }
+    }
     setLoading(true);
     const variantData = Object.keys(selection).length > 0 ? selection : null;
     await upsertCartItem(session.user.id, product.id, variantData, 1, displayPrice);
