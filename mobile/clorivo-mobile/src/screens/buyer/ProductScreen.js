@@ -31,6 +31,76 @@ function stripHtml(html) {
     .trim();
 }
 
+// ── Extract variant options embedded in plain-text description ───────
+// CJ often writes "Color: Red, Blue\nSize: S, M, L" in the description.
+// Returns { groups: { Color: [...], Size: [...] }, cleanText: "..." }
+const VARIANT_KEYS = [
+  'color', 'colour', 'couleur',
+  'size', 'taille',
+  'style', 'type', 'model', 'modèle', 'modele',
+  'pattern', 'motif',
+  'voltage', 'wattage', 'capacity', 'capacité',
+  'length', 'longueur', 'width', 'largeur',
+  'weight', 'poids',
+  'quantity', 'quantité',
+  'specification', 'spec',
+];
+// Keys that should stay in the description (not become selectors)
+const DESC_ONLY_KEYS = ['material', 'matériau', 'matiere', 'matière', 'category', 'catégorie', 'packing', 'package', 'note', 'notice'];
+
+function parseVariantsFromDescription(rawDesc) {
+  if (!rawDesc) return { groups: {}, cleanText: '' };
+  const text = stripHtml(rawDesc);
+  const lines = text.split('\n');
+  const groups = {};
+  const keptLines = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) { keptLines.push(''); continue; }
+
+    // Match "Key: val1, val2, val3" or "Key：val1、val2"
+    const match = trimmed.match(/^([^:：]{1,30})[：:](.+)$/);
+    if (match) {
+      const key = match[1].trim();
+      const keyLower = key.toLowerCase();
+      const rawVals = match[2].trim();
+
+      // Remove duplicate comma-separated values (CJ sometimes repeats same value)
+      const vals = [...new Set(
+        rawVals.split(/[,、;；]+/).map(v => v.trim()).filter(v => v.length > 0 && v.length < 80)
+      )];
+
+      if (VARIANT_KEYS.some(k => keyLower.includes(k)) && vals.length > 0 && vals.length <= 20) {
+        // Capitalize key nicely
+        const niceKey = key.charAt(0).toUpperCase() + key.slice(1);
+        groups[niceKey] = vals;
+        continue; // don't add to description
+      }
+      if (DESC_ONLY_KEYS.some(k => keyLower.includes(k))) {
+        keptLines.push(trimmed);
+        continue;
+      }
+    }
+
+    // Remove noise lines
+    const lower = trimmed.toLowerCase();
+    if (
+      lower === 'product information:' || lower === 'product information' ||
+      lower === 'product image:' || lower === 'product image' ||
+      lower === 'packing list:' || lower === 'package list:' ||
+      (lower.startsWith('note:') && trimmed.length < 10)
+    ) {
+      keptLines.push(''); continue;
+    }
+
+    keptLines.push(trimmed);
+  }
+
+  const cleanText = keptLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return { groups, cleanText };
+}
+
 // ── Variant parsing ──────────────────────────────────────────────────
 // CJ variant shape: { variantProperty: "Color:Red;Size:M", variantPrice, variantImage, vid, variantSku }
 // Also supports: { variantKeyEn: "Color", variantValueEn: "Red" } (newer CJ format)
@@ -219,6 +289,9 @@ export default function ProductScreen({ route, navigation }) {
   const [selection, setSelection] = useState({});
   // Per-color variant images: { "Red": "https://..." }
   const [varImages, setVarImages] = useState({});
+  // Groups + clean text parsed from description when no CJ variants available
+  const [descGroups, setDescGroups] = useState({});
+  const [cleanDesc, setCleanDesc]   = useState(null);
 
   // Always reload full product from DB to get fresh variants/description/source fields
   useEffect(() => {
@@ -226,12 +299,33 @@ export default function ProductScreen({ route, navigation }) {
     getProduct(productId).then(p => {
       if (!p) return;
       setProduct(p);
-      // Parse variants immediately with fresh data
+
+      // 1. Try real CJ variant list
       const rawVariants = p.variants;
       if (Array.isArray(rawVariants) && rawVariants.length > 0) {
         applyVariants(rawVariants);
+        // Also clean description even when we have real variants
+        const { cleanText } = parseVariantsFromDescription(p.description);
+        setCleanDesc(cleanText);
       } else if (p.cj_product_id) {
+        // 2. Try fetching from CJ API
         fetchCJVariants(p.cj_product_id);
+        // 3. Meanwhile, parse description as fallback for variant options
+        const { groups, cleanText } = parseVariantsFromDescription(p.description);
+        setDescGroups(groups);
+        setCleanDesc(cleanText);
+        // Pre-select first value of each desc group
+        const defaults = {};
+        Object.entries(groups).forEach(([k, vals]) => { defaults[k] = vals[0]; });
+        if (Object.keys(defaults).length > 0) setSelection(defaults);
+      } else {
+        // Non-CJ product: still clean the description if it has embedded key:val lines
+        const { groups, cleanText } = parseVariantsFromDescription(p.description);
+        setDescGroups(groups);
+        setCleanDesc(cleanText);
+        const defaults = {};
+        Object.entries(groups).forEach(([k, vals]) => { defaults[k] = vals[0]; });
+        if (Object.keys(defaults).length > 0) setSelection(defaults);
       }
     });
   }, [productId]);
@@ -284,8 +378,17 @@ export default function ProductScreen({ route, navigation }) {
       ).filter(Boolean);
       const description = detail.description ?? detail.productDescription ?? null;
 
-      // Apply variants to UI
-      if (variants.length > 0) applyVariants(variants);
+      // Apply variants to UI, clear desc-based groups since we now have real ones
+      if (variants.length > 0) {
+        applyVariants(variants);
+        setDescGroups({});
+      }
+
+      // Clean description text
+      const { cleanText } = parseVariantsFromDescription(
+        description ?? product.description
+      );
+      setCleanDesc(cleanText);
 
       // Update local product state with full data
       setProduct(prev => ({
@@ -310,6 +413,12 @@ export default function ProductScreen({ route, navigation }) {
   function selectAttr(key, val) {
     setSelection(prev => ({ ...prev, [key]: val }));
   }
+
+  // Merge real CJ variant groups with those parsed from description
+  // Real CJ groups take priority; desc groups fill in what's missing
+  const activeGroups = Object.keys(varGroups).length > 0
+    ? varGroups
+    : descGroups;
 
   // Resolve current price from selected variant
   const activeVariant = findVariant(product?.variants ?? [], selection);
@@ -385,7 +494,7 @@ export default function ProductScreen({ route, navigation }) {
               <Text style={{ fontSize: 12, color: COLORS.mute }}>Chargement des options…</Text>
             </View>
           )}
-          {Object.entries(varGroups).map(([key, vals]) => (
+          {Object.entries(activeGroups).map(([key, vals]) => (
             <VariantGroup
               key={key}
               label={key}
@@ -442,9 +551,8 @@ export default function ProductScreen({ route, navigation }) {
 
             {activeTab === 0 && (
               <Text style={{ fontSize: 14, color: COLORS.mute, lineHeight: 22 }}>
-                {product.description
-                  ? stripHtml(product.description)
-                  : 'Produit importé depuis CJDropshipping. Qualité vérifiée par nos équipes.'}
+                {(cleanDesc !== null ? cleanDesc : (product.description ? stripHtml(product.description) : '')) ||
+                  'Produit importé depuis CJDropshipping. Qualité vérifiée par nos équipes.'}
               </Text>
             )}
 
