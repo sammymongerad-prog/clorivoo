@@ -73,6 +73,11 @@ import AdminConsoleScreen     from './src/screens/admin/AdminConsoleScreen';
 import AddressScreen          from './src/screens/buyer/AddressScreen';
 import SettingsScreen         from './src/screens/buyer/SettingsScreen';
 import HelpScreen             from './src/screens/buyer/HelpScreen';
+import OffersScreen           from './src/screens/buyer/OffersScreen';
+import ReferralScreen         from './src/screens/buyer/ReferralScreen';
+import FlashSaleScreen        from './src/screens/buyer/FlashSaleScreen';
+import CouponsScreen          from './src/screens/buyer/CouponsScreen';
+import ShopsListScreen        from './src/screens/buyer/ShopsListScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -159,6 +164,11 @@ function AppNavigator() {
       <Stack.Screen name="Address"         component={AddressScreen} />
       <Stack.Screen name="Settings"        component={SettingsScreen} />
       <Stack.Screen name="Help"            component={HelpScreen} />
+      <Stack.Screen name="Offers"          component={OffersScreen} />
+      <Stack.Screen name="Referral"        component={ReferralScreen} />
+      <Stack.Screen name="FlashSale"       component={FlashSaleScreen} />
+      <Stack.Screen name="UserCoupons"     component={CouponsScreen} />
+      <Stack.Screen name="ShopsList"       component={ShopsListScreen} />
     </Stack.Navigator>
   );
 }

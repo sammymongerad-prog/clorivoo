@@ -133,12 +133,12 @@ function HeroBannerCarousel() {
 
 // ── Static shortcuts (navigation buttons, not data) ────────────────
 const SHORTCUTS = [
-  { type: 'combo',   label: 'Offres',     route: 'Categories' },
-  { type: 'img',     label: 'Parrainage', route: null,         img: require('../../../assets/icons/parrainage.jpg') },
-  { type: 'special', label: 'Flash Live', route: 'Categories' },
-  { type: 'img',     label: 'Coupons',    route: null, img: require('../../../assets/icons/coupon.jpg') },
-  { type: 'img',     label: 'Boutiques',  route: null,         img: require('../../../assets/icons/boutique.jpg') },
-  { type: 'img',     label: 'Suivi',      route: 'Orders',     img: require('../../../assets/icons/suivit.jpg') },
+  { type: 'combo',   label: 'Offres',     route: 'Offers' },
+  { type: 'img',     label: 'Parrainage', route: 'Referral',    img: require('../../../assets/icons/parrainage.jpg') },
+  { type: 'special', label: 'Flash Live', route: 'FlashSale' },
+  { type: 'img',     label: 'Coupons',    route: 'UserCoupons', img: require('../../../assets/icons/coupon.jpg') },
+  { type: 'img',     label: 'Boutiques',  route: 'ShopsList',   img: require('../../../assets/icons/boutique.jpg') },
+  { type: 'img',     label: 'Suivi',      route: 'Orders',      img: require('../../../assets/icons/suivit.jpg') },
   { emoji: '💳',    label: 'Paiements',  badge: 'NOUVEAU',    badgeBg: '#2563EB', route: null },
 ];
 
