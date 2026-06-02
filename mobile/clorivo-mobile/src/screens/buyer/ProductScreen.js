@@ -12,6 +12,25 @@ import { sendLocalNotification } from '../../lib/notifications';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
+// Strip HTML tags and decode common entities for clean display
+function stripHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // ── Variant parsing ──────────────────────────────────────────────────
 // CJ variant shape: { variantProperty: "Color:Red;Size:M", variantPrice, variantImage, vid, variantSku }
 // Also supports: { variantKeyEn: "Color", variantValueEn: "Red" } (newer CJ format)
@@ -201,24 +220,21 @@ export default function ProductScreen({ route, navigation }) {
   // Per-color variant images: { "Red": "https://..." }
   const [varImages, setVarImages] = useState({});
 
-  // Load full product if needed
+  // Always reload full product from DB to get fresh variants/description/source fields
   useEffect(() => {
-    if (productId && !product) {
-      getProduct(productId).then(p => p && setProduct(p));
-    }
+    if (!productId) return;
+    getProduct(productId).then(p => {
+      if (!p) return;
+      setProduct(p);
+      // Parse variants immediately with fresh data
+      const rawVariants = p.variants;
+      if (Array.isArray(rawVariants) && rawVariants.length > 0) {
+        applyVariants(rawVariants);
+      } else if (p.cj_product_id) {
+        fetchCJVariants(p.cj_product_id);
+      }
+    });
   }, [productId]);
-
-  // Parse variants once product is available
-  useEffect(() => {
-    if (!product) return;
-    const rawVariants = product.variants;
-    if (Array.isArray(rawVariants) && rawVariants.length > 0) {
-      applyVariants(rawVariants);
-    } else if (product.source === 'cj' && product.cj_product_id) {
-      // Fetch variants from CJ API for older imports
-      fetchCJVariants(product.cj_product_id);
-    }
-  }, [product?.id]);
 
   function applyVariants(variants) {
     const groups = parseVariantGroups(variants);
@@ -245,11 +261,17 @@ export default function ProductScreen({ route, navigation }) {
   }
 
   async function fetchCJVariants(cjPid) {
+    if (!cjPid) return;
     setVarLoading(true);
     try {
       const { data: cfg } = await supabase.from('app_config').select('value').eq('key', 'cj.apiKey').maybeSingle();
-      const apiKey = cfg?.value ? JSON.parse(cfg.value) : null;
-      if (!apiKey) return;
+      let apiKey = null;
+      try { apiKey = cfg?.value ? JSON.parse(cfg.value) : null; } catch { apiKey = cfg?.value ?? null; }
+      if (!apiKey) {
+        // No API key configured — variants can't be loaded from CJ
+        setVarLoading(false);
+        return;
+      }
 
       const { getCJProduct } = await import('../../lib/cjapi');
       const detail = await getCJProduct(apiKey, cjPid);
@@ -419,8 +441,10 @@ export default function ProductScreen({ route, navigation }) {
             </View>
 
             {activeTab === 0 && (
-              <Text style={{ fontSize: 15, color: COLORS.mute, lineHeight: 24 }}>
-                {product.description ?? 'Produit importé depuis CJDropshipping. Qualité vérifiée par nos équipes.'}
+              <Text style={{ fontSize: 14, color: COLORS.mute, lineHeight: 22 }}>
+                {product.description
+                  ? stripHtml(product.description)
+                  : 'Produit importé depuis CJDropshipping. Qualité vérifiée par nos équipes.'}
               </Text>
             )}
 
