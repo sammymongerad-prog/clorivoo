@@ -1871,6 +1871,7 @@ export default function AdminConsoleScreen({ navigation }) {
 
       setCjImportProgress(prev => ({ ...prev, current: 1 }));
 
+      const variantList = Array.isArray(p.variantList) ? p.variantList : [];
       const { error } = await supabase.from('products').insert({
         title: p.productNameEn || '',
         description: p.description || null,
@@ -1882,6 +1883,7 @@ export default function AdminConsoleScreen({ navigation }) {
         status: 'active',
         source: 'cj',
         cj_product_id: p.pid,
+        variants: variantList,
         ...(shopId ? { shop_id: shopId } : {}),
         ...(categoryId ? { category_id: categoryId } : {}),
       });
