@@ -68,7 +68,6 @@ export async function getProducts({ categorySlug, categoryId, shopId, seller_id,
   let q = supabase
     .from('products')
     .select('*, shops(id,name,is_verified,brand_color,followers,seller_id), categories(id,name,slug,color)')
-    .eq('status', 'active')
     .range(offset, offset + limit - 1)
     .order('created_at', { ascending: false });
   if (shopId)     q = q.eq('shop_id', shopId);
