@@ -1,13 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Share } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Share, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, RADIUS } from '../../lib/tokens';
-
-const STATS = [
-  { label: 'Clics',      value: '0' },
-  { label: 'Commandes',  value: '0' },
-  { label: 'Gains estimés', value: '0 $' },
-];
+import { getProducts, supabase } from '../../lib/supabase';
+import { useSession } from '../../hooks/useSession';
 
 const MENU = [
   { icon: '👤', label: 'Mon\nprofil' },
@@ -18,21 +14,12 @@ const MENU = [
   { icon: '🤝', label: 'Collaborateurs' },
 ];
 
-const PRODUCTS = [
-  { id: '1', name: 'Sneakers Air Pro Max Running', price: '89,99 $', original: '129,99 $', discount: '31% OFF', badge: 'OFFRE DU JOUR', badgeColor: COLORS.primary ?? '#6C4DFF', rating: 4.8, sold: '+2k vendus', bg: '#E8F4FD' },
-  { id: '2', name: 'Parfum Odyssey Mandarin Sky Limited', price: '49,99 $', original: '99,99 $', discount: '50% OFF', badge: 'PLUS VENDU', badgeColor: '#FF6B00', rating: 4.9, sold: '+10k vendus', bg: '#FDF3E8' },
-  { id: '3', name: 'Montre connectée Sport Pro', price: '79,99 $', original: null, discount: null, badge: 'PLUS VENDU', badgeColor: '#FF6B00', rating: 4.7, sold: '+5k vendus', bg: '#F0FDF4' },
-  { id: '4', name: 'Écouteurs sans fil ANC 40h', price: '59,99 $', original: '89,99 $', discount: '33% OFF', badge: 'PLUS VENDU', badgeColor: '#FF6B00', rating: 4.9, sold: '+8k vendus', bg: '#FFF0F0' },
-  { id: '5', name: 'Sac à dos imperméable 30L', price: '34,99 $', original: '54,99 $', discount: '36% OFF', badge: 'OFFRE DU JOUR', badgeColor: '#6C4DFF', rating: 4.6, sold: '+3k vendus', bg: '#F5F0FF' },
-  { id: '6', name: 'Cafetière automatique programmable', price: '44,99 $', original: null, discount: null, badge: 'PLUS VENDU', badgeColor: '#FF6B00', rating: 4.8, sold: '+4k vendus', bg: '#FFFBEB' },
-];
-
 const FILTERS = ['Plus vendus', 'Catégories ▾', 'Tech', 'Mode', 'Maison'];
 
 async function shareProduct(product) {
   try {
     await Share.share({
-      message: `Découvrez "${product.name}" à ${product.price} sur Clorivo ! 🛍️`,
+      message: `Découvrez "${product.name}" à ${Number(product.price).toFixed(2)}€ sur Clorivo ! 🛍️`,
     });
   } catch (_) {}
 }
@@ -40,26 +27,23 @@ async function shareProduct(product) {
 function ProductTile({ item }) {
   return (
     <View style={{ flex: 1, margin: 5, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#EBEBEB' }}>
-      <View style={{ aspectRatio: 1, backgroundColor: item.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 48 }}>🛍️</Text>
-        <View style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: item.badgeColor, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3 }}>
-          <Text style={{ fontSize: 8, fontWeight: '800', color: '#fff', letterSpacing: 0.3 }}>{item.badge}</Text>
-        </View>
+      <View style={{ aspectRatio: 1, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        {item.images?.[0] ? (
+          <Image source={{ uri: item.images[0] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        ) : (
+          <Text style={{ fontSize: 48 }}>🛍️</Text>
+        )}
       </View>
       <View style={{ padding: 10 }}>
         <Text style={{ fontSize: 12, fontWeight: '600', color: '#1C1C1E', lineHeight: 17, marginBottom: 5 }} numberOfLines={2}>{item.name}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 5 }}>
-          <Text style={{ fontSize: 11, color: '#F59E0B' }}>★</Text>
-          <Text style={{ fontSize: 11, color: '#9CA3AF' }}>{item.rating} | {item.sold}</Text>
-        </View>
-        {item.original && (
-          <Text style={{ fontSize: 11, color: '#9CA3AF', textDecorationLine: 'line-through' }}>{item.original}</Text>
+        {item.compare_price && item.compare_price > item.price && (
+          <Text style={{ fontSize: 11, color: '#9CA3AF', textDecorationLine: 'line-through' }}>{Number(item.compare_price).toFixed(2)}€</Text>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: 2 }}>
-          <Text style={{ fontSize: 15, fontWeight: '800', color: '#1C1C1E' }}>{item.price}</Text>
-          {item.discount && (
+          <Text style={{ fontSize: 15, fontWeight: '800', color: '#1C1C1E' }}>{Number(item.price).toFixed(2)}€</Text>
+          {item.compare_price && item.compare_price > item.price && (
             <View style={{ backgroundColor: '#DCFCE7', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#15803D' }}>{item.discount}</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#15803D' }}>-{Math.round((1 - item.price / item.compare_price) * 100)}%</Text>
             </View>
           )}
         </View>
@@ -74,7 +58,52 @@ function ProductTile({ item }) {
 }
 
 export default function ReferralScreen({ navigation }) {
+  const session = useSession();
   const [activeFilter, setActiveFilter] = useState(0);
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [stats, setStats] = useState({ clicks: 0, orders: 0, earnings: 0 });
+
+  const userId = session?.user?.id;
+  const referralCode = userId ? 'CLORIVO-' + userId.slice(0, 6).toUpperCase() : 'CLORIVO-???';
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const result = await getProducts({ limit: 6 });
+        setProducts(result.data ?? []);
+      } catch (e) {
+      } finally {
+        setLoadingProducts(false);
+      }
+    }
+    loadProducts();
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    async function loadStats() {
+      try {
+        const { data } = await supabase.from('referrals').select('*').eq('referrer_id', userId);
+        if (data && data.length > 0) {
+          setStats({
+            clicks: data.length,
+            orders: data.filter(r => r.status === 'converted').length,
+            earnings: data.reduce((sum, r) => sum + (r.commission ?? 0), 0),
+          });
+        }
+      } catch (e) {
+        // table may not exist, keep defaults at 0
+      }
+    }
+    loadStats();
+  }, [userId]);
+
+  const STATS_DISPLAY = [
+    { label: 'Clics', value: String(stats.clicks) },
+    { label: 'Commandes', value: String(stats.orders) },
+    { label: 'Gains estimés', value: `${stats.earnings} €` },
+  ];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F8FB' }}>
@@ -92,6 +121,12 @@ export default function ReferralScreen({ navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false}>
 
+        {/* Referral code card */}
+        <View style={{ margin: 16, marginBottom: 0, backgroundColor: '#EEF2FF', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#D1D5FB' }}>
+          <Text style={{ fontSize: 12, color: '#6C4DFF', fontWeight: '600', marginBottom: 4 }}>Votre code de parrainage</Text>
+          <Text style={{ fontSize: 20, fontWeight: '900', color: '#1C1C1E', letterSpacing: 2, fontFamily: 'monospace' }}>{referralCode}</Text>
+        </View>
+
         {/* Stats card */}
         <View style={{ margin: 16, backgroundColor: '#fff', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#EBEBEB', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -102,7 +137,7 @@ export default function ReferralScreen({ navigation }) {
             <Text style={{ color: '#6C4DFF', fontSize: 18 }}>›</Text>
           </View>
           <View style={{ flexDirection: 'row' }}>
-            {STATS.map((s, i) => (
+            {STATS_DISPLAY.map((s, i) => (
               <View key={i} style={{ flex: 1, alignItems: i === 0 ? 'flex-start' : 'center', borderLeftWidth: i > 0 ? 1 : 0, borderLeftColor: '#EBEBEB', paddingLeft: i > 0 ? 12 : 0 }}>
                 <Text style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 4 }}>{s.label}</Text>
                 <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E' }}>{s.value}</Text>
@@ -155,13 +190,19 @@ export default function ReferralScreen({ navigation }) {
           </ScrollView>
 
           {/* 2-col grid */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {PRODUCTS.map(item => (
-              <View key={item.id} style={{ width: '50%' }}>
-                <ProductTile item={item} />
-              </View>
-            ))}
-          </View>
+          {loadingProducts ? (
+            <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+              <ActivityIndicator size="large" color="#6C4DFF" />
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {products.map(item => (
+                <View key={item.id} style={{ width: '50%' }}>
+                  <ProductTile item={item} />
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={{ height: 32 }} />
