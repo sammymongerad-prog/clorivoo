@@ -19,7 +19,7 @@ const FILTERS = ['Plus vendus', 'Catégories ▾', 'Tech', 'Mode', 'Maison'];
 async function shareProduct(product) {
   try {
     await Share.share({
-      message: `Découvrez "${product.name}" à ${Number(product.price).toFixed(2)}€ sur Clorivo ! 🛍️`,
+      message: `Découvrez "${product.title ?? product.name}" à ${Number(product.price).toFixed(2)}€ sur Clorivo ! 🛍️`,
     });
   } catch (_) {}
 }
@@ -35,7 +35,7 @@ function ProductTile({ item }) {
         )}
       </View>
       <View style={{ padding: 10 }}>
-        <Text style={{ fontSize: 12, fontWeight: '600', color: '#1C1C1E', lineHeight: 17, marginBottom: 5 }} numberOfLines={2}>{item.name}</Text>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: '#1C1C1E', lineHeight: 17, marginBottom: 5 }} numberOfLines={2}>{item.title ?? item.name}</Text>
         {item.compare_price && item.compare_price > item.price && (
           <Text style={{ fontSize: 11, color: '#9CA3AF', textDecorationLine: 'line-through' }}>{Number(item.compare_price).toFixed(2)}€</Text>
         )}
@@ -47,7 +47,7 @@ function ProductTile({ item }) {
             </View>
           )}
         </View>
-        <Text style={{ fontSize: 10, color: '#6C4DFF', marginBottom: 10 }}>6x sans intérêts</Text>
+        {item.shops?.name && <Text style={{ fontSize: 10, color: '#6C4DFF', marginBottom: 10 }}>{item.shops.name}</Text>}
         <TouchableOpacity onPress={() => shareProduct(item)}
           style={{ backgroundColor: '#EEF2FF', borderRadius: 8, paddingVertical: 9, alignItems: 'center' }}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: '#6C4DFF' }}>Partager</Text>

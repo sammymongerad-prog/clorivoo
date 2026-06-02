@@ -10,9 +10,9 @@ create table if not exists public.coupons (
   code            text not null,
   discount_type   text not null default 'percent' check (discount_type in ('percent','fixed')),
   discount_value  numeric not null default 0,
-  min_order       numeric,
-  max_uses        integer,
-  uses_count      integer not null default 0,
+  min_order_amount numeric,
+  usage_limit     integer,
+  usage_count     integer not null default 0,
   expires_at      timestamptz,
   is_active       boolean not null default true,
   created_at      timestamptz not null default now()

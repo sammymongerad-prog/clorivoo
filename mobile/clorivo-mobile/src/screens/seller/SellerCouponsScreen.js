@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 import Icon from '../../components/Icon';
 
-const EMPTY_FORM = { code: '', discount_type: 'percent', discount_value: '', min_order: '', max_uses: '', expires_at: '', is_active: true };
+const EMPTY_FORM = { code: '', discount_type: 'percent', discount_value: '', min_order_amount: '', usage_limit: '', expires_at: '', is_active: true };
 
 export default function SellerCouponsScreen({ navigation }) {
   const session = useSession();
@@ -43,11 +43,11 @@ export default function SellerCouponsScreen({ navigation }) {
         code: form.code.trim().toUpperCase(),
         discount_type: form.discount_type,
         discount_value: parseFloat(form.discount_value) || 0,
-        min_order: parseFloat(form.min_order) || null,
-        max_uses: parseInt(form.max_uses, 10) || null,
+        min_order_amount: parseFloat(form.min_order_amount) || null,
+        usage_limit: parseInt(form.usage_limit, 10) || null,
         expires_at: form.expires_at || null,
         is_active: form.is_active,
-        uses_count: 0,
+        usage_count: 0,
       };
       const { error } = await supabase.from('coupons').insert(payload);
       if (error) throw error;
@@ -113,15 +113,15 @@ export default function SellerCouponsScreen({ navigation }) {
               </View>
               <View style={{ flexDirection: 'row', gap: 16 }}>
                 <Text style={{ fontSize: 12, color: COLORS.mute }}>
-                  Utilisations: {c.uses_count ?? 0}{c.max_uses ? `/${c.max_uses}` : ''}
+                  Utilisations: {c.usage_count ?? 0}{c.usage_limit ? `/${c.usage_limit}` : ''}
                 </Text>
                 {c.expires_at && (
                   <Text style={{ fontSize: 12, color: COLORS.mute }}>
                     Expire: {new Date(c.expires_at).toLocaleDateString('fr-FR')}
                   </Text>
                 )}
-                {c.min_order && (
-                  <Text style={{ fontSize: 12, color: COLORS.mute }}>Min: ${c.min_order}</Text>
+                {c.min_order_amount && (
+                  <Text style={{ fontSize: 12, color: COLORS.mute }}>Min: ${c.min_order_amount}</Text>
                 )}
               </View>
             </View>
@@ -147,8 +147,8 @@ export default function SellerCouponsScreen({ navigation }) {
             {[
               { label: 'Code coupon *', key: 'code', placeholder: 'ETE20', autoCapitalize: 'characters' },
               { label: 'Valeur de la remise *', key: 'discount_value', placeholder: '20', keyboardType: 'numeric' },
-              { label: 'Commande minimum ($)', key: 'min_order', placeholder: '50', keyboardType: 'numeric' },
-              { label: 'Nombre max d\'utilisations', key: 'max_uses', placeholder: '100', keyboardType: 'numeric' },
+              { label: 'Commande minimum ($)', key: 'min_order_amount', placeholder: '50', keyboardType: 'numeric' },
+              { label: 'Nombre max d\'utilisations', key: 'usage_limit', placeholder: '100', keyboardType: 'numeric' },
               { label: 'Date d\'expiration (YYYY-MM-DD)', key: 'expires_at', placeholder: '2026-12-31' },
             ].map(({ label, key, placeholder, keyboardType, autoCapitalize }) => (
               <View key={key}>

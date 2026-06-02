@@ -27,8 +27,9 @@ function buildCondition(coupon) {
 }
 
 function CouponCard({ coupon, faded }) {
-  function copyCode() {
-    Alert.alert('Copié !', `Le code ${coupon.code} a été copié.`);
+  async function copyCode() {
+    await Clipboard.setStringAsync(coupon.code);
+    Alert.alert('Copié !', `Le code ${coupon.code} a été copié dans le presse-papiers.`);
   }
 
   const accentColor = faded ? COLORS.mute : (coupon.discount_type === 'percent' ? COLORS.primary : '#D97706');
