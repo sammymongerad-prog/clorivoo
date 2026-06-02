@@ -691,21 +691,14 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {/* ── VIDÉOS PRODUITS ──────────────────── */}
-        {(videos.length > 0 || featuredProds.length > 0) && (
+        {videos.length > 0 && (
           <View style={{ paddingTop: 20 }}>
             <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
               <Text style={{ fontSize: 17, fontWeight: '700', color: COLORS.ink, letterSpacing: -0.3 }}>Vidéos produits</Text>
               <Text style={{ fontSize: 12, color: COLORS.mute, marginTop: 2 }}>Découvrez les produits en action</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingBottom: 4 }}>
-              {(videos.length > 0 ? videos : featuredProds.slice(0, 6).map((p, i) => ({
-                id: p.id + '_demo',
-                video_url: null,
-                thumbnail_url: p.images?.[0] ?? null,
-                caption: ['Un article unique\nfait à la main','La pièce que\ntout le monde veut','Lumière douce pour\nvotre intérieur','Sentez la différence\nchaque matin','Le sac parfait pour\ntous les jours','Le choix des chefs\nà la maison'][i] ?? p.title,
-                views: [1200, 5600, 3400, 2100, 890, 4200][i] ?? 0,
-                products: p,
-              }))).map((v, i) => {
+              {videos.map((v, i) => {
                 const prod = v.products;
                 const thumb = v.thumbnail_url ?? prod?.images?.[0];
                 const viewsLabel = v.views >= 1000 ? `${(v.views / 1000).toFixed(1)}k` : String(v.views ?? 0);
