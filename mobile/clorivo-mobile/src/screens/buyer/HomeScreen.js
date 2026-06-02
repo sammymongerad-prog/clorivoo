@@ -39,46 +39,12 @@ const LOCAL_BANNERS = [
   { id: '3', source: require('../../../assets/banners/toys_kid.jpeg') },
 ];
 
-// Fallback height (16:9) used until real image dimensions are resolved
-const BANNER_H = Math.round(BANNER_W * (9 / 16));
+// Fixed banner height — image covers the container
+const BANNER_H = 180;
 
 function HeroBannerCarousel() {
   const [active, setActive] = useState(0);
   const flatRef = useRef(null);
-  // bannerH will hold the resolved container height once Image.getSize returns
-  const [bannerH, setBannerH] = useState(BANNER_H);
-
-  // Resolve the height of the first image and use its ratio for all banners
-  useEffect(() => {
-    const firstSource = LOCAL_BANNERS[0]?.source;
-    if (!firstSource) return;
-    // resolveAssetSource gives us the uri for local require() assets
-    let uri;
-    try {
-      const { default: resolveAssetSource } = require('expo-asset');
-      // expo-asset is not always available; fall back below
-      uri = null;
-    } catch (_) {
-      uri = null;
-    }
-    // Use Image.resolveAssetSource (React Native built-in) to get the URI
-    try {
-      const resolved = Image.resolveAssetSource(firstSource);
-      uri = resolved?.uri;
-    } catch (_) {
-      uri = null;
-    }
-    if (!uri) return;
-    Image.getSize(
-      uri,
-      (w, h) => {
-        if (w > 0 && h > 0) {
-          setBannerH(Math.round(BANNER_W * (h / w)));
-        }
-      },
-      () => { /* keep fallback BANNER_H on error */ },
-    );
-  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -109,14 +75,14 @@ function HeroBannerCarousel() {
           <View
             style={{
               width: BANNER_W,
-              height: bannerH,
+              height: BANNER_H,
               borderRadius: RADIUS.lg,
               overflow: 'hidden',
             }}
           >
             <Image
               source={item.source}
-              style={{ width: BANNER_W, height: bannerH }}
+              style={{ width: BANNER_W, height: BANNER_H }}
               resizeMode="cover"
             />
           </View>
