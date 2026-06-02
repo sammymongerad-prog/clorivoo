@@ -78,25 +78,9 @@ const MAIN_CATEGORIES = [
   { slug: 'beaute',  label: 'Beauté' },
 ];
 
-const WEEK_BARS = [45, 62, 38, 78, 55, 90, 72];
 const WEEK_DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-const MAX_BAR = Math.max(...WEEK_BARS);
 
-const TOP_CATS = [
-  { name: 'Électronique', pct: 35, color: '#6C4DFF' },
-  { name: 'Mode',         pct: 25, color: '#3B82F6' },
-  { name: 'Maison',       pct: 18, color: '#10B981' },
-  { name: 'Beauté',       pct: 12, color: '#F59E0B' },
-  { name: 'Sport',        pct: 6,  color: '#EF4444' },
-];
-
-const LOCATION_DATA = [
-  { country: 'États-Unis', flag: '🇺🇸', amount: '$45,231', pct: '35%' },
-  { country: 'Haïti',      flag: '🇭🇹', amount: '$22,410', pct: '17%' },
-  { country: 'France',     flag: '🇫🇷', amount: '$18,245', pct: '14%' },
-  { country: 'Canada',     flag: '🇨🇦', amount: '$15,320', pct: '12%' },
-  { country: 'Autres',     flag: '🌍', amount: '$27,354', pct: '22%' },
-];
+const CAT_COLORS = ['#6C4DFF', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
 const STATUS_COLORS = {
   confirmed: '#6C4DFF',
@@ -1476,6 +1460,10 @@ export default function AdminConsoleScreen({ navigation }) {
   const [cjSyncLoading, setCjSyncLoading] = useState(false);
   const [cjSyncProgress, setCjSyncProgress] = useState({ current: 0, total: 0, label: '' });
 
+  /* dashboard charts */
+  const [weekData, setWeekData] = useState([0, 0, 0, 0, 0, 0, 0]);
+  const [topCats, setTopCats]   = useState([]);
+
   /* banner CMS */
   const [bannerModal,   setBannerModal]   = useState(false);
   const [editingBanner, setEditingBanner] = useState(null);
@@ -1529,6 +1517,8 @@ export default function AdminConsoleScreen({ navigation }) {
         { data: recentOrdersData },
         { data: productsData },
         { data: revenueData },
+        { data: weekOrdersData },
+        { data: topCatsRaw },
       ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('orders').select('id', { count: 'exact', head: true }),
@@ -1544,6 +1534,8 @@ export default function AdminConsoleScreen({ navigation }) {
         supabase.from('orders').select('id,total_amount,status,created_at,buyer_id').order('created_at', { ascending: false }).limit(20),
         supabase.from('products').select('id,title,price,status,images').limit(20),
         supabase.from('orders').select('total_amount'),
+        supabase.from('orders').select('created_at').gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase.from('products').select('category').not('category', 'is', null),
       ]);
 
       setUsersCount(uc ?? 0);
@@ -1561,6 +1553,30 @@ export default function AdminConsoleScreen({ navigation }) {
       setProducts(productsData ?? []);
       const totalRevenue = (revenueData ?? []).reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0);
       setRevenue(totalRevenue);
+
+      // Build weekData: count of orders per day for last 7 days (index 0 = 6 days ago, index 6 = today)
+      const now = new Date();
+      const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+      (weekOrdersData ?? []).forEach(o => {
+        const diffMs = now - new Date(o.created_at);
+        const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+        const idx = 6 - diffDays;
+        if (idx >= 0 && idx <= 6) dayCounts[idx]++;
+      });
+      setWeekData(dayCounts);
+
+      // Build topCats: count occurrences per category, take top 5
+      const catMap = {};
+      (topCatsRaw ?? []).forEach(p => {
+        if (p.category) catMap[p.category] = (catMap[p.category] ?? 0) + 1;
+      });
+      const total = Object.values(catMap).reduce((s, v) => s + v, 0) || 1;
+      const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      setTopCats(sorted.map(([name, count], idx) => ({
+        name,
+        pct: Math.round((count / total) * 100),
+        color: CAT_COLORS[idx % CAT_COLORS.length],
+      })));
     } catch (e) {
       console.warn('loadAll error', e);
     } finally {
@@ -2740,14 +2756,17 @@ export default function AdminConsoleScreen({ navigation }) {
                   </View>
                 </View>
                 {/* Y axis max label */}
-                <Text style={{ fontSize: 9, color: DARK.mute, marginBottom: 4 }}>{MAX_BAR}</Text>
+                <Text style={{ fontSize: 9, color: DARK.mute, marginBottom: 4 }}>{Math.max(...weekData, 1)}</Text>
                 {/* Bars */}
                 <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 90 }}>
-                  {WEEK_BARS.map((v, i) => (
-                    <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: 80 }}>
-                      <View style={{ width: '100%', height: Math.round((v / MAX_BAR) * 80), backgroundColor: '#6C4DFF', borderRadius: 4 }} />
-                    </View>
-                  ))}
+                  {weekData.map((v, i) => {
+                    const maxBar = Math.max(...weekData, 1);
+                    return (
+                      <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: 80 }}>
+                        <View style={{ width: '100%', height: Math.max(Math.round((v / maxBar) * 80), 2), backgroundColor: '#6C4DFF', borderRadius: 4 }} />
+                      </View>
+                    );
+                  })}
                 </View>
                 {/* Day labels */}
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
@@ -2769,21 +2788,23 @@ export default function AdminConsoleScreen({ navigation }) {
               </DarkCard>
 
               {/* Top categories */}
-              <DarkCard style={{ marginBottom: 16, padding: 14 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: DARK.text, marginBottom: 12 }}>Top Catégories</Text>
-                {TOP_CATS.map((cat, i) => (
-                  <View key={i} style={{ marginBottom: i < TOP_CATS.length - 1 ? 12 : 0 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5, gap: 8 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: cat.color }} />
-                      <Text style={{ flex: 1, fontSize: 12, color: DARK.text }}>{cat.name}</Text>
-                      <Text style={{ fontSize: 12, color: DARK.mute, fontWeight: '600' }}>{cat.pct}%</Text>
+              {topCats.length > 0 && (
+                <DarkCard style={{ marginBottom: 16, padding: 14 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: DARK.text, marginBottom: 12 }}>Top Catégories</Text>
+                  {topCats.map((cat, i) => (
+                    <View key={i} style={{ marginBottom: i < topCats.length - 1 ? 12 : 0 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5, gap: 8 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: cat.color }} />
+                        <Text style={{ flex: 1, fontSize: 12, color: DARK.text }}>{cat.name}</Text>
+                        <Text style={{ fontSize: 12, color: DARK.mute, fontWeight: '600' }}>{cat.pct}%</Text>
+                      </View>
+                      <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', width: '100%' }}>
+                        <View style={{ height: 4, borderRadius: 2, backgroundColor: cat.color, width: cat.pct + '%' }} />
+                      </View>
                     </View>
-                    <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', width: '100%' }}>
-                      <View style={{ height: 4, borderRadius: 2, backgroundColor: cat.color, width: cat.pct + '%' }} />
-                    </View>
-                  </View>
-                ))}
-              </DarkCard>
+                  ))}
+                </DarkCard>
+              )}
 
               {/* Recent orders */}
               <DarkCard style={{ marginBottom: 16 }}>
@@ -2813,16 +2834,9 @@ export default function AdminConsoleScreen({ navigation }) {
                 <View style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: DARK.border }}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: DARK.text }}>Ventes par région</Text>
                 </View>
-                {LOCATION_DATA.map((loc, i) => (
-                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: DARK.border }}>
-                    <Text style={{ fontSize: 18 }}>{loc.flag}</Text>
-                    <Text style={{ flex: 1, fontSize: 12, color: DARK.text }}>{loc.country}</Text>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: DARK.text, marginRight: 8 }}>{loc.amount}</Text>
-                    <View style={{ backgroundColor: 'rgba(108,77,255,0.15)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
-                      <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '600' }}>{loc.pct}</Text>
-                    </View>
-                  </View>
-                ))}
+                <View style={{ padding: 14, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: DARK.mute, textAlign: 'center' }}>Données géographiques — bientôt disponible</Text>
+                </View>
               </DarkCard>
             </>
           )}
@@ -3274,39 +3288,7 @@ export default function AdminConsoleScreen({ navigation }) {
           {!loading && section === 'notifications' && <AdminNotifSection />}
 
           {/* ── REPORTS ── */}
-          {!loading && section === 'reports' && (
-            <>
-              <View style={{ backgroundColor: 'rgba(209,67,67,0.12)', borderWidth: 1, borderColor: 'rgba(209,67,67,0.3)', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <Icon name="zap" size={18} color={COLORS.danger} />
-                <Text style={{ fontSize: 13, color: DARK.text, fontWeight: '500', flex: 1 }}>Vérifiez les signalements en attente</Text>
-              </View>
-              <DarkCard>
-                {[
-                  { subject: 'Produit contrefait',  target: 'boutique #2841', time: 'il y a 2h', severity: 'urgent' },
-                  { subject: 'Avis frauduleux',     target: '@fastdeals',     time: 'il y a 5h', severity: 'moyen' },
-                  { subject: 'Contenu inapproprié', target: 'produit #9921',  time: 'il y a 1j', severity: 'moyen' },
-                ].map((r, i) => (
-                  <View key={i} style={{ padding: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: DARK.border }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: DARK.text }}>{r.subject}</Text>
-                      <View style={{ backgroundColor: r.severity === 'urgent' ? COLORS.danger : 'rgba(198,138,0,0.25)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                        <Text style={{ fontSize: 9, fontWeight: '700', color: r.severity === 'urgent' ? '#fff' : '#F59E0B' }}>{r.severity}</Text>
-                      </View>
-                    </View>
-                    <Text style={{ fontSize: 11, color: DARK.mute, marginBottom: 8 }}>Cible : {r.target} · {r.time}</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity style={{ flex: 1, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: DARK.text, fontSize: 12, fontWeight: '600' }}>Examiner</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={{ flex: 1, height: 32, borderRadius: 8, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Résoudre</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
-              </DarkCard>
-            </>
-          )}
+          {!loading && section === 'reports' && <ComingSoon icon="zap" label="Rapports & Signalements" />}
 
           {/* ── BANNERS ── */}
           {!loading && section === 'banners' && (

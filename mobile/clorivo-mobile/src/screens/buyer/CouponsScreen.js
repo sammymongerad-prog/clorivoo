@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { COLORS, RADIUS, SHADOW } from '../../lib/tokens';
 import { supabase } from '../../lib/supabase';
 
-const FALLBACK_COUPONS = [
-  { id: 'c1', code: 'SAVE10EUR', discount_value: 10, discount_type: 'fixed', min_order_amount: 50, expires_at: '2025-06-30', usage_limit: null, usage_count: 0, is_active: true },
-  { id: 'c2', code: 'FLASH15', discount_value: 15, discount_type: 'percent', min_order_amount: null, expires_at: '2025-07-15', usage_limit: null, usage_count: 0, is_active: true },
-  { id: 'c3', code: 'BIENV5', discount_value: 5, discount_type: 'fixed', min_order_amount: null, expires_at: '2025-12-31', usage_limit: 1, usage_count: 0, is_active: true },
-];
 
 function formatValue(coupon) {
   if (coupon.discount_type === 'percent') return `-${coupon.discount_value}%`;
@@ -112,12 +108,12 @@ export default function CouponsScreen({ navigation }) {
       try {
         const { data, error } = await supabase.from('coupons').select('*').eq('is_active', true);
         if (error || !data || data.length === 0) {
-          setCoupons(FALLBACK_COUPONS);
+          setCoupons([]);
         } else {
           setCoupons(data);
         }
       } catch (e) {
-        setCoupons(FALLBACK_COUPONS);
+        setCoupons([]);
       } finally {
         setLoading(false);
       }
@@ -173,7 +169,9 @@ export default function CouponsScreen({ navigation }) {
           {displayedCoupons.length === 0 && (
             <View style={{ alignItems: 'center', paddingVertical: 40 }}>
               <Text style={{ fontSize: 36 }}>🎟️</Text>
-              <Text style={{ fontSize: 16, color: COLORS.mute, marginTop: 12 }}>Aucun coupon dans cette catégorie</Text>
+              <Text style={{ fontSize: 16, color: COLORS.mute, marginTop: 12 }}>
+                {activeTab === 0 ? 'Aucun coupon disponible pour le moment' : 'Aucun coupon dans cette catégorie'}
+              </Text>
             </View>
           )}
           {displayedCoupons.map(coupon => (
