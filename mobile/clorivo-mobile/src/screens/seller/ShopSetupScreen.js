@@ -766,7 +766,7 @@ function TabCatalogue({ featuredCategories, featuredProducts, featuredCategoryId
               ? <Image source={{ uri: prod.image_url }} style={{ width: 48, height: 48, borderRadius: RADIUS.sm }} />
               : <View style={{ width: 48, height: 48, borderRadius: RADIUS.sm, backgroundColor: COLORS.primarySoft }} />}
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '600', color: COLORS.ink, fontSize: 14 }} numberOfLines={1}>{prod.name}</Text>
+              <Text style={{ fontWeight: '600', color: COLORS.ink, fontSize: 14 }} numberOfLines={1}>{prod.title ?? prod.name}</Text>
               <Text style={{ color: COLORS.mute, fontSize: 13 }}>{prod.price ? `${prod.price} FCFA` : ''}</Text>
             </View>
             <TouchableOpacity onPress={() => setFeaturedProductIds(ids => ids.filter(id => id !== prod.id))}>
@@ -860,7 +860,7 @@ function TabCatalogue({ featuredCategories, featuredProducts, featuredCategoryId
                     ? <Image source={{ uri: prod.image_url }} style={{ width: 40, height: 40, borderRadius: RADIUS.sm }} />
                     : <View style={{ width: 40, height: 40, borderRadius: RADIUS.sm, backgroundColor: COLORS.primarySoft }} />}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, color: COLORS.ink, fontWeight: '600' }} numberOfLines={1}>{prod.name}</Text>
+                    <Text style={{ fontSize: 14, color: COLORS.ink, fontWeight: '600' }} numberOfLines={1}>{prod.title ?? prod.name}</Text>
                     <Text style={{ fontSize: 13, color: COLORS.mute }}>{prod.price ? `${prod.price} FCFA` : ''}</Text>
                   </View>
                 </TouchableOpacity>

@@ -85,7 +85,7 @@ export default function SellerDashboardScreen({ navigation }) {
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <StatCard emoji="🛍️" label="Produits actifs" value={stats?.products_count ?? 0} />
-            <StatCard emoji="⭐" label="Note moyenne" value={`${(stats?.avg_rating ?? 4.8).toFixed(1)}`} color="#F59E0B" />
+            <StatCard emoji="⭐" label="Note moyenne" value={stats?.avg_rating != null ? stats.avg_rating.toFixed(1) : '—'} color="#F59E0B" />
           </View>
         </View>
 

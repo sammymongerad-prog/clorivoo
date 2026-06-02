@@ -247,9 +247,10 @@ export async function getSellerStats(userId) {
     supabase.from('products').select('id,price,rating').eq('seller_id', userId).eq('status', 'active'),
   ]);
   const productsCount = products?.length ?? 0;
-  const avgRating = productsCount
-    ? products.reduce((s, p) => s + (p.rating ?? 4.8), 0) / productsCount
-    : 4.8;
+  const ratedProducts = (products ?? []).filter(p => p.rating != null);
+  const avgRating = ratedProducts.length
+    ? ratedProducts.reduce((s, p) => s + p.rating, 0) / ratedProducts.length
+    : null;
   // revenue: sum order_items price*qty for last 30 days
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
   const { data: recentItems } = await supabase.from('order_items')
