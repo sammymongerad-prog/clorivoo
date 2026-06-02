@@ -136,7 +136,7 @@ const SHORTCUTS = [
   { type: 'combo',   label: 'Offres',     route: 'Categories' },
   { type: 'img',     label: 'Parrainage', route: null,         img: require('../../../assets/icons/parrainage.jpg') },
   { type: 'special', label: 'Flash Live', route: 'Categories' },
-  { emoji: '⭐',    label: 'Coupons',    route: null },
+  { type: 'img',     label: 'Coupons',    route: null, img: require('../../../assets/icons/coupon.jpg') },
   { type: 'img',     label: 'Boutiques',  route: null,         img: require('../../../assets/icons/boutique.jpg') },
   { type: 'img',     label: 'Suivi',      route: 'Orders',     img: require('../../../assets/icons/suivit.jpg') },
   { emoji: '💳',    label: 'Paiements',  badge: 'NOUVEAU',    badgeBg: '#2563EB', route: null },
