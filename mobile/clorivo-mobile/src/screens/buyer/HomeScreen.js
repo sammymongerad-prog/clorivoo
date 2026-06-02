@@ -39,8 +39,8 @@ const LOCAL_BANNERS = [
   { id: '3', source: require('../../../assets/banners/toys_kid.jpeg') },
 ];
 
-// Fixed banner height — image covers the container
-const BANNER_H = 180;
+// Height = banner width / 2.8 → ratio adapté aux images paysage larges
+const BANNER_H = Math.round(BANNER_W / 2.8);
 
 function HeroBannerCarousel() {
   const [active, setActive] = useState(0);
@@ -78,12 +78,13 @@ function HeroBannerCarousel() {
               height: BANNER_H,
               borderRadius: RADIUS.lg,
               overflow: 'hidden',
+              backgroundColor: '#F3F4F6',
             }}
           >
             <Image
               source={item.source}
               style={{ width: BANNER_W, height: BANNER_H }}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           </View>
         )}
