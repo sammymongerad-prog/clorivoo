@@ -39,6 +39,9 @@ const LOCAL_BANNERS = [
   { id: '3', source: require('../../../assets/banners/toys_kid.jpeg') },
 ];
 
+// 16:9 ratio so landscape banners are fully visible without cropping
+const BANNER_H = Math.round(BANNER_W * (9 / 16));
+
 function HeroBannerCarousel() {
   const [active, setActive] = useState(0);
   const flatRef = useRef(null);
@@ -69,11 +72,21 @@ function HeroBannerCarousel() {
         }}
         getItemLayout={(_, i) => ({ length: BANNER_W, offset: BANNER_W * i, index: i })}
         renderItem={({ item }) => (
-          <Image
-            source={item.source}
-            style={{ width: BANNER_W, height: 180, borderRadius: RADIUS.lg }}
-            resizeMode="cover"
-          />
+          <View
+            style={{
+              width: BANNER_W,
+              height: BANNER_H,
+              borderRadius: RADIUS.lg,
+              overflow: 'hidden',
+              backgroundColor: '#F3F4F6',
+            }}
+          >
+            <Image
+              source={item.source}
+              style={{ width: BANNER_W, height: BANNER_H }}
+              resizeMode="contain"
+            />
+          </View>
         )}
       />
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 }}>
