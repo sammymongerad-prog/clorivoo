@@ -4,7 +4,7 @@
 // Deploy: supabase functions deploy send-email
 
 const RESEND_URL = 'https://api.resend.com/emails';
-const FROM       = 'Clorivo <noreply@clorivo.com>';
+const FROM       = 'Clorivo <onboarding@resend.dev>'; // TODO: remplacer par noreply@clorivo.com après vérification domaine
 
 interface EmailPayload {
   to:      string;
