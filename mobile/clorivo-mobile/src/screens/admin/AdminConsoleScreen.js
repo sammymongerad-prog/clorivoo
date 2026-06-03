@@ -1604,7 +1604,7 @@ export default function AdminConsoleScreen({ navigation }) {
   async function approveKyc(req) {
     try {
       await supabase.from('kyc_requests').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', req.id);
-      await supabase.from('profiles').update({ role: 'seller', kyc_status: 'approved' }).eq('id', req.seller_id);
+      await supabase.from('profiles').update({ role: 'seller' }).eq('id', req.seller_id);
       setKycRequests(prev => prev.filter(r => r.id !== req.id));
     } catch (e) {
       console.warn('approveKyc error', e);
@@ -1614,8 +1614,7 @@ export default function AdminConsoleScreen({ navigation }) {
   async function rejectKyc() {
     if (!rejectTarget) return;
     try {
-      await supabase.from('kyc_requests').update({ status: 'rejected', admin_notes: rejectNotes, reviewed_at: new Date().toISOString() }).eq('id', rejectTarget.id);
-      await supabase.from('profiles').update({ kyc_status: 'rejected' }).eq('id', rejectTarget.seller_id);
+      await supabase.from('kyc_requests').update({ status: 'rejected', review_notes: rejectNotes, reviewed_at: new Date().toISOString() }).eq('id', rejectTarget.id);
       setKycRequests(prev => prev.filter(r => r.id !== rejectTarget.id));
     } catch (e) {
       console.warn('rejectKyc error', e);

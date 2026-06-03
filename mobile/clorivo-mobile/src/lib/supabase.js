@@ -67,7 +67,7 @@ export async function savePushToken(userId, token) {
 export async function getProducts({ categorySlug, categoryId, shopId, seller_id, limit = 20, offset = 0 } = {}) {
   let q = supabase
     .from('products')
-    .select('*, shops(id,name,is_verified,brand_color,followers,seller_id), categories(id,name,slug,color)')
+    .select('*, shops(id,name,is_verified,brand_color,followers,seller_id), categories(id,name,slug)')
     .range(offset, offset + limit - 1)
     .order('created_at', { ascending: false });
   if (shopId)     q = q.eq('shop_id', shopId);
