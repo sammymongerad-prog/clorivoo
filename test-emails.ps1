@@ -120,4 +120,5 @@ Write-Host "Tu dois avoir recu:" -ForegroundColor White
 Write-Host "  1. Email confirmation commande" -ForegroundColor White
 Write-Host "  2. Email commande expediee + numero de suivi" -ForegroundColor White
 Write-Host "  3. Email KYC approuve (si kyc_request existe)" -ForegroundColor White
-Write-Host "========================================`n" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
