@@ -36,7 +36,10 @@ Deno.serve(async (req) => {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     console.error('Resend error:', err);
-    return new Response(JSON.stringify({ error: err.message ?? 'Resend error' }), { status: 500 });
+    return new Response(JSON.stringify({ resend_status: res.status, resend_error: err }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
   }
 
   return new Response(JSON.stringify({ ok: true }), {
