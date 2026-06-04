@@ -12,6 +12,14 @@ jobs:
       ORDER_ID: aaaabbbb-cccc-dddd-eeee-ffff00009999
 
     steps:
+      - name: TEST DIRECT - send-email fonctionne
+        run: |
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
+            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d '{"to":"d32071267@gmail.com","subject":"[DEBUG] Test direct send-email","html":"<h1>Debug OK</h1><p>send-email fonctionne directement.</p>"}')
+          echo "Direct send-email response: $RESULT"
+          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES send-email direct" || echo "ECHEC send-email direct: $RESULT"
+
       - name: Fetch IDs from DB
         id: ids
         run: |
