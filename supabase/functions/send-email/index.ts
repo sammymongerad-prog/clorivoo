@@ -24,13 +24,17 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'to, subject and html are required' }), { status: 400 });
   }
 
+  // En mode test (sans domaine verifie), rediriger tous les emails vers TEST_EMAIL_OVERRIDE
+  const testOverride = Deno.env.get('TEST_EMAIL_OVERRIDE');
+  const recipient = testOverride ?? to;
+
   const res = await fetch(RESEND_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: FROM, to: [to], subject, html }),
+    body: JSON.stringify({ from: FROM, to: [recipient], subject: testOverride ? `[TEST -> ${to}] ${subject}` : subject, html }),
   });
 
   if (!res.ok) {
