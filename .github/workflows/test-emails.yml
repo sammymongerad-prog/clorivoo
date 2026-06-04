@@ -11,73 +11,99 @@ jobs:
       KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
-      - name: Fetch real buyer from DB
-        id: buyer
-        run: |
-          RESPONSE=$(curl -s "$BASE/rest/v1/profiles?select=id,email,full_name&email=not.is.null&limit=1" \
-            -H "Authorization: Bearer $KEY" -H "apikey: $KEY")
-          echo "data=$RESPONSE" >> $GITHUB_OUTPUT
-          echo "Buyer: $RESPONSE"
-
-      - name: Fetch real seller from DB
-        id: seller
-        run: |
-          RESPONSE=$(curl -s "$BASE/rest/v1/profiles?select=id,email,full_name&role=eq.seller&email=not.is.null&limit=1" \
-            -H "Authorization: Bearer $KEY" -H "apikey: $KEY")
-          echo "data=$RESPONSE" >> $GITHUB_OUTPUT
-          echo "Seller: $RESPONSE"
-
-      - name: TEST 1 - send-email direct
-        run: |
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
-            -H "Authorization: Bearer $KEY" \
-            -H "Content-Type: application/json" \
-            -d '{"to":"sammymongerad@gmail.com","subject":"[GitHub Actions] Test send-email direct","html":"<h1>Test direct OK</h1><p>Ce test a ete execute par GitHub Actions.</p>"}')
-          echo "Result: $RESULT"
-          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
-
-      - name: TEST 2 - on-new-order webhook
+      - name: Fetch IDs from DB
+        id: ids
         run: |
           BUYER_ID=$(curl -s "$BASE/rest/v1/profiles?select=id&email=not.is.null&limit=1" \
             -H "Authorization: Bearer $KEY" -H "apikey: $KEY" | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
-          echo "Using buyer_id: $BUYER_ID"
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-new-order" \
-            -H "Authorization: Bearer $KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"record\":{\"id\":\"test-github-actions-001\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":99.99,\"status\":\"pending\",\"shipping_address\":{\"street\":\"1 rue GitHub\",\"city\":\"Paris\",\"zip\":\"75001\",\"country\":\"France\"}}}")
-          echo "Result: $RESULT"
-          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
-
-      - name: TEST 3 - on-order-status (shipped)
-        run: |
-          BUYER_ID=$(curl -s "$BASE/rest/v1/profiles?select=id&email=not.is.null&limit=1" \
+          SELLER_ID=$(curl -s "$BASE/rest/v1/profiles?select=id&role=eq.seller&email=not.is.null&limit=1" \
             -H "Authorization: Bearer $KEY" -H "apikey: $KEY" | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
-            -H "Authorization: Bearer $KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"record\":{\"id\":\"test-github-actions-001\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":99.99,\"status\":\"shipped\",\"tracking_number\":\"GH-ACTIONS-TRACK-123\"},\"old_record\":{\"id\":\"test-github-actions-001\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":99.99,\"status\":\"pending\",\"tracking_number\":null}}")
-          echo "Result: $RESULT"
-          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
-
-      - name: TEST 4 - on-kyc-update (approved)
-        run: |
-          KYC=$(curl -s "$BASE/rest/v1/kyc_requests?select=id,seller_id,status&limit=1" \
+          KYC=$(curl -s "$BASE/rest/v1/kyc_requests?select=id,seller_id&limit=1" \
             -H "Authorization: Bearer $KEY" -H "apikey: $KEY")
           KYC_ID=$(echo $KYC | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')")
-          SELLER_ID=$(echo $KYC | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['seller_id'] if d else '')")
+          KYC_SELLER=$(echo $KYC | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['seller_id'] if d else '')")
+          echo "buyer_id=$BUYER_ID" >> $GITHUB_OUTPUT
+          echo "seller_id=$SELLER_ID" >> $GITHUB_OUTPUT
+          echo "kyc_id=$KYC_ID" >> $GITHUB_OUTPUT
+          echo "kyc_seller=$KYC_SELLER" >> $GITHUB_OUTPUT
+          echo "Buyer: $BUYER_ID | Seller: $SELLER_ID | KYC: $KYC_ID"
+
+      - name: EMAIL 1 - Confirmation commande (acheteur)
+        run: |
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-new-order" \
+            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d "{\"record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"pending\",\"shipping_address\":{\"street\":\"42 rue du Test\",\"city\":\"Montreal\",\"zip\":\"H2X1Y5\",\"country\":\"Canada\"}}}")
+          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
+
+      - name: EMAIL 2 - Commande confirmee (statut confirmed)
+        run: |
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
+            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d "{\"record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"confirmed\",\"tracking_number\":null},\"old_record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"pending\",\"tracking_number\":null}}")
+          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
+
+      - name: EMAIL 3 - Commande en traitement (statut processing)
+        run: |
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
+            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d "{\"record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"processing\",\"tracking_number\":null},\"old_record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"confirmed\",\"tracking_number\":null}}")
+          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
+
+      - name: EMAIL 4 - Commande expediee avec numero de suivi
+        run: |
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
+            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d "{\"record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"shipped\",\"tracking_number\":\"CLORIVO-TRACK-789XYZ\"},\"old_record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"processing\",\"tracking_number\":null}}")
+          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
+
+      - name: EMAIL 5 - Commande livree
+        run: |
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
+            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d "{\"record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"delivered\",\"tracking_number\":\"CLORIVO-TRACK-789XYZ\"},\"old_record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"shipped\",\"tracking_number\":\"CLORIVO-TRACK-789XYZ\"}}")
+          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
+
+      - name: EMAIL 6 - Commande annulee
+        run: |
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
+            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d "{\"record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"cancelled\",\"tracking_number\":null},\"old_record\":{\"id\":\"test-order-aaa111\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"processing\",\"tracking_number\":null}}")
+          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
+
+      - name: EMAIL 7 - KYC approuve (vendeur)
+        run: |
+          KYC_ID="${{ steps.ids.outputs.kyc_id }}"
+          KYC_SELLER="${{ steps.ids.outputs.kyc_seller }}"
           if [ -z "$KYC_ID" ]; then
             echo "SKIP: aucun kyc_request en DB"
           else
             RESULT=$(curl -s -X POST "$BASE/functions/v1/on-kyc-update" \
-              -H "Authorization: Bearer $KEY" \
-              -H "Content-Type: application/json" \
-              -d "{\"record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$SELLER_ID\",\"status\":\"approved\",\"review_notes\":null},\"old_record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$SELLER_ID\",\"status\":\"pending\",\"review_notes\":null}}")
-            echo "Result: $RESULT"
+              -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+              -d "{\"record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$KYC_SELLER\",\"status\":\"approved\",\"review_notes\":null},\"old_record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$KYC_SELLER\",\"status\":\"pending\",\"review_notes\":null}}")
             echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
           fi
 
-      - name: Resultat final
+      - name: EMAIL 8 - KYC rejete avec raison
+        run: |
+          KYC_ID="${{ steps.ids.outputs.kyc_id }}"
+          KYC_SELLER="${{ steps.ids.outputs.kyc_seller }}"
+          if [ -z "$KYC_ID" ]; then
+            echo "SKIP: aucun kyc_request en DB"
+          else
+            RESULT=$(curl -s -X POST "$BASE/functions/v1/on-kyc-update" \
+              -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+              -d "{\"record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$KYC_SELLER\",\"status\":\"rejected\",\"review_notes\":\"Document illisible. Veuillez soumettre une photo nette de votre piece d identite.\"},\"old_record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$KYC_SELLER\",\"status\":\"pending\",\"review_notes\":null}}")
+            echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES" || echo "ECHEC: $RESULT"
+          fi
+
+      - name: Resultat
         run: |
           echo "========================================"
-          echo "Tests termines - verifie sammymongerad@gmail.com"
+          echo "8 emails envoyes vers d32071267@gmail.com"
           echo "========================================"
