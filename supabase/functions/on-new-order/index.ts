@@ -12,12 +12,24 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const NOTIFY_URL   = `${SUPABASE_URL}/functions/v1/send-notification`;
-const EMAIL_URL    = `${SUPABASE_URL}/functions/v1/send-email`;
+const RESEND_URL   = 'https://api.resend.com/emails';
+const FROM         = 'Clorivo <onboarding@resend.dev>';
 
 const authHeader = () => ({
   'Authorization': `Bearer ${SERVICE_KEY}`,
   'Content-Type': 'application/json',
 });
+
+async function sendEmail(to: string, subject: string, html: string) {
+  const testOverride = Deno.env.get('TEST_EMAIL_OVERRIDE');
+  const recipient = testOverride ?? to;
+  const res = await fetch(RESEND_URL, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM, to: [recipient], subject: testOverride ? `[TEST -> ${to}] ${subject}` : subject, html }),
+  });
+  if (!res.ok) console.error('Resend error:', await res.json().catch(() => ({})));
+}
 
 function emailOrderConfirmation(order: any, items: any[], buyerName: string): string {
   const itemRows = items.map(i => `
@@ -161,14 +173,11 @@ Deno.serve(async (req) => {
   });
 
   if (buyerEmail) {
-    await fetch(EMAIL_URL, {
-      method: 'POST', headers: authHeader(),
-      body: JSON.stringify({
-        to: buyerEmail,
-        subject: `Commande confirmée #${order.id.slice(0,8).toUpperCase()} — Clorivo`,
-        html: emailOrderConfirmation(order, allItems, buyerName),
-      }),
-    });
+    await sendEmail(
+      buyerEmail,
+      `Commande confirmée #${order.id.slice(0,8).toUpperCase()} — Clorivo`,
+      emailOrderConfirmation(order, allItems, buyerName),
+    );
   }
 
   // Group items by seller
@@ -198,14 +207,11 @@ Deno.serve(async (req) => {
     ]);
 
     if (sellerProfile?.email) {
-      await fetch(EMAIL_URL, {
-        method: 'POST', headers: authHeader(),
-        body: JSON.stringify({
-          to: sellerProfile.email,
-          subject: `Nouvelle commande #${order.id.slice(0,8).toUpperCase()} — Clorivo`,
-          html: emailNewOrderSeller(order, sellerItems, shop?.name ?? sellerProfile.full_name ?? 'Vendeur'),
-        }),
-      });
+      await sendEmail(
+        sellerProfile.email,
+        `Nouvelle commande #${order.id.slice(0,8).toUpperCase()} — Clorivo`,
+        emailNewOrderSeller(order, sellerItems, shop?.name ?? sellerProfile.full_name ?? 'Vendeur'),
+      );
     }
   }
 

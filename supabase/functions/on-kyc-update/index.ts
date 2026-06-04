@@ -9,12 +9,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const EMAIL_URL    = `${SUPABASE_URL}/functions/v1/send-email`;
+const RESEND_URL   = 'https://api.resend.com/emails';
+const FROM         = 'Clorivo <onboarding@resend.dev>';
 
-const authHeader = () => ({
-  'Authorization': `Bearer ${SERVICE_KEY}`,
-  'Content-Type': 'application/json',
-});
+async function sendEmail(to: string, subject: string, html: string) {
+  const testOverride = Deno.env.get('TEST_EMAIL_OVERRIDE');
+  const recipient = testOverride ?? to;
+  const res = await fetch(RESEND_URL, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM, to: [recipient], subject: testOverride ? `[TEST -> ${to}] ${subject}` : subject, html }),
+  });
+  if (!res.ok) console.error('Resend error:', await res.json().catch(() => ({})));
+}
 
 function emailKycApproved(sellerName: string): string {
   return `<!DOCTYPE html>
@@ -131,23 +138,17 @@ Deno.serve(async (req) => {
   const sellerName = seller.full_name ?? 'Vendeur';
 
   if (kyc.status === 'approved') {
-    await fetch(EMAIL_URL, {
-      method: 'POST', headers: authHeader(),
-      body: JSON.stringify({
-        to: seller.email,
-        subject: '🎉 Votre compte vendeur Clorivo est activé !',
-        html: emailKycApproved(sellerName),
-      }),
-    });
+    await sendEmail(
+      seller.email,
+      'Votre compte vendeur Clorivo est active !',
+      emailKycApproved(sellerName),
+    );
   } else {
-    await fetch(EMAIL_URL, {
-      method: 'POST', headers: authHeader(),
-      body: JSON.stringify({
-        to: seller.email,
-        subject: 'Mise à jour de votre dossier KYC — Clorivo',
-        html: emailKycRejected(sellerName, kyc.review_notes),
-      }),
-    });
+    await sendEmail(
+      seller.email,
+      'Mise a jour de votre dossier KYC - Clorivo',
+      emailKycRejected(sellerName, kyc.review_notes),
+    );
   }
 
   return new Response(JSON.stringify({ ok: true }), {

@@ -10,12 +10,24 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const NOTIFY_URL   = `${SUPABASE_URL}/functions/v1/send-notification`;
-const EMAIL_URL    = `${SUPABASE_URL}/functions/v1/send-email`;
+const RESEND_URL   = 'https://api.resend.com/emails';
+const FROM         = 'Clorivo <onboarding@resend.dev>';
 
 const authHeader = () => ({
   'Authorization': `Bearer ${SERVICE_KEY}`,
   'Content-Type': 'application/json',
 });
+
+async function sendEmail(to: string, subject: string, html: string) {
+  const testOverride = Deno.env.get('TEST_EMAIL_OVERRIDE');
+  const recipient = testOverride ?? to;
+  const res = await fetch(RESEND_URL, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM, to: [recipient], subject: testOverride ? `[TEST -> ${to}] ${subject}` : subject, html }),
+  });
+  if (!res.ok) console.error('Resend error:', await res.json().catch(() => ({})));
+}
 
 const STATUS_CONFIG: Record<string, { emoji: string; label: string; color: string; message: string }> = {
   confirmed:  { emoji: '✅', label: 'Confirmée',   color: '#6C4DFF', message: 'Votre commande a été confirmée et est en cours de préparation.' },
@@ -104,14 +116,11 @@ Deno.serve(async (req) => {
 
   // Email
   if (buyerEmail) {
-    await fetch(EMAIL_URL, {
-      method: 'POST', headers: authHeader(),
-      body: JSON.stringify({
-        to: buyerEmail,
-        subject: `${cfg.emoji} Commande ${cfg.label} — #${order.id.slice(0,8).toUpperCase()} — Clorivo`,
-        html: emailStatusUpdate(order, order.status, buyerName, order.tracking_number),
-      }),
-    });
+    await sendEmail(
+      buyerEmail,
+      `${cfg.emoji} Commande ${cfg.label} — #${order.id.slice(0,8).toUpperCase()} — Clorivo`,
+      emailStatusUpdate(order, order.status, buyerName, order.tracking_number),
+    );
   }
 
   return new Response(JSON.stringify({ ok: true }), {
