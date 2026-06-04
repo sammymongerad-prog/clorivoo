@@ -9,114 +9,117 @@ jobs:
     env:
       BASE: https://vcptpgmsxwynbobsmmdd.supabase.co
       KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      TO: d32071267@gmail.com
+      ORDER_ID: test-order-full-chain-0001
 
     steps:
-      - name: EMAIL 1 - Confirmation commande (acheteur)
+      - name: Fetch real IDs from DB
+        id: ids
         run: |
-          HTML=$(python3 -c "
-          html = '''<!DOCTYPE html><html lang=\"fr\"><head><meta charset=\"UTF-8\"/></head>
-          <body style=\"margin:0;padding:0;background:#F4F2FF;font-family:-apple-system,BlinkMacSystemFont,sans-serif;\">
-          <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#F4F2FF;padding:40px 0;\">
-          <tr><td align=\"center\">
-          <table width=\"540\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(108,77,255,0.10);\">
-            <tr><td style=\"background:linear-gradient(135deg,#6C4DFF 0%,#8B6EFF 100%);padding:32px 40px;text-align:center;\">
-              <span style=\"font-size:30px;font-weight:900;color:#fff;letter-spacing:-1.5px;\">clorivo</span>
-              <p style=\"margin:6px 0 0;font-size:11px;color:rgba(255,255,255,0.75);letter-spacing:3px;text-transform:uppercase;\">shop &middot; sell &middot; ship</p>
-            </td></tr>
-            <tr><td style=\"padding:36px 40px 0;text-align:center;\">
-              <div style=\"width:64px;height:64px;border-radius:50%;background:#ECFDF5;margin:0 auto 16px;text-align:center;line-height:64px;font-size:32px;\">&#127881;</div>
-              <h1 style=\"margin:0 0 8px;font-size:22px;font-weight:800;color:#0E0B1F;\">Commande confirm&#233;e !</h1>
-              <p style=\"margin:0 0 4px;font-size:15px;color:#6B7280;\">Bonjour <strong>Jean Dupont</strong>,</p>
-              <p style=\"margin:0;font-size:15px;color:#6B7280;\">Votre commande a bien &#233;t&#233; re&#231;ue et est en cours de traitement.</p>
-            </td></tr>
-            <tr><td style=\"padding:24px 40px;\">
-              <div style=\"background:#F9F8FF;border-radius:12px;padding:16px 20px;margin-bottom:24px;\">
-                <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>
-                  <td><p style=\"margin:0;font-size:12px;color:#9CA3AF;text-transform:uppercase;font-weight:600;\">Num&#233;ro</p>
-                      <p style=\"margin:4px 0 0;font-size:16px;font-weight:800;color:#6C4DFF;\">#TEST0001</p></td>
-                  <td style=\"text-align:right;\"><p style=\"margin:0;font-size:12px;color:#9CA3AF;text-transform:uppercase;font-weight:600;\">Total</p>
-                      <p style=\"margin:4px 0 0;font-size:22px;font-weight:900;color:#0E0B1F;\">129.99$</p></td>
-                </tr></table>
-              </div>
-              <h2 style=\"margin:0 0 12px;font-size:15px;font-weight:700;color:#0E0B1F;\">Articles command&#233;s</h2>
-              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">
-                <tr><td style=\"padding:12px 0;border-bottom:1px solid #F3F4F6;\">
-                  <table width=\"100%\"><tr>
-                    <td style=\"padding-right:12px;width:60px;\"><div style=\"width:56px;height:56px;background:#F0EDFF;border-radius:8px;\"></div></td>
-                    <td><p style=\"margin:0 0 3px;font-size:14px;font-weight:600;color:#0E0B1F;\">Produit de test</p>
-                        <p style=\"margin:0;font-size:12px;color:#6B7280;\">Qt&#233; : 2</p></td>
-                    <td style=\"text-align:right;\"><p style=\"margin:0;font-size:14px;font-weight:700;color:#0E0B1F;\">129.98$</p></td>
-                  </tr></table>
-                </td></tr>
-              </table>
-              <div style=\"margin-top:20px;background:#F9F8FF;border-radius:12px;padding:14px 18px;\">
-                <p style=\"margin:0 0 6px;font-size:12px;color:#9CA3AF;font-weight:600;text-transform:uppercase;\">Livraison &#224;</p>
-                <p style=\"margin:0;font-size:14px;color:#0E0B1F;\">42 rue du Test, Montreal, H2X1Y5, Canada</p>
-              </div>
-            </td></tr>
-            <tr><td style=\"background:#F9F8FF;padding:20px 40px;border-top:1px solid #EDE9FF;\">
-              <p style=\"margin:0;font-size:12px;color:#9CA3AF;text-align:center;\">&#169; 2025 Clorivo &mdash; Des questions ? Contactez notre support.</p>
-            </td></tr>
-          </table></td></tr></table></body></html>'''
-          import json; print(json.dumps(html))
-          ")
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
+          BUYER=$(curl -s "$BASE/rest/v1/profiles?select=id,email&email=not.is.null&limit=1" \
+            -H "Authorization: Bearer $KEY" -H "apikey: $KEY")
+          BUYER_ID=$(echo $BUYER | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
+          BUYER_EMAIL=$(echo $BUYER | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['email'])")
+
+          SELLER=$(curl -s "$BASE/rest/v1/profiles?select=id,email&role=eq.seller&email=not.is.null&limit=1" \
+            -H "Authorization: Bearer $KEY" -H "apikey: $KEY")
+          SELLER_ID=$(echo $SELLER | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')")
+
+          KYC=$(curl -s "$BASE/rest/v1/kyc_requests?select=id,seller_id&limit=1" \
+            -H "Authorization: Bearer $KEY" -H "apikey: $KEY")
+          KYC_ID=$(echo $KYC | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')")
+          KYC_SELLER=$(echo $KYC | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['seller_id'] if d else '')")
+
+          echo "buyer_id=$BUYER_ID" >> $GITHUB_OUTPUT
+          echo "buyer_email=$BUYER_EMAIL" >> $GITHUB_OUTPUT
+          echo "seller_id=$SELLER_ID" >> $GITHUB_OUTPUT
+          echo "kyc_id=$KYC_ID" >> $GITHUB_OUTPUT
+          echo "kyc_seller=$KYC_SELLER" >> $GITHUB_OUTPUT
+          echo "Buyer: $BUYER_ID ($BUYER_EMAIL) | Seller: $SELLER_ID | KYC: $KYC_ID"
+
+      - name: EMAIL 1 - Confirmation commande (on-new-order avec vrai buyer)
+        run: |
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-new-order" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-            -d "{\"to\":\"$TO\",\"subject\":\"Commande confirmee #TEST0001 - Clorivo\",\"html\":$HTML}")
+            -d "{\"record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"pending\",\"shipping_address\":{\"street\":\"42 rue du Test\",\"city\":\"Montreal\",\"zip\":\"H2X1Y5\",\"country\":\"Canada\"}}}")
+          echo "Response: $RESULT"
           echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 1" || echo "ECHEC: $RESULT"
 
-      - name: EMAIL 2 - Commande confirmee (statut confirmed)
+      - name: EMAIL 2 - Commande confirmee (on-order-status)
         run: |
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-            -d "{\"to\":\"$TO\",\"subject\":\"Votre commande est confirmee - Clorivo\",\"html\":\"<!DOCTYPE html><html><body style='background:#F4F2FF;font-family:sans-serif;padding:40px;'><table width='540' style='background:#fff;border-radius:20px;overflow:hidden;margin:auto;'><tr><td style='background:linear-gradient(135deg,#6C4DFF,#8B6EFF);padding:32px;text-align:center;'><span style='font-size:28px;font-weight:900;color:#fff;'>clorivo</span></td></tr><tr><td style='padding:36px;text-align:center;'><div style='font-size:40px;margin-bottom:16px;'>&#9989;</div><h1 style='color:#0E0B1F;'>Commande Confirm&#233;e</h1><p style='color:#6B7280;'>Bonjour <strong>Jean Dupont</strong>, votre commande a &#233;t&#233; confirm&#233;e et est en cours de pr&#233;paration.</p><div style='background:#F9F8FF;border-radius:12px;padding:16px;margin-top:20px;'><p style='color:#9CA3AF;font-size:12px;text-transform:uppercase;'>Commande</p><p style='color:#6C4DFF;font-size:18px;font-weight:800;'>#TEST0001 &mdash; 129.99$</p></div></td></tr><tr><td style='background:#F9F8FF;padding:20px;text-align:center;'><p style='color:#9CA3AF;font-size:12px;'>&#169; 2025 Clorivo</p></td></tr></table></body></html>\"}")
+            -d "{\"record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"confirmed\",\"tracking_number\":null},\"old_record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"pending\",\"tracking_number\":null}}")
+          echo "Response: $RESULT"
           echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 2" || echo "ECHEC: $RESULT"
 
-      - name: EMAIL 3 - Commande en traitement (processing)
+      - name: EMAIL 3 - Commande en traitement (on-order-status)
         run: |
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-            -d "{\"to\":\"$TO\",\"subject\":\"Votre commande est en traitement - Clorivo\",\"html\":\"<!DOCTYPE html><html><body style='background:#F4F2FF;font-family:sans-serif;padding:40px;'><table width='540' style='background:#fff;border-radius:20px;overflow:hidden;margin:auto;'><tr><td style='background:linear-gradient(135deg,#6C4DFF,#8B6EFF);padding:32px;text-align:center;'><span style='font-size:28px;font-weight:900;color:#fff;'>clorivo</span></td></tr><tr><td style='padding:36px;text-align:center;'><div style='font-size:40px;margin-bottom:16px;'>&#9881;&#65039;</div><h1 style='color:#0E0B1F;'>Commande En Traitement</h1><p style='color:#6B7280;'>Bonjour <strong>Jean Dupont</strong>, votre commande est en cours de traitement.</p><div style='background:#F9F8FF;border-radius:12px;padding:16px;margin-top:20px;'><p style='color:#9CA3AF;font-size:12px;text-transform:uppercase;'>Commande</p><p style='color:#3B82F6;font-size:18px;font-weight:800;'>#TEST0001 &mdash; 129.99$</p></div></td></tr><tr><td style='background:#F9F8FF;padding:20px;text-align:center;'><p style='color:#9CA3AF;font-size:12px;'>&#169; 2025 Clorivo</p></td></tr></table></body></html>\"}")
+            -d "{\"record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"processing\",\"tracking_number\":null},\"old_record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"confirmed\",\"tracking_number\":null}}")
+          echo "Response: $RESULT"
           echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 3" || echo "ECHEC: $RESULT"
 
-      - name: EMAIL 4 - Commande expediee avec numero de suivi
+      - name: EMAIL 4 - Commande expediee avec suivi (on-order-status)
         run: |
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-            -d "{\"to\":\"$TO\",\"subject\":\"Votre commande est en chemin ! - Clorivo\",\"html\":\"<!DOCTYPE html><html><body style='background:#F4F2FF;font-family:sans-serif;padding:40px;'><table width='540' style='background:#fff;border-radius:20px;overflow:hidden;margin:auto;'><tr><td style='background:linear-gradient(135deg,#6C4DFF,#8B6EFF);padding:32px;text-align:center;'><span style='font-size:28px;font-weight:900;color:#fff;'>clorivo</span></td></tr><tr><td style='padding:36px;text-align:center;'><div style='font-size:40px;margin-bottom:16px;'>&#128666;</div><h1 style='color:#0E0B1F;'>Commande Exp&#233;di&#233;e !</h1><p style='color:#6B7280;'>Bonjour <strong>Jean Dupont</strong>, votre commande est en chemin ! Vous la recevrez bient&#244;t.</p><div style='background:#F0EDFF;border-radius:12px;padding:16px;margin-top:20px;'><p style='color:#9CA3AF;font-size:12px;text-transform:uppercase;'>Num&#233;ro de suivi</p><p style='color:#6C4DFF;font-size:18px;font-weight:800;letter-spacing:2px;'>CLORIVO-TRACK-789XYZ</p></div><div style='background:#F9F8FF;border-radius:12px;padding:16px;margin-top:12px;'><p style='color:#9CA3AF;font-size:12px;text-transform:uppercase;'>Commande</p><p style='color:#0E0B1F;font-size:18px;font-weight:800;'>#TEST0001 &mdash; 129.99$</p></div></td></tr><tr><td style='background:#F9F8FF;padding:20px;text-align:center;'><p style='color:#9CA3AF;font-size:12px;'>&#169; 2025 Clorivo</p></td></tr></table></body></html>\"}")
+            -d "{\"record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"shipped\",\"tracking_number\":\"CLORIVO-TRACK-789XYZ\"},\"old_record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"processing\",\"tracking_number\":null}}")
+          echo "Response: $RESULT"
           echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 4" || echo "ECHEC: $RESULT"
 
-      - name: EMAIL 5 - Commande livree
+      - name: EMAIL 5 - Commande livree (on-order-status)
         run: |
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-            -d "{\"to\":\"$TO\",\"subject\":\"Votre commande a ete livree ! - Clorivo\",\"html\":\"<!DOCTYPE html><html><body style='background:#F4F2FF;font-family:sans-serif;padding:40px;'><table width='540' style='background:#fff;border-radius:20px;overflow:hidden;margin:auto;'><tr><td style='background:linear-gradient(135deg,#6C4DFF,#8B6EFF);padding:32px;text-align:center;'><span style='font-size:28px;font-weight:900;color:#fff;'>clorivo</span></td></tr><tr><td style='padding:36px;text-align:center;'><div style='font-size:40px;margin-bottom:16px;'>&#127873;</div><h1 style='color:#0E0B1F;'>Commande Livr&#233;e !</h1><p style='color:#6B7280;'>Bonjour <strong>Jean Dupont</strong>, votre commande a &#233;t&#233; livr&#233;e. Profitez bien de vos achats !</p><div style='background:#ECFDF5;border-radius:12px;padding:16px;margin-top:20px;'><p style='color:#10B981;font-size:16px;font-weight:700;'>&#9989; Livraison confirm&#233;e</p><p style='color:#0E0B1F;font-size:14px;'>Commande #TEST0001 &mdash; 129.99$</p></div></td></tr><tr><td style='background:#F9F8FF;padding:20px;text-align:center;'><p style='color:#9CA3AF;font-size:12px;'>&#169; 2025 Clorivo</p></td></tr></table></body></html>\"}")
+            -d "{\"record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"delivered\",\"tracking_number\":\"CLORIVO-TRACK-789XYZ\"},\"old_record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"shipped\",\"tracking_number\":\"CLORIVO-TRACK-789XYZ\"}}")
+          echo "Response: $RESULT"
           echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 5" || echo "ECHEC: $RESULT"
 
-      - name: EMAIL 6 - Commande annulee
+      - name: EMAIL 6 - Commande annulee (on-order-status)
         run: |
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
+          BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
+          RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-            -d "{\"to\":\"$TO\",\"subject\":\"Votre commande a ete annulee - Clorivo\",\"html\":\"<!DOCTYPE html><html><body style='background:#F4F2FF;font-family:sans-serif;padding:40px;'><table width='540' style='background:#fff;border-radius:20px;overflow:hidden;margin:auto;'><tr><td style='background:linear-gradient(135deg,#6C4DFF,#8B6EFF);padding:32px;text-align:center;'><span style='font-size:28px;font-weight:900;color:#fff;'>clorivo</span></td></tr><tr><td style='padding:36px;text-align:center;'><div style='font-size:40px;margin-bottom:16px;'>&#10060;</div><h1 style='color:#0E0B1F;'>Commande Annul&#233;e</h1><p style='color:#6B7280;'>Bonjour <strong>Jean Dupont</strong>, votre commande a &#233;t&#233; annul&#233;e.</p><div style='background:#FEF2F2;border-radius:12px;padding:16px;margin-top:20px;'><p style='color:#EF4444;font-size:14px;'>Commande #TEST0001 &mdash; 129.99$</p><p style='color:#6B7280;font-size:13px;'>Si vous avez des questions, contactez notre support.</p></div></td></tr><tr><td style='background:#F9F8FF;padding:20px;text-align:center;'><p style='color:#9CA3AF;font-size:12px;'>&#169; 2025 Clorivo</p></td></tr></table></body></html>\"}")
+            -d "{\"record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"cancelled\",\"tracking_number\":null},\"old_record\":{\"id\":\"$ORDER_ID\",\"buyer_id\":\"$BUYER_ID\",\"total_amount\":129.99,\"status\":\"processing\",\"tracking_number\":null}}")
+          echo "Response: $RESULT"
           echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 6" || echo "ECHEC: $RESULT"
 
-      - name: EMAIL 7 - KYC approuve (vendeur)
+      - name: EMAIL 7 - KYC approuve (on-kyc-update)
         run: |
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
-            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-            -d "{\"to\":\"$TO\",\"subject\":\"Votre dossier KYC a ete approuve - Clorivo\",\"html\":\"<!DOCTYPE html><html><body style='background:#F4F2FF;font-family:sans-serif;padding:40px;'><table width='540' style='background:#fff;border-radius:20px;overflow:hidden;margin:auto;'><tr><td style='background:linear-gradient(135deg,#6C4DFF,#8B6EFF);padding:32px;text-align:center;'><span style='font-size:28px;font-weight:900;color:#fff;'>clorivo</span></td></tr><tr><td style='padding:36px;text-align:center;'><div style='font-size:40px;margin-bottom:16px;'>&#127881;</div><h1 style='color:#0E0B1F;'>KYC Approuv&#233; !</h1><p style='color:#6B7280;'>Bonjour <strong>Vendeur</strong>, votre dossier de v&#233;rification a &#233;t&#233; approuv&#233;.</p><div style='background:#ECFDF5;border-radius:12px;padding:20px;margin-top:20px;text-align:left;'><p style='color:#10B981;font-weight:700;margin:0 0 12px;'>&#9989; Compte vendeur activ&#233;</p><p style='color:#6B7280;font-size:14px;margin:0 0 8px;'>Vous pouvez maintenant :</p><ul style='color:#6B7280;font-size:14px;margin:0;padding-left:20px;'><li>Publier vos produits</li><li>Recevoir des commandes</li><li>Acc&#233;der &#224; votre tableau de bord vendeur</li></ul></div></td></tr><tr><td style='background:#F9F8FF;padding:20px;text-align:center;'><p style='color:#9CA3AF;font-size:12px;'>&#169; 2025 Clorivo</p></td></tr></table></body></html>\"}")
-          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 7" || echo "ECHEC: $RESULT"
+          KYC_ID="${{ steps.ids.outputs.kyc_id }}"
+          KYC_SELLER="${{ steps.ids.outputs.kyc_seller }}"
+          if [ -z "$KYC_ID" ]; then
+            echo "SKIP: aucun kyc_request en DB"
+          else
+            RESULT=$(curl -s -X POST "$BASE/functions/v1/on-kyc-update" \
+              -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+              -d "{\"record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$KYC_SELLER\",\"status\":\"approved\",\"review_notes\":null},\"old_record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$KYC_SELLER\",\"status\":\"pending\",\"review_notes\":null}}")
+            echo "Response: $RESULT"
+            echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 7" || echo "ECHEC: $RESULT"
+          fi
 
-      - name: EMAIL 8 - KYC rejete avec raison
+      - name: EMAIL 8 - KYC rejete (on-kyc-update)
         run: |
-          RESULT=$(curl -s -X POST "$BASE/functions/v1/send-email" \
-            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-            -d "{\"to\":\"$TO\",\"subject\":\"Votre dossier KYC a ete rejete - Clorivo\",\"html\":\"<!DOCTYPE html><html><body style='background:#F4F2FF;font-family:sans-serif;padding:40px;'><table width='540' style='background:#fff;border-radius:20px;overflow:hidden;margin:auto;'><tr><td style='background:linear-gradient(135deg,#6C4DFF,#8B6EFF);padding:32px;text-align:center;'><span style='font-size:28px;font-weight:900;color:#fff;'>clorivo</span></td></tr><tr><td style='padding:36px;text-align:center;'><div style='font-size:40px;margin-bottom:16px;'>&#128203;</div><h1 style='color:#0E0B1F;'>Dossier KYC Rejet&#233;</h1><p style='color:#6B7280;'>Bonjour <strong>Vendeur</strong>, votre dossier KYC n'a pas pu &#234;tre valid&#233;.</p><div style='background:#FEF2F2;border-radius:12px;padding:20px;margin-top:20px;text-align:left;'><p style='color:#EF4444;font-weight:700;margin:0 0 8px;'>Motif du rejet :</p><p style='color:#6B7280;font-size:14px;margin:0;font-style:italic;'>Document illisible. Veuillez soumettre une photo nette de votre pi&#232;ce d'identit&#233;.</p></div><div style='margin-top:20px;'><p style='color:#6B7280;font-size:14px;'>Vous pouvez soumettre un nouveau dossier depuis votre espace vendeur.</p></div></td></tr><tr><td style='background:#F9F8FF;padding:20px;text-align:center;'><p style='color:#9CA3AF;font-size:12px;'>&#169; 2025 Clorivo</p></td></tr></table></body></html>\"}")
-          echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 8" || echo "ECHEC: $RESULT"
+          KYC_ID="${{ steps.ids.outputs.kyc_id }}"
+          KYC_SELLER="${{ steps.ids.outputs.kyc_seller }}"
+          if [ -z "$KYC_ID" ]; then
+            echo "SKIP: aucun kyc_request en DB"
+          else
+            RESULT=$(curl -s -X POST "$BASE/functions/v1/on-kyc-update" \
+              -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+              -d "{\"record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$KYC_SELLER\",\"status\":\"rejected\",\"review_notes\":\"Document illisible. Veuillez soumettre une photo nette.\"},\"old_record\":{\"id\":\"$KYC_ID\",\"seller_id\":\"$KYC_SELLER\",\"status\":\"pending\",\"review_notes\":null}}")
+            echo "Response: $RESULT"
+            echo "$RESULT" | grep -q '"ok":true' && echo "SUCCES EMAIL 8" || echo "ECHEC: $RESULT"
+          fi
 
       - name: Resultat
         run: |
           echo "========================================"
-          echo "8 emails envoyes vers $TO"
+          echo "Test complet - emails via orchestrateurs"
           echo "========================================"
