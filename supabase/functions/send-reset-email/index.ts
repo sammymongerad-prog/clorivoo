@@ -30,6 +30,9 @@ serve(async (req) => {
     const resetLink = data.properties?.action_link;
 
     // Send via Resend API
+    const testOverride = Deno.env.get('TEST_EMAIL_OVERRIDE');
+    const recipient = testOverride ?? email;
+    const subject = 'Reinitialisation de votre mot de passe - Clorivo';
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -37,9 +40,9 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Clorivo <noreply@resend.dev>',
-        to: [email],
-        subject: 'Réinitialisation de votre mot de passe – Clorivo',
+        from: 'Clorivo <onboarding@resend.dev>',
+        to: [recipient],
+        subject: testOverride ? `[TEST -> ${email}] ${subject}` : subject,
         html: buildEmailHtml(resetLink),
       }),
     });
