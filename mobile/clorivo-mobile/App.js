@@ -174,7 +174,7 @@ function AppNavigator() {
 }
 
 const linking = {
-  prefixes: ['clorivo://', 'https://clorivo.app', 'http://localhost:8081'],
+  prefixes: ['clorivo://', 'https://clorivo.app', 'https://clorivoo.vercel.app', 'http://localhost:8081', 'http://localhost:3000'],
   config: {
     screens: {
       ResetPassword: 'reset-password',
