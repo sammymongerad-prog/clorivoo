@@ -45,7 +45,7 @@ export default function SplashScreen({ navigation }) {
     const minWait = setTimeout(() => {
       ready.current = true;
       redirect();
-    }, 2800);
+    }, 1500);
     return () => clearTimeout(minWait);
   }, []);
 
@@ -57,7 +57,7 @@ export default function SplashScreen({ navigation }) {
     const s = sessionRef.current;
     if (s === undefined) {
       // Fallback: if session still unknown after 5s total, go to Onboarding
-      setTimeout(() => navigation.replace('Onboarding'), 2200);
+      setTimeout(() => navigation.replace('Onboarding'), 500);
       return;
     }
     navigation.replace(s ? 'Tabs' : 'Onboarding');
