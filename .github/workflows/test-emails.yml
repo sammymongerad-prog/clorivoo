@@ -43,6 +43,7 @@ jobs:
 
       - name: EMAIL 1 - Bienvenue acheteur (on-new-user)
         run: |
+          sleep 3
           RESULT=$(curl -s -X POST "$BASE/functions/v1/on-new-user" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
             -d "{\"record\":{\"id\":\"test-001\",\"email\":\"$TO\",\"full_name\":\"Jean Dupont\",\"role\":\"buyer\"}}")
@@ -51,6 +52,7 @@ jobs:
 
       - name: EMAIL 2 - Bienvenue vendeur (on-new-user)
         run: |
+          sleep 3
           RESULT=$(curl -s -X POST "$BASE/functions/v1/on-new-user" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
             -d "{\"record\":{\"id\":\"test-002\",\"email\":\"$TO\",\"full_name\":\"Marie Vendeur\",\"role\":\"seller\"}}")
@@ -59,6 +61,7 @@ jobs:
 
       - name: EMAIL 3 - Confirmation commande acheteur (on-new-order)
         run: |
+          sleep 3
           BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
           RESULT=$(curl -s -X POST "$BASE/functions/v1/on-new-order" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
@@ -68,6 +71,7 @@ jobs:
 
       - name: EMAIL 4 - Commande confirmee (on-order-status)
         run: |
+          sleep 3
           BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
           RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
@@ -77,6 +81,7 @@ jobs:
 
       - name: EMAIL 5 - Commande expediee avec suivi (on-order-status)
         run: |
+          sleep 3
           BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
           RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
@@ -86,6 +91,7 @@ jobs:
 
       - name: EMAIL 6 - Commande livree (on-order-status)
         run: |
+          sleep 3
           BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
           RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
@@ -95,6 +101,7 @@ jobs:
 
       - name: EMAIL 7 - Commande annulee (on-order-status)
         run: |
+          sleep 3
           BUYER_ID="${{ steps.ids.outputs.buyer_id }}"
           RESULT=$(curl -s -X POST "$BASE/functions/v1/on-order-status" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
@@ -104,6 +111,7 @@ jobs:
 
       - name: EMAIL 8 - KYC approuve (on-kyc-update)
         run: |
+          sleep 3
           KYC_ID="${{ steps.ids.outputs.kyc_id }}"
           KYC_SELLER="${{ steps.ids.outputs.kyc_seller }}"
           if [ -z "$KYC_ID" ]; then
@@ -118,6 +126,7 @@ jobs:
 
       - name: EMAIL 9 - KYC rejete (on-kyc-update)
         run: |
+          sleep 3
           KYC_ID="${{ steps.ids.outputs.kyc_id }}"
           KYC_SELLER="${{ steps.ids.outputs.kyc_seller }}"
           if [ -z "$KYC_ID" ]; then
@@ -132,6 +141,7 @@ jobs:
 
       - name: EMAIL 10 - Nouveau message (on-new-message)
         run: |
+          sleep 3
           CONV_ID="${{ steps.ids.outputs.conv_id }}"
           CONV_BUYER="${{ steps.ids.outputs.conv_buyer }}"
           if [ -z "$CONV_ID" ]; then
@@ -146,6 +156,7 @@ jobs:
 
       - name: EMAIL 11 - Reset mot de passe (send-reset-email)
         run: |
+          sleep 3
           RESULT=$(curl -s -X POST "$BASE/functions/v1/send-reset-email" \
             -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
             -d "{\"email\":\"$TO\"}")
