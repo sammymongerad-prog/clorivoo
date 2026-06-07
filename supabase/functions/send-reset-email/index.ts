@@ -22,7 +22,7 @@ serve(async (req) => {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email,
-      options: { redirectTo: redirectTo ?? `${Deno.env.get('SITE_URL')}/#/reset-password` },
+      options: { redirectTo: redirectTo ?? `${Deno.env.get('SITE_URL')}/reset-password` },
     });
 
     if (linkError) throw linkError;

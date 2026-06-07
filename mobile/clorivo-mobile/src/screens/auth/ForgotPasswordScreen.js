@@ -23,11 +23,14 @@ export default function ForgotPasswordScreen({ navigation }) {
       ? `${window.location.origin}/reset-password`
       : 'clorivo://reset-password';
     try {
-      const { error: fnErr } = await supabase.auth.resetPasswordForEmail(trimmed, { redirectTo });
+      const { data, error: fnErr } = await supabase.functions.invoke('send-reset-email', {
+        body: { email: trimmed, redirectTo },
+      });
       if (fnErr) throw fnErr;
+      if (data?.error) throw new Error(data.error);
       setSent(true);
     } catch (e) {
-      setError(e.message.includes('rate') ? 'Trop de tentatives. Attendez quelques minutes.' : e.message);
+      setError(e.message?.includes('rate') ? 'Trop de tentatives. Attendez quelques minutes.' : (e.message ?? 'Une erreur est survenue.'));
     } finally {
       setLoading(false);
     }
