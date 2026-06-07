@@ -20,7 +20,7 @@ export default function ForgotPasswordScreen({ navigation }) {
     if (!/\S+@\S+\.\S+/.test(trimmed)) { setError('Adresse email invalide.'); return; }
     setLoading(true);
     const redirectTo = typeof window !== 'undefined'
-      ? `${window.location.origin}/#/reset-password`
+      ? `${window.location.origin}/reset-password`
       : 'clorivo://reset-password';
     try {
       const { error: fnErr } = await supabase.auth.resetPasswordForEmail(trimmed, { redirectTo });
