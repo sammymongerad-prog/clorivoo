@@ -25,7 +25,12 @@ serve(async (req) => {
       options: { redirectTo: redirectTo ?? `${Deno.env.get('SITE_URL')}/reset-password` },
     });
 
-    if (linkError) throw linkError;
+    // If user doesn't exist or any link error, return ok silently (don't leak info)
+    if (linkError || !data?.properties?.action_link) {
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const resetLink = data.properties?.action_link;
 
