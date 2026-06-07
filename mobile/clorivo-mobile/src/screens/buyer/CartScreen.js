@@ -29,7 +29,7 @@ export default function CartScreen({ navigation }) {
       setItems(prev => prev.filter(i => i.id !== item.id));
       return;
     }
-    await upsertCartItem(session.user.id, item.product_id, item.variant ?? {}, delta, item.unit_price);
+    await upsertCartItem(session.user.id, item.product_id, item.variant ?? {}, newQty, item.unit_price);
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: newQty } : i));
   }
 

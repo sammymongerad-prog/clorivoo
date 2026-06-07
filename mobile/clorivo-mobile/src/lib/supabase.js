@@ -10,7 +10,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
 
@@ -262,10 +262,14 @@ export async function getSellerStats(userId) {
 // ─── MESSAGES ─────────────────────────────────────────────────────
 export async function getConversations(userId) {
   const { data } = await supabase.from('conversations')
-    .select('*, shops(id,name,brand_color,is_verified), buyer:profiles!buyer_id(id,full_name,avatar_url), seller:profiles!seller_id(id,full_name,avatar_url)')
+    .select('*, shops(id,name,brand_color,is_verified), buyer:profiles!buyer_id(id,full_name,avatar_url), seller:profiles!seller_id(id,full_name,avatar_url), messages(id,content,sender_id,read_at,created_at)')
     .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
     .order('last_message_at', { ascending: false });
-  return data ?? [];
+  // Sort messages desc so [0] is the latest
+  return (data ?? []).map(c => ({
+    ...c,
+    messages: (c.messages ?? []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+  }));
 }
 
 export async function getMessages(conversationId) {

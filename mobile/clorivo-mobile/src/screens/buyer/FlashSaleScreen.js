@@ -119,7 +119,7 @@ export default function FlashSaleScreen({ navigation }) {
               const saved = Math.round((1 - item.price / item.compare_price) * 100);
               const { stock, total } = getMockStock(item.id);
               return (
-                <View key={item.id} style={{ flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.hairline, ...SHADOW.sm }}>
+                <TouchableOpacity key={item.id} onPress={() => navigation.navigate('Product', { productId: item.id })} style={{ flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.hairline, ...SHADOW.sm }}>
                   {/* Image */}
                   <View style={{ width: 100, backgroundColor: COLORS.paper, alignItems: 'center', justifyContent: 'center' }}>
                     {item.images?.[0] ? (
@@ -133,19 +133,19 @@ export default function FlashSaleScreen({ navigation }) {
                   </View>
                   {/* Info */}
                   <View style={{ flex: 1, padding: 12 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.ink, marginBottom: 4 }} numberOfLines={1}>{item.name}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.ink, marginBottom: 4 }} numberOfLines={1}>{item.title ?? item.name}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                       <Text style={{ fontSize: 18, fontWeight: '900', color: COLORS.primary }}>{Number(item.price).toFixed(2)}€</Text>
                       <Text style={{ fontSize: 13, color: COLORS.mute, textDecorationLine: 'line-through' }}>{Number(item.compare_price).toFixed(2)}€</Text>
                     </View>
                     <StockBar stock={stock} total={total} />
-                    <TouchableOpacity style={{ marginTop: 10, backgroundColor: stock <= 2 ? COLORS.danger : COLORS.primary, borderRadius: 10, paddingVertical: 8, alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.navigate('Product', { productId: item.id })} style={{ marginTop: 10, backgroundColor: stock <= 2 ? COLORS.danger : COLORS.primary, borderRadius: 10, paddingVertical: 8, alignItems: 'center' }}>
                       <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
                         {stock <= 2 ? '⚡ Acheter vite !' : 'Acheter'}
                       </Text>
                     </TouchableOpacity>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>

@@ -85,7 +85,7 @@ export default function OffersScreen({ navigation }) {
             {offers.map(item => {
               const discount = Math.round((1 - item.price / item.compare_price) * 100);
               return (
-                <View key={item.id} style={{ width: '47%', backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.hairline, ...SHADOW.sm }}>
+                <TouchableOpacity key={item.id} onPress={() => navigation.navigate('Product', { productId: item.id })} style={{ width: '47%', backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.hairline, ...SHADOW.sm }}>
                   {/* Image */}
                   <View style={{ height: 110, backgroundColor: COLORS.paper, alignItems: 'center', justifyContent: 'center' }}>
                     {item.images?.[0] ? (
@@ -99,16 +99,16 @@ export default function OffersScreen({ navigation }) {
                     </View>
                   </View>
                   <View style={{ padding: 10 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.ink, marginBottom: 4 }} numberOfLines={1}>{item.name}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.ink, marginBottom: 4 }} numberOfLines={1}>{item.title ?? item.name}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                       <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.primary }}>{Number(item.price).toFixed(2)}€</Text>
                       <Text style={{ fontSize: 11, color: COLORS.mute, textDecorationLine: 'line-through' }}>{Number(item.compare_price).toFixed(2)}€</Text>
                     </View>
-                    <TouchableOpacity style={{ backgroundColor: COLORS.primary, borderRadius: 10, paddingVertical: 7, alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.navigate('Product', { productId: item.id })} style={{ backgroundColor: COLORS.primary, borderRadius: 10, paddingVertical: 7, alignItems: 'center' }}>
                       <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Voir l'offre</Text>
                     </TouchableOpacity>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
