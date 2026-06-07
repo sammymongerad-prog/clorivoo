@@ -10,38 +10,61 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    // ── 1. Vérification des variables d'environnement ──────────────
+    const SUPABASE_URL          = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const RESEND_API_KEY        = Deno.env.get('RESEND_API_KEY');
+    const SITE_URL              = Deno.env.get('SITE_URL') ?? 'https://clorivoo.vercel.app';
+
+    if (!SUPABASE_URL) {
+      console.error('[send-reset-email] MANQUANT: SUPABASE_URL');
+      return new Response(JSON.stringify({ error: 'Configuration serveur incomplète: SUPABASE_URL manquante' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!SUPABASE_SERVICE_KEY) {
+      console.error('[send-reset-email] MANQUANT: SUPABASE_SERVICE_ROLE_KEY');
+      return new Response(JSON.stringify({ error: 'Configuration serveur incomplète: SUPABASE_SERVICE_ROLE_KEY manquante' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!RESEND_API_KEY) {
+      console.error('[send-reset-email] MANQUANT: RESEND_API_KEY — ajoutez-la dans Supabase Dashboard → Edge Functions → Secrets');
+      return new Response(JSON.stringify({ error: 'Configuration serveur incomplète: RESEND_API_KEY manquante' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ── 2. Lecture du body ─────────────────────────────────────────
     const { email, redirectTo } = await req.json();
-    if (!email) return new Response(JSON.stringify({ error: 'Email requis' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!email) {
+      console.error('[send-reset-email] Paramètre manquant: email');
+      return new Response(JSON.stringify({ error: 'Email requis' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
-    // Generate reset link via Supabase Admin
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
+    // ── 3. Génération du lien de reset via Admin API ───────────────
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email,
-      options: { redirectTo: redirectTo ?? `${Deno.env.get('SITE_URL')}/reset-password` },
+      options: { redirectTo: redirectTo ?? `${SITE_URL}/reset-password` },
     });
 
-    // If user doesn't exist or any link error, return ok silently (don't leak info)
-    if (linkError || !data?.properties?.action_link) {
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (linkError) {
+      console.error('[send-reset-email] generateLink error:', linkError.message, '| email:', email);
+      // Retour silencieux: ne pas révéler si l'email est enregistré
+      return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!data?.properties?.action_link) {
+      console.error('[send-reset-email] generateLink: action_link absent dans la réponse | email:', email);
+      return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const resetLink = data.properties?.action_link;
+    const resetLink = data.properties.action_link;
 
-    // Send via Resend API
+    // ── 4. Envoi via Resend ────────────────────────────────────────
     const testOverride = Deno.env.get('TEST_EMAIL_OVERRIDE');
-    const recipient = testOverride ?? email;
-    const subject = 'Reinitialisation de votre mot de passe - Clorivo';
+    const recipient    = testOverride ?? email;
+    const subject      = 'Reinitialisation de votre mot de passe - Clorivo';
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -53,14 +76,18 @@ serve(async (req) => {
     });
 
     if (!res.ok) {
-      const resendErr = await res.json();
-      throw new Error(resendErr.message ?? 'Resend error');
+      const resendErr = await res.json().catch(() => ({}));
+      console.error('[send-reset-email] Resend API error:', res.status, JSON.stringify(resendErr));
+      throw new Error(`Resend ${res.status}: ${resendErr.message ?? 'Erreur inconnue'}`);
     }
 
+    console.log('[send-reset-email] Email envoyé avec succès à:', recipient);
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (e) {
+    console.error('[send-reset-email] Exception non gérée:', e.message);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
