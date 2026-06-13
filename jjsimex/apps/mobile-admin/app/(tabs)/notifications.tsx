@@ -90,6 +90,24 @@ export default function NotificationsAdminScreen() {
   useEffect(() => {
     if (!authContext?.user) return;
     loadNotifications();
+
+    const channel = supabase
+      .channel(`notifications:${authContext.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${authContext.user.id}`,
+        },
+        () => loadNotifications(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [authContext?.user]);
 
   async function loadNotifications() {

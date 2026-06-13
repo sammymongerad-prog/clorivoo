@@ -1,7 +1,7 @@
 import { useEffect, useState, useContext } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getMyShopperRequests, type ShopperRequest } from '@jjsimex/supabase/shopper';
+import { getMyShopperRequests, subscribeToRequests, type ShopperRequest } from '@jjsimex/supabase/shopper';
 import { AuthContext } from '@/contexts/AuthContext';
 
 const S = StyleSheet.create({
@@ -65,7 +65,13 @@ export default function DemandesScreen() {
       return;
     }
     loadRequests();
-  }, []);
+
+    const unsubscribe = subscribeToRequests((updatedRequests) => {
+      setRequests(updatedRequests.filter(r => r.user_id === authContext.user!.id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    });
+
+    return () => unsubscribe();
+  }, [authContext?.user]);
 
   async function loadRequests() {
     try {
