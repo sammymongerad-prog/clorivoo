@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendPushNotification } from './push';
-import { sendPaymentConfirmationEmail, sendPaymentConfirmedEmail, sendPaymentRefusedEmail, sendPaymentRefundedEmail } from './emails';
+import { sendPaiementConfirmeEmail, sendPaymentRefusedEmail, sendPaymentRefundedEmail } from './emails';
 
 // ─── Client ───────────────────────────────────────────────────────────────────
 
@@ -163,15 +163,17 @@ export async function createPayment(
     }
   }
 
-  // 3. Email confirmation client
+  // 3. Email confirmation réception paiement (en attente)
   if (client?.email) {
-    await sendPaymentConfirmationEmail(
+    const firstName = (client.full_name ?? 'Client').split(' ')[0];
+    const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    await sendPaiementConfirmeEmail(
       client.email,
-      client.full_name ?? 'Client',
+      firstName,
       transaction_number,
       data.amount,
       methodLabel[data.method],
-      data.reference,
+      dateStr,
     ).catch(() => {});
   }
 
@@ -305,12 +307,16 @@ export async function confirmPayment(
 
   // 3. Email confirmation
   if (client?.email) {
-    await sendPaymentConfirmedEmail(
+    const firstName = (client.full_name ?? 'Client').split(' ')[0];
+    const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    await sendPaiementConfirmeEmail(
       client.email,
-      client.full_name ?? 'Client',
-      payment.amount,
+      firstName,
       payment.transaction_number,
-      pkg?.tracking_number ?? 'En attente',
+      payment.amount,
+      payment.method,
+      dateStr,
+      pkg?.tracking_number,
     ).catch(() => {});
   }
 

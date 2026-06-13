@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendPushNotification } from './push';
-import { sendShopperNotificationEmail, sendShopperQuoteEmail, sendShopperShippedEmail } from './emails';
+import { sendShopperConfirmationEmail, sendDevisShopperEmail } from './emails';
 import { calculateShipping } from './shipping';
 import type { TransportMode, DestinationCountry } from './shipping';
 
@@ -152,12 +152,12 @@ export async function createShopperRequest(
 
   // 3. Email confirmation client
   if (client?.email) {
-    await sendShopperNotificationEmail(
-      client.email,
-      client.full_name ?? 'Client',
-      request_number,
-      data.merchant,
-      data.destination_city,
+    const firstName = (client.full_name ?? 'Client').split(' ')[0];
+    await sendShopperConfirmationEmail(
+      client.email, firstName, request_number,
+      data.merchant, data.destination_city,
+      data.transport_mode ?? 'air',
+      data.product_url,
     ).catch(() => {});
   }
 
@@ -272,15 +272,20 @@ export async function sendQuote(
 
   // 3. Email devis
   if (client?.email) {
-    await sendShopperQuoteEmail(
+    const firstName = (client.full_name ?? 'Client').split(' ')[0];
+    await sendDevisShopperEmail(
       client.email,
-      client.full_name ?? 'Client',
+      firstName,
       request.request_number,
+      request.product_url ?? '',
       request.merchant,
       final_price,
       shipping_cost,
       total_price,
+      request.transport_mode ?? 'air',
       request.destination_city,
+      `https://jjsimex.com/demandes/${request_id}/confirmer`,
+      `https://jjsimex.com/demandes/${request_id}/annuler`,
     ).catch(() => {});
   }
 
@@ -459,14 +464,16 @@ export async function markAsShipped(
 
   // Email expédition
   if (client?.email) {
-    await sendShopperShippedEmail(
-      client.email,
-      client.full_name ?? 'Client',
-      updated.request_number,
-      tracking_number,
-      updated.merchant,
-      updated.total_price ?? 0,
+    const firstName = (client.full_name ?? 'Client').split(' ')[0];
+    const estimatedDate = new Date(Date.now() + 7 * 86400000)
+      .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    // Reuse colis transit email for shipped shopper request
+    const { sendColisTransitEmail } = await import('./emails');
+    await sendColisTransitEmail(
+      client.email, firstName, tracking_number,
+      (updated.transport_mode ?? 'air') as 'air' | 'sea',
       updated.destination_city,
+      estimatedDate,
     ).catch(() => {});
   }
 

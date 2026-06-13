@@ -1,6 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendPushNotification } from './push';
-import { sendPackageNotificationEmail, sendWelcomePackageEmail } from './emails';
+import {
+  sendColisRecuEmail,
+  sendColisTransitEmail,
+  sendColisPretRetraitEmail,
+  sendColisLivreEmail,
+} from './emails';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -222,18 +227,21 @@ async function insertPackage(
     { package_id: pkg.id },
   );
 
-  // Email Resend
+  // Email
   if (client?.email) {
-    const transportLabel = data.transport_mode === 'air' ? 'Avion' : 'Bateau';
-    await sendWelcomePackageEmail(
+    const today = new Date();
+    const estimatedDays = data.transport_mode === 'air' ? 7 : 28;
+    const estimatedDate = new Date(today.getTime() + estimatedDays * 86400000)
+      .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    await sendColisRecuEmail(
       client.email,
       client.first_name,
       pkg.tracking_number,
-      data.weight_real,
       weightBilled,
-      transportLabel,
+      data.transport_mode,
       data.destination_city,
       shippingCost,
+      estimatedDate,
     );
   }
 
@@ -336,15 +344,32 @@ export async function updatePackageStatus(
       package_id: packageId,
     });
 
-    // Email
+    // Email per-status
     if (client.email) {
-      await sendPackageNotificationEmail(
-        client.email,
-        client.first_name,
-        pkg.tracking_number,
-        msg.title,
-        msg.body,
-      );
+      const estimatedDays = newStatus === 'in_transit'
+        ? (pkg.transport_mode === 'air' ? 5 : 21) : 0;
+      const estimatedDate = estimatedDays
+        ? new Date(Date.now() + estimatedDays * 86400000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        : '';
+
+      if (newStatus === 'in_transit') {
+        await sendColisTransitEmail(
+          client.email, client.first_name, pkg.tracking_number,
+          pkg.transport_mode, pkg.destination_city, estimatedDate,
+        );
+      } else if (newStatus === 'ready_pickup') {
+        await sendColisPretRetraitEmail(
+          client.email, client.first_name, pkg.tracking_number,
+          pkg.destination_city, pkg.destination_address ?? pkg.destination_city,
+          'Lun-Sam 8h-18h', '+1 (305) 600-9364',
+        );
+      } else if (newStatus === 'delivered') {
+        const deliveredAt = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+        await sendColisLivreEmail(
+          client.email, client.first_name, pkg.tracking_number,
+          pkg.destination_city, deliveredAt,
+        );
+      }
     }
   }
 

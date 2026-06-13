@@ -1,6 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { sendBulkNotification } from '@jjsimex/supabase/push';
+import { sendEmail } from '@jjsimex/emails';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
 
 const campaigns = [
   {
@@ -73,7 +81,118 @@ function statusStyle(status: string) {
   return { color: '#9CA3AF', bg: 'rgba(156,163,175,0.15)' };
 }
 
+interface PromoForm {
+  title: string;
+  subtitle: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+  badge: string;
+  highlight: string;
+  target: 'all' | 'haiti' | 'dr';
+  sendPush: boolean;
+  sendEmailFlag: boolean;
+}
+
+const defaultForm: PromoForm = {
+  title: '',
+  subtitle: '',
+  body: '',
+  ctaText: 'En savoir plus',
+  ctaUrl: 'https://jjsimex.com',
+  badge: '',
+  highlight: '',
+  target: 'all',
+  sendPush: true,
+  sendEmailFlag: true,
+};
+
+const inputStyle: React.CSSProperties = {
+  background: '#0D0D0D',
+  border: '1px solid #2A2A2A',
+  borderRadius: '8px',
+  color: '#fff',
+  padding: '10px 12px',
+  fontSize: '13px',
+  outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box',
+};
+
 export default function MarketingPage() {
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState<PromoForm>(defaultForm);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [toast, setToast] = useState('');
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  }
+
+  async function handleSendPromo() {
+    if (!form.title || !form.body) return;
+    setSending(true);
+    setResult(null);
+
+    try {
+      let pushResult = { sent: 0, failed: 0 };
+
+      // Push notifications
+      if (form.sendPush) {
+        const { sendBulkNotification } = await import('@jjsimex/supabase/push');
+        pushResult = await sendBulkNotification(
+          form.title,
+          form.body,
+          form.target as 'haiti' | 'dr' | 'all',
+          { screen: 'dashboard' },
+        );
+      }
+
+      // Emails
+      if (form.sendEmailFlag) {
+        let query = supabase
+          .from('users')
+          .select('email, first_name, is_active')
+          .eq('is_active', true)
+          .eq('role', 'client');
+
+        if (form.target !== 'all') {
+          query = query.eq('destination_country', form.target) as typeof query;
+        }
+
+        const { data: users } = await query;
+
+        if (users) {
+          await Promise.allSettled(
+            users.map((u) =>
+              sendEmail('promo_marketing', u.email, {
+                title: form.title,
+                subtitle: form.subtitle || undefined,
+                body: form.body,
+                ctaText: form.ctaText,
+                ctaUrl: form.ctaUrl,
+                badge: form.badge || undefined,
+                highlight: form.highlight || undefined,
+              }),
+            ),
+          );
+        }
+      }
+
+      setResult(pushResult);
+      setShowModal(false);
+      setForm(defaultForm);
+      showToast(`Campagne envoyée ! Push: ${pushResult.sent} reçus`);
+    } catch (err) {
+      console.error(err);
+      showToast('Erreur lors de l\'envoi de la campagne.');
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div
       style={{
@@ -103,6 +222,7 @@ export default function MarketingPage() {
           </p>
         </div>
         <button
+          onClick={() => setShowModal(true)}
           style={{
             backgroundColor: '#F97316',
             color: '#fff',
@@ -477,6 +597,129 @@ export default function MarketingPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)',
+          backgroundColor: '#14532D', border: '1px solid #22C55E',
+          borderRadius: '999px', padding: '12px 24px',
+          color: '#FFFFFF', fontSize: '14px', fontWeight: '600', zIndex: 9999,
+        }}>
+          {toast}
+        </div>
+      )}
+
+      {/* ── Nouvelle campagne modal ── */}
+      {showModal && (
+        <div style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#111111', border: '1px solid #2A2A2A',
+            borderRadius: '20px', padding: '32px', width: '100%', maxWidth: '560px',
+            maxHeight: '90vh', overflowY: 'auto',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Nouvelle campagne</h2>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ color: '#9CA3AF', fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Titre *
+                </label>
+                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="Ex: Promo vol juin -10%" style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={{ color: '#9CA3AF', fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Sous-titre
+                </label>
+                <input value={form.subtitle} onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))}
+                  placeholder="Ex: Offre limitée" style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={{ color: '#9CA3AF', fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Message *
+                </label>
+                <textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+                  placeholder="Contenu de la campagne..." rows={4}
+                  style={{ ...inputStyle, resize: 'vertical' }} />
+              </div>
+
+              <div>
+                <label style={{ color: '#9CA3AF', fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Chiffre mis en avant (optionnel)
+                </label>
+                <input value={form.highlight} onChange={e => setForm(f => ({ ...f, highlight: e.target.value }))}
+                  placeholder="Ex: -10% SUR TOUS LES ENVOIS" style={inputStyle} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ color: '#9CA3AF', fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Texte bouton
+                  </label>
+                  <input value={form.ctaText} onChange={e => setForm(f => ({ ...f, ctaText: e.target.value }))}
+                    style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ color: '#9CA3AF', fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    URL bouton
+                  </label>
+                  <input value={form.ctaUrl} onChange={e => setForm(f => ({ ...f, ctaUrl: e.target.value }))}
+                    style={inputStyle} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ color: '#9CA3AF', fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Cible
+                </label>
+                <select value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value as PromoForm['target'] }))}
+                  style={{ ...inputStyle, cursor: 'pointer' }}>
+                  <option value="all">Tous les clients</option>
+                  <option value="haiti">Haïti seulement</option>
+                  <option value="dr">République Dominicaine seulement</option>
+                </select>
+              </div>
+
+              <div style={{ backgroundColor: '#1A1A1A', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <label style={{ color: '#9CA3AF', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Canaux d'envoi
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', color: '#FFFFFF', fontSize: '14px' }}>
+                  <input type="checkbox" checked={form.sendPush} onChange={e => setForm(f => ({ ...f, sendPush: e.target.checked }))} />
+                  🔔 Notifications push
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', color: '#FFFFFF', fontSize: '14px' }}>
+                  <input type="checkbox" checked={form.sendEmailFlag} onChange={e => setForm(f => ({ ...f, sendEmailFlag: e.target.checked }))} />
+                  ✉️ Emails
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button onClick={() => setShowModal(false)} style={{ flex: 1, height: '46px', backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: '10px', color: '#FFFFFF', fontSize: '14px', cursor: 'pointer', fontWeight: '600' }}>
+                Annuler
+              </button>
+              <button
+                onClick={handleSendPromo}
+                disabled={sending || !form.title || !form.body}
+                style={{ flex: 1.5, height: '46px', backgroundColor: sending ? '#666' : '#F97316', border: 'none', borderRadius: '10px', color: '#FFFFFF', fontSize: '14px', fontWeight: '700', cursor: sending ? 'not-allowed' : 'pointer' }}
+              >
+                {sending ? 'Envoi en cours...' : '🚀 Envoyer la campagne'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

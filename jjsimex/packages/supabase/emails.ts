@@ -1,334 +1,84 @@
+// ─── Email service ─────────────────────────────────────────────────────────────
+// Thin adapter: supabase functions call these, which delegate to @jjsimex/emails
+
+export {
+  sendEmail,
+  sendBienvenueEmail,
+  sendConfirmationEmail,
+  sendResetPasswordEmail,
+  sendColisRecuEmail,
+  sendColisTransitEmail,
+  sendColisPretRetraitEmail,
+  sendColisLivreEmail,
+  sendPaiementConfirmeEmail,
+  sendDevisShopperEmail,
+  sendShopperConfirmationEmail,
+  sendPromoEmail,
+} from '@jjsimex/emails';
+
+// ─── Named aliases for backward compat ────────────────────────────────────────
+
+export {
+  sendBienvenueEmail as sendWelcomeEmail,
+  sendResetPasswordEmail as sendPasswordResetEmail,
+} from '@jjsimex/emails';
+
+// ─── Refused / refunded payment emails (inline, not worth a full template) ────
+
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = "JJ's IMEX <no-reply@jjsimex.com>";
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
-function wrapper(content: string) {
+const FROM = "JJ's IMEX <noreply@jjsimex.com>";
+const REPLY_TO = 'support@jjsimex.com';
+
+function miniWrapper(content: string) {
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/></head>
-<body style="font-family:Helvetica,Arial,sans-serif;background:#0D0D0D;color:#fff;margin:0;padding:32px 16px">
-  <div style="max-width:560px;margin:0 auto;background:#1A1A1A;border-radius:16px;border:1px solid #2A2A2A">
-    <div style="background:#0D0D0D;padding:28px 40px;text-align:center;border-bottom:1px solid #2A2A2A">
-      <span style="color:#F97316;font-size:22px;font-weight:700">JJ's IMEX</span>
-      <span style="color:#9CA3AF;font-size:12px;display:block;margin-top:4px">Service de livraison USA → Haïti & Rép. Dom.</span>
-    </div>
-    ${content}
-    <div style="padding:20px 40px;border-top:1px solid #2A2A2A;text-align:center;color:#6B7280;font-size:11px">
-      JJ's IMEX · Miami, FL · +1 (305) 600-9364<br/>Cet email est envoyé automatiquement.
-    </div>
+<html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0D0D0D;color:#fff;margin:0;padding:32px 16px">
+<div style="max-width:560px;margin:0 auto;background:#111111;border-radius:16px;border:1px solid #2A2A2A;overflow:hidden">
+  <div style="background:#0D0D0D;padding:28px 40px;text-align:center;border-bottom:2px solid #F97316">
+    <div style="color:#F97316;font-size:28px;font-weight:700;line-height:1">JJ's IMEX</div>
+    <div style="color:#9CA3AF;font-size:12px;margin-top:6px;letter-spacing:.5px">Beyond Just Shipping</div>
   </div>
+  <div style="padding:36px 40px">${content}</div>
+  <div style="background:#0D0D0D;padding:24px 40px;border-top:1px solid #1A1A1A;text-align:center">
+    <div style="color:#F97316;font-size:13px;font-weight:700;margin:0 0 8px">JJ's IMEX — Beyond Just Shipping</div>
+    <div style="color:#6B7280;font-size:11px;line-height:1.6;margin:0 0 10px">15490 NW 7th Ave, Unit 207<br/>Miami, FL 33169, USA<br/>+1 (305) 600-9364</div>
+    <div style="color:#4B5563;font-size:10px;line-height:1.5;margin:0">Vous recevez cet email car vous avez un compte JJ's IMEX.</div>
+  </div>
+</div>
 </body></html>`;
-}
-
-export async function sendWelcomePackageEmail(
-  to: string,
-  firstName: string,
-  tracking: string,
-  weightReal: number,
-  weightBilled: number,
-  transport: string,
-  city: string,
-  price: number,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Votre colis a été reçu ✅</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 20px">Nous avons bien reçu votre colis dans notre entrepôt de Miami.</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Numéro de suivi</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${tracking}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Poids réel</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${weightReal} lbs</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Poids facturé</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${weightBilled.toFixed(2)} lbs</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Mode transport</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${transport}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Destination</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${city}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Prix total</td><td style="color:#22C55E;font-weight:700;font-size:15px;text-align:right;border-top:1px solid #2A2A2A">$${price.toFixed(2)}</td></tr>
-        </table>
-      </div>
-      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Suivre mon colis</a>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Votre colis a été reçu ✅ — ${tracking}`,
-    html,
-  });
-}
-
-export async function sendPackageNotificationEmail(
-  to: string,
-  firstName: string,
-  tracking: string,
-  title: string,
-  message: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">${title}</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
-        <p style="margin:0 0 8px;font-size:12px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px">Numéro de suivi</p>
-        <p style="margin:0 0 16px;font-size:18px;font-weight:700;color:#fff">${tracking}</p>
-        <p style="margin:0;font-size:14px;color:#D1D5DB">${message}</p>
-      </div>
-      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Voir les détails</a>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `${title} — ${tracking}`,
-    html,
-  });
-}
-
-export async function sendWelcomeEmail(
-  to: string,
-  firstName: string,
-  suiteCode: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Bienvenue, ${firstName} ! 👋</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Votre compte JJ's IMEX est prêt.</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:20px">
-        <p style="margin:0 0 6px;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px">Votre adresse suite US</p>
-        <p style="margin:0;font-size:22px;font-weight:700;color:#F97316">${suiteCode}</p>
-        <p style="margin:10px 0 0;font-size:13px;color:#9CA3AF">Utilisez ce code pour recevoir vos colis aux États-Unis.</p>
-      </div>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: "Bienvenue chez JJ's IMEX !",
-    html,
-  });
-}
-
-export async function sendPasswordResetEmail(
-  to: string,
-  firstName: string,
-  resetLink: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Réinitialisation du mot de passe</h1>
-      <p style="color:#9CA3AF;margin:0 0 16px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Cliquez ci-dessous pour choisir un nouveau mot de passe. Ce lien expire dans 1 heure.</p>
-      <a href="${resetLink}" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Réinitialiser mon mot de passe</a>
-      <p style="color:#6B7280;font-size:12px;margin-top:20px">Si vous n'avez pas fait cette demande, ignorez cet email.</p>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: 'Réinitialisation de votre mot de passe',
-    html,
-  });
-}
-
-export async function sendShopperNotificationEmail(
-  to: string,
-  firstName: string,
-  requestNumber: string,
-  merchant: string,
-  destination: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Nouvelle demande confirmée 🛒</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre demande Personal Shopper a bien été reçue. Nos experts vont analyser votre demande et vous envoyer un devis très bientôt.</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Numéro de demande</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${requestNumber}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Marchand</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${merchant}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Destination</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${destination}</td></tr>
-        </table>
-      </div>
-      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Voir ma demande</a>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Demande reçue ${requestNumber} 🛒`,
-    html,
-  });
-}
-
-export async function sendShopperQuoteEmail(
-  to: string,
-  firstName: string,
-  requestNumber: string,
-  merchant: string,
-  finalPrice: number,
-  shippingCost: number,
-  totalPrice: number,
-  destination: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Votre devis est prêt 💰</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Nous avons préparé un devis pour votre demande. Consultez les détails ci-dessous et confirmez si vous souhaiter continuer.</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Numéro de demande</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${requestNumber}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Marchand</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${merchant}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Destination</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${destination}</td></tr>
-          <tr style="border-top:2px solid #F97316"><td style="color:#9CA3AF;font-size:12px;padding:8px 0">Prix du produit</td><td style="color:#fff;text-align:right;padding:8px 0">$${finalPrice.toFixed(2)}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Frais d'expédition</td><td style="color:#fff;text-align:right">$${shippingCost.toFixed(2)}</td></tr>
-          <tr style="border-top:1px solid #2A2A2A"><td style="color:#fff;font-size:14px;font-weight:700;padding:8px 0">TOTAL</td><td style="color:#22C55E;font-weight:700;font-size:16px;text-align:right;padding:8px 0;border-top:1px solid #2A2A2A">$${totalPrice.toFixed(2)}</td></tr>
-        </table>
-      </div>
-      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Confirmer le devis</a>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Votre devis ${requestNumber} 💰`,
-    html,
-  });
-}
-
-export async function sendShopperShippedEmail(
-  to: string,
-  firstName: string,
-  requestNumber: string,
-  trackingNumber: string,
-  merchant: string,
-  totalPrice: number,
-  destination: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Votre commande a été expédiée ✈️</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre commande a quitté nos entrepôts et est en route vers ${destination}. Suivez votre colis avec le numéro de suivi ci-dessous.</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Numéro de demande</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${requestNumber}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Numéro de suivi</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${trackingNumber}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Marchand</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${merchant}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Destination</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${destination}</td></tr>
-          <tr style="border-top:1px solid #2A2A2A"><td style="color:#fff;font-size:14px;font-weight:700;padding:8px 0">Montant payé</td><td style="color:#22C55E;font-weight:700;font-size:16px;text-align:right;padding:8px 0;border-top:1px solid #2A2A2A">$${totalPrice.toFixed(2)}</td></tr>
-        </table>
-      </div>
-      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Suivre mon colis</a>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Commande expédiée ${requestNumber} ✈️`,
-    html,
-  });
-}
-
-export async function sendPaymentConfirmationEmail(
-  to: string,
-  firstName: string,
-  transactionNumber: string,
-  amount: number,
-  method: string,
-  reference: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Paiement reçu 💳</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre paiement de $${amount.toFixed(2)} a bien été reçu. Nous le confirmons dans les 24 heures.</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Transaction</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${transactionNumber}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Montant</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">$${amount.toFixed(2)}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Méthode</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${method}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Référence</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${reference}</td></tr>
-        </table>
-      </div>
-      <p style="color:#9CA3AF;font-size:12px;margin:0">Statut: En attente de confirmation</p>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Paiement reçu — en attente de confirmation`,
-    html,
-  });
-}
-
-export async function sendPaymentConfirmedEmail(
-  to: string,
-  firstName: string,
-  amount: number,
-  transactionNumber: string,
-  trackingNumber: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Paiement confirmé ✅</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre paiement de $${amount.toFixed(2)} a été confirmé. Votre colis est en traitement.</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Transaction</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${transactionNumber}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Montant</td><td style="color:#22C55E;font-weight:700;font-size:15px;text-align:right;border-top:1px solid #2A2A2A">$${amount.toFixed(2)}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Suivi du colis</td><td style="color:#3B82F6;text-align:right;border-top:1px solid #2A2A2A">${trackingNumber}</td></tr>
-        </table>
-      </div>
-      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Suivre mon colis</a>
-      <p style="color:#9CA3AF;font-size:12px;margin-top:20px">Merci de faire confiance à JJ's IMEX !</p>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Paiement confirmé ✅`,
-    html,
-  });
 }
 
 export async function sendPaymentRefusedEmail(
   to: string,
   firstName: string,
   reason: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Action requise — Paiement ❌</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre paiement n'a pas été confirmé.</p>
-      <div style="background:rgba(239,68,68,0.1);border-radius:12px;padding:16px;border:1px solid rgba(239,68,68,0.3);margin-bottom:24px">
+): Promise<void> {
+  try {
+    const html = miniWrapper(`
+      <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 8px">Action requise — Paiement ❌</h1>
+      <p style="color:#9CA3AF;font-size:14px;margin:0 0 20px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;line-height:1.6;margin:0 0 20px">
+        Votre paiement n'a pas pu être confirmé. Veuillez nous contacter pour résoudre ce problème.
+      </p>
+      <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:16px 20px;margin-bottom:24px">
         <p style="margin:0;color:#EF4444;font-size:14px;font-weight:600">Raison : ${reason}</p>
       </div>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 20px">Veuillez nous contacter pour résoudre ce problème.</p>
-      <p style="color:#9CA3AF;font-size:13px;margin:0">
+      <p style="color:#9CA3AF;font-size:13px;line-height:1.8;margin:0">
         📞 +1 (305) 600-9364<br/>
         📧 support@jjsimex.com<br/>
         💬 WhatsApp : +1 (305) 600-9364
       </p>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Action requise — Paiement`,
-    html,
-  });
+    `);
+    const resend = getResend();
+    await resend.emails.send({ from: FROM, replyTo: REPLY_TO, to, subject: 'Action requise — Paiement refusé', html });
+  } catch (err) {
+    console.error('[emails] sendPaymentRefusedEmail failed:', err);
+  }
 }
 
 export async function sendPaymentRefundedEmail(
@@ -336,26 +86,31 @@ export async function sendPaymentRefundedEmail(
   firstName: string,
   amount: number,
   reason: string,
-) {
-  const html = wrapper(`
-    <div style="padding:36px 40px">
-      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Remboursement effectué 💰</h1>
-      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
-      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Un remboursement de $${amount.toFixed(2)} a été traité sur votre compte.</p>
-      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
+): Promise<void> {
+  try {
+    const html = miniWrapper(`
+      <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 8px">Remboursement effectué 💰</h1>
+      <p style="color:#9CA3AF;font-size:14px;margin:0 0 20px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;line-height:1.6;margin:0 0 20px">
+        Un remboursement de <strong style="color:#22C55E">$${amount.toFixed(2)}</strong> a été traité sur votre compte.
+      </p>
+      <div style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:12px;padding:20px;margin-bottom:24px">
         <table style="width:100%;border-collapse:collapse">
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Montant remboursé</td><td style="color:#22C55E;font-weight:700;font-size:15px;text-align:right">$${amount.toFixed(2)}</td></tr>
-          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Raison</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${reason}</td></tr>
+          <tr>
+            <td style="color:#9CA3AF;font-size:12px;padding:6px 0">Montant remboursé</td>
+            <td style="color:#22C55E;font-weight:700;font-size:15px;text-align:right;padding:6px 0">$${amount.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Raison</td>
+            <td style="color:#fff;text-align:right;padding:6px 0;border-top:1px solid #2A2A2A">${reason}</td>
+          </tr>
         </table>
       </div>
-      <p style="color:#9CA3AF;font-size:12px;margin:0">Le remboursement sera reçu dans 3-5 jours ouvrables.</p>
-    </div>
-  `);
-
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Remboursement effectué 💰`,
-    html,
-  });
+      <p style="color:#6B7280;font-size:12px;margin:0">Le remboursement sera reçu dans 3-5 jours ouvrables selon votre méthode de paiement.</p>
+    `);
+    const resend = getResend();
+    await resend.emails.send({ from: FROM, replyTo: REPLY_TO, to, subject: 'Remboursement effectué 💰', html });
+  } catch (err) {
+    console.error('[emails] sendPaymentRefundedEmail failed:', err);
+  }
 }
