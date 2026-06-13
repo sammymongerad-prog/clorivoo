@@ -1,0 +1,15 @@
+-- Migration 001 : Schéma complet JJ's IMEX
+-- Appliquée via Supabase MCP le 2026-06-13
+-- Projet : rrjrnckyoqhevzoafnut (jjs imex)
+--
+-- Migrations appliquées :
+--   01_enums_and_extensions  — 15 enums PostgreSQL
+--   02_core_tables           — 13 tables (users, packages, payments...)
+--   03_functions             — 7 fonctions SQL
+--   04_triggers              — triggers insert/update packages, payments, users
+--   04b_fix_package_trigger  — correction BEFORE→AFTER INSERT
+--   05_rls_policies          — Row Level Security pour tous les rôles
+--
+-- Pour régénérer les types TypeScript :
+--   supabase gen types typescript --project-id rrjrnckyoqhevzoafnut \
+--     > packages/supabase/types.ts
