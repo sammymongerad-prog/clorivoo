@@ -12,6 +12,7 @@
     "./emails": "./emails.ts",
     "./client": "./client.ts",
     "./server": "./server.ts",
-    "./admin": "./admin.ts"
+    "./admin": "./admin.ts",
+    "./shipping": "./shipping.ts"
   }
 }

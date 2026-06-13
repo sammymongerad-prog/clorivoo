@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import type { PackageStatus } from '@jjsimex/supabase/packages';
+import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
+import type { ExchangeRate } from '@jjsimex/supabase/shipping';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,15 @@ export default function HomeScreen() {
   const [activePackage, setActivePackage] = useState<Pkg>(null);
   const [recentPackages, setRecentPackages] = useState<Pkg[]>([]);
   const [bannerDot, setBannerDot] = useState(0);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRate | null>(null);
+  const [ratesUpdated, setRatesUpdated] = useState<Date | null>(null);
+
+  // Charger les taux et s'abonner au realtime
+  useEffect(() => {
+    getExchangeRates().then(r => { setExchangeRates(r); setRatesUpdated(new Date(r.updated_at)); }).catch(() => {});
+    const unsub = subscribeToExchangeRates(r => { setExchangeRates(r); setRatesUpdated(new Date()); });
+    return unsub;
+  }, []);
 
   async function loadData() {
     if (!session?.user.id) return;
@@ -173,15 +184,19 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 20 }}>↔️</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.rateMain}>1 USD = 132 HTG</Text>
-            <Text style={styles.rateSub}>1 USD = 58.5 DOP</Text>
+            <Text style={styles.rateMain}>1 USD = {exchangeRates ? `${exchangeRates.usd_to_htg} HTG` : '132 HTG'}</Text>
+            <Text style={styles.rateSub}>1 USD = {exchangeRates ? `${exchangeRates.usd_to_dop} DOP` : '58.5 DOP'}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <View style={styles.rateLive}>
               <View style={styles.rateDot} />
               <Text style={styles.rateLiveText}>En direct</Text>
             </View>
-            <Text style={styles.rateTime}>Mis à jour il y a 5 min</Text>
+            <Text style={styles.rateTime}>
+              {ratesUpdated
+                ? `${Math.round((Date.now() - ratesUpdated.getTime()) / 60000)} min`
+                : 'Chargement…'}
+            </Text>
           </View>
         </View>
 

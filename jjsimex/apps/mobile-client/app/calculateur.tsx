@@ -1,21 +1,11 @@
-import { useState, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent } from 'react-native';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { calculateShipping, getDestinationCities } from '@jjsimex/supabase/shipping';
+import type { TransportMode, DestinationCountry, ShippingResult } from '@jjsimex/supabase/shipping';
 
-type Mode = 'avion' | 'bateau';
-type Dest = 'haiti' | 'rd';
-
-const RATE_AVION_HT = 9.5;
-const RATE_BATEAU_HT = 4.5;
-const RATE_AVION_RD = 11;
-const RATE_BATEAU_RD = 5.5;
-
-function calcPrice(weight: number, mode: Mode, dest: Dest): number {
-  const rate = mode === 'avion'
-    ? (dest === 'haiti' ? RATE_AVION_HT : RATE_AVION_RD)
-    : (dest === 'haiti' ? RATE_BATEAU_HT : RATE_BATEAU_RD);
-  return Math.max(5, Math.round(weight * rate * 100) / 100);
-}
+// ─── Custom Slider ─────────────────────────────────────────────────────────────
 
 function CustomSlider({ min, max, step, value, onChange }: {
   min: number; max: number; step: number; value: number; onChange: (v: number) => void;
@@ -26,31 +16,23 @@ function CustomSlider({ min, max, step, value, onChange }: {
   const pan = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderMove: (_, gs) => {
-      if (!trackWidth.current) return;
-      const raw = gs.moveX / trackWidth.current;
-      const clamped = Math.max(0, Math.min(1, raw));
-      const raw2 = min + clamped * (max - min);
-      const stepped = Math.round(raw2 / step) * step;
-      onChange(Math.max(min, Math.min(max, stepped)));
-    },
     onPanResponderGrant: (_, gs) => {
       if (!trackWidth.current) return;
-      const raw = gs.x0 / trackWidth.current;
-      const clamped = Math.max(0, Math.min(1, raw));
-      const raw2 = min + clamped * (max - min);
-      const stepped = Math.round(raw2 / step) * step;
-      onChange(Math.max(min, Math.min(max, stepped)));
+      const pct = Math.max(0, Math.min(1, gs.x0 / trackWidth.current));
+      onChange(Math.round((min + pct * (max - min)) / step) * step);
+    },
+    onPanResponderMove: (_, gs) => {
+      if (!trackWidth.current) return;
+      const pct = Math.max(0, Math.min(1, gs.moveX / trackWidth.current));
+      onChange(Math.round((min + pct * (max - min)) / step) * step);
     },
   });
 
   return (
-    <View
-      style={{ height: 40, justifyContent: 'center' }}
+    <View style={{ height: 40, justifyContent: 'center' }}
       onLayout={(e: LayoutChangeEvent) => { trackWidth.current = e.nativeEvent.layout.width; }}
-      {...pan.panHandlers}
-    >
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: '#2A2A2A', position: 'relative' }}>
+      {...pan.panHandlers}>
+      <View style={{ height: 4, borderRadius: 2, backgroundColor: '#2A2A2A' }}>
         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${percent * 100}%`, backgroundColor: '#F97316', borderRadius: 2 }} />
         <View style={{
           position: 'absolute', top: -8, left: `${percent * 100}%`, marginLeft: -10,
@@ -62,16 +44,98 @@ function CustomSlider({ min, max, step, value, onChange }: {
   );
 }
 
+// ─── Badges fidélité ───────────────────────────────────────────────────────────
+
+const LEVEL_STYLE = {
+  bronze: { bg: 'rgba(180,100,40,0.2)', color: '#CD7F32', label: '🥉 Bronze' },
+  silver: { bg: 'rgba(150,150,150,0.2)', color: '#C0C0C0', label: '🥈 Silver — 5% de réduction' },
+  gold:   { bg: 'rgba(249,180,0,0.2)',   color: '#FFD700', label: '🥇 Gold — 10% de réduction' },
+};
+
+// ─── Écran principal ───────────────────────────────────────────────────────────
+
 export default function CalculateurScreen() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>('avion');
-  const [dest, setDest] = useState<Dest>('haiti');
+  const { profile } = useAuth();
+
+  const [mode, setMode] = useState<TransportMode>('air');
+  const [dest, setDest] = useState<DestinationCountry>('haiti');
+  const [city, setCity] = useState('Port-au-Prince');
   const [weight, setWeight] = useState(5);
   const [value, setValue] = useState(50);
+  const [cities, setCities] = useState<{ haiti: string[]; dr: string[] }>({
+    haiti: ['Port-au-Prince', 'Cap-Haïtien', 'Pétion-Ville', 'Les Cayes', 'Gonaïves', 'Jacmel'],
+    dr: ['Santo Domingo', 'Santiago', 'Punta Cana'],
+  });
 
-  const price = calcPrice(weight, mode, dest);
-  const deliveryText = mode === 'avion' ? '5-7 jours ouvrés' : '3-4 semaines';
+  const [result, setResult] = useState<ShippingResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Charger les villes depuis Supabase au montage
+  useEffect(() => {
+    getDestinationCities().then(c => {
+      setCities(c);
+      if (!c.haiti.includes(city)) setCity(c.haiti[0] ?? 'Port-au-Prince');
+    }).catch(() => {});
+  }, []);
+
+  // Recalcul avec debounce 300ms
+  const recalculate = useCallback((
+    w: number, m: TransportMode, d: DestinationCountry, c: string,
+  ) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await calculateShipping({
+          destination_city: c,
+          destination_country: d,
+          transport_mode: m,
+          real_weight_lbs: w,
+          user_id: profile?.id,
+        });
+        setResult(res);
+      } catch {
+        // Calcul local en fallback
+        const rates: Record<DestinationCountry, { air: number; sea: number }> = {
+          haiti: { air: 9.5, sea: 4.5 },
+          dr: { air: 11, sea: 5.5 },
+        };
+        const rate = m === 'air' ? rates[d].air : rates[d].sea;
+        const base = Math.max(5, Math.round(w * rate * 100) / 100);
+        setResult({
+          volumetric_weight: 0, billed_weight: w, base_price: base,
+          loyalty_discount_percent: 0, loyalty_discount_amount: 0, final_price: base,
+          transport_mode: m, estimated_days_min: m === 'air' ? 5 : 21, estimated_days_max: m === 'air' ? 7 : 28,
+          estimated_delivery_date: '', rate_per_lb_used: rate, loyalty_level: null,
+        });
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }, [profile?.id]);
+
+  // Déclenche au changement de n'importe quel paramètre
+  useEffect(() => { recalculate(weight, mode, dest, city); }, [weight, mode, dest, city, recalculate]);
+
+  function handleModeChange(m: TransportMode) {
+    setMode(m);
+  }
+
+  function handleDestChange(d: DestinationCountry) {
+    setDest(d);
+    const available = cities[d];
+    setCity(available[0] ?? '');
+  }
+
+  const currentCities = cities[dest] ?? [];
   const hasInsurance = value <= 100;
+  const ls = result?.loyalty_level ? LEVEL_STYLE[result.loyalty_level] : null;
+  const price = result?.final_price ?? 0;
+  const deliveryText = mode === 'air'
+    ? `${result?.estimated_days_min ?? 5}-${result?.estimated_days_max ?? 7} jours ouvrés`
+    : `${Math.round((result?.estimated_days_min ?? 21) / 7)}-${Math.round((result?.estimated_days_max ?? 28) / 7)} semaines`;
 
   return (
     <View style={S.container}>
@@ -84,10 +148,11 @@ export default function CalculateurScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 22, paddingBottom: 40 }}>
+
         {/* Mode transport */}
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          {([['avion', '✈️ Avion', '5-7 jours'], ['bateau', '🚢 Bateau', '3-4 semaines']] as [Mode, string, string][]).map(([m, label, sub]) => (
-            <TouchableOpacity key={m} onPress={() => setMode(m)} activeOpacity={0.8}
+          {([['air', '✈️ Avion', '5-7 jours'], ['sea', '🚢 Bateau', '3-4 semaines']] as [TransportMode, string, string][]).map(([m, label, sub]) => (
+            <TouchableOpacity key={m} onPress={() => handleModeChange(m)} activeOpacity={0.8}
               style={[S.modeBtn, mode === m && S.modeBtnActive]}>
               <Text style={{ fontWeight: '700', fontSize: 15, color: mode === m ? '#F97316' : '#FFFFFF' }}>{label}</Text>
               <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{sub}</Text>
@@ -95,11 +160,11 @@ export default function CalculateurScreen() {
           ))}
         </View>
 
-        {/* Destination */}
+        {/* Destination pays */}
         <Text style={S.label}>Destination</Text>
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 18 }}>
-          {(['haiti', 'rd'] as Dest[]).map(d => (
-            <TouchableOpacity key={d} onPress={() => setDest(d)} activeOpacity={0.8}
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+          {(['haiti', 'dr'] as DestinationCountry[]).map(d => (
+            <TouchableOpacity key={d} onPress={() => handleDestChange(d)} activeOpacity={0.8}
               style={[S.destBtn, dest === d && S.destBtnActive]}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: dest === d ? '#F97316' : '#9CA3AF' }}>
                 {d === 'haiti' ? '🇭🇹 Haïti' : '🇩🇴 Rép. Dominicaine'}
@@ -108,8 +173,22 @@ export default function CalculateurScreen() {
           ))}
         </View>
 
+        {/* Sélecteur ville */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 22 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {currentCities.map(c => (
+              <TouchableOpacity key={c} onPress={() => setCity(c)} activeOpacity={0.8}
+                style={{ height: 36, borderRadius: 99, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: city === c ? '#F97316' : '#1A1A1A',
+                  borderWidth: 1, borderColor: city === c ? '#F97316' : '#2A2A2A' }}>
+                <Text style={{ color: city === c ? '#0D0D0D' : '#9CA3AF', fontSize: 13, fontWeight: '600' }}>{c}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
         {/* Slider poids */}
-        <View style={{ marginTop: 6, marginBottom: 26 }}>
+        <View style={{ marginBottom: 26 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
             <Text style={S.label}>Poids du colis</Text>
             <Text style={{ fontSize: 24, fontWeight: '800', color: '#F97316', letterSpacing: -0.5 }}>{weight.toFixed(1)} lbs</Text>
@@ -122,7 +201,7 @@ export default function CalculateurScreen() {
           </View>
         </View>
 
-        {/* Slider valeur */}
+        {/* Slider valeur déclarée */}
         <View style={{ marginBottom: 26 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
             <Text style={S.label}>Valeur du colis</Text>
@@ -142,19 +221,51 @@ export default function CalculateurScreen() {
         {/* Carte résultat */}
         <View style={S.resultCard}>
           <Text style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center' }}>Votre estimation</Text>
-          <Text style={{ fontSize: 52, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', letterSpacing: -1.5, lineHeight: 60, marginTop: 4 }}>
-            ${price.toFixed(2)}
-          </Text>
+
+          {loading ? (
+            <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+              <ActivityIndicator color="#F97316" size="large" />
+            </View>
+          ) : (
+            <>
+              {/* Prix avant réduction */}
+              {result && result.loyalty_discount_percent > 0 && (
+                <Text style={{ fontSize: 18, color: '#6B7280', textAlign: 'center', marginTop: 8, textDecorationLine: 'line-through' }}>
+                  ${result.base_price.toFixed(2)}
+                </Text>
+              )}
+              <Text style={{ fontSize: 52, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', letterSpacing: -1.5, lineHeight: 60, marginTop: 4 }}>
+                ${price.toFixed(2)}
+              </Text>
+
+              {/* Badge fidélité */}
+              {ls && (
+                <View style={{ alignSelf: 'center', backgroundColor: ls.bg, borderRadius: 99, paddingHorizontal: 14, paddingVertical: 6, marginTop: 8 }}>
+                  <Text style={{ color: ls.color, fontSize: 12, fontWeight: '700' }}>{ls.label}</Text>
+                </View>
+              )}
+
+              {/* Si non connecté */}
+              {!profile && (
+                <TouchableOpacity onPress={() => router.push('/(auth)/login')} activeOpacity={0.8}
+                  style={{ marginTop: 10, backgroundColor: '#1F1F1F', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'center' }}>
+                  <Text style={{ color: '#9CA3AF', fontSize: 11, textAlign: 'center' }}>
+                    Connectez-vous pour voir{'\n'}vos réductions fidélité
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 16 }}>
             <View style={{ backgroundColor: '#2A2A2A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
               <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>{weight.toFixed(1)} lbs facturés</Text>
             </View>
             <View style={{ backgroundColor: '#C2600A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>{mode === 'avion' ? '✈️ Avion' : '🚢 Bateau'}</Text>
+              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>{mode === 'air' ? '✈️ Avion' : '🚢 Bateau'}</Text>
             </View>
             <View style={{ backgroundColor: '#2A2A2A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
-              <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>{dest === 'haiti' ? '🇭🇹 Haïti' : '🇩🇴 Rép. Dom.'}</Text>
+              <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>{city}</Text>
             </View>
           </View>
 
@@ -164,6 +275,12 @@ export default function CalculateurScreen() {
             <Text style={{ color: '#F97316', fontSize: 16 }}>📅</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Livraison ~ {deliveryText}</Text>
           </View>
+
+          {result?.estimated_delivery_date ? (
+            <Text style={{ fontSize: 12, color: '#6B7280', textAlign: 'center', marginTop: 6 }}>
+              Estimé le {result.estimated_delivery_date}
+            </Text>
+          ) : null}
 
           {/* Mini timeline */}
           <View style={{ marginTop: 18 }}>
@@ -183,13 +300,13 @@ export default function CalculateurScreen() {
           </View>
         </View>
 
-        {/* Assurance */}
+        {/* Assurance dynamique */}
         {hasInsurance ? (
           <View style={{ backgroundColor: 'rgba(34,197,94,0.12)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
             <Text style={{ fontSize: 22 }}>🛡️</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#22C55E' }}>Assurance gratuite incluse</Text>
-              <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Jusqu'à $100 de couverture</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#22C55E' }}>✅ Votre colis est couvert à 100%</Text>
+              <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Assurance gratuite jusqu'à $100</Text>
             </View>
             <View style={{ backgroundColor: 'rgba(34,197,94,0.2)', borderRadius: 99, paddingHorizontal: 8, paddingVertical: 4 }}>
               <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>Inclus</Text>
@@ -197,24 +314,36 @@ export default function CalculateurScreen() {
           </View>
         ) : (
           <View style={{ backgroundColor: 'rgba(249,115,22,0.10)', borderWidth: 1, borderColor: 'rgba(249,115,22,0.25)', borderRadius: 12, padding: 14, marginTop: 14 }}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316' }}>Assurance recommandée</Text>
-            <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Votre colis vaut +${value - 100} de plus que la couverture gratuite.</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316' }}>⚠️ Valeur dépasse $100</Text>
+            <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Assurance supplémentaire recommandée pour ${value - 100} de couverture additionnelle.</Text>
+            <TouchableOpacity activeOpacity={0.8} style={{ marginTop: 10 }}>
+              <Text style={{ fontSize: 12, color: '#F97316', fontWeight: '600', textDecorationLine: 'underline' }}>Ajouter une couverture →</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Tarif */}
+        {/* Détail tarif */}
         <View style={{ backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 12, padding: 16, marginTop: 14 }}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', marginBottom: 10 }}>Détail du tarif</Text>
           {[
-            [`Frais d'expédition (${weight.toFixed(1)} lbs × $${mode === 'avion' ? (dest === 'haiti' ? RATE_AVION_HT : RATE_AVION_RD) : (dest === 'haiti' ? RATE_BATEAU_HT : RATE_BATEAU_RD)}/lb)`, `$${price.toFixed(2)}`],
+            [`Frais d'expédition (${weight.toFixed(1)} lbs × $${result?.rate_per_lb_used?.toFixed(2) ?? '—'}/lb)`, `$${result?.base_price?.toFixed(2) ?? '—'}`],
             ['Assurance (jusqu\'à $100)', 'Gratuit'],
+            ...(result && result.loyalty_discount_percent > 0
+              ? [[`Réduction ${result.loyalty_level} (−${result.loyalty_discount_percent}%)`, `−$${result.loyalty_discount_amount.toFixed(2)}`]]
+              : []),
             ['Manutention', 'Inclus'],
           ].map(([k, v]) => (
             <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
               <Text style={{ fontSize: 12, color: '#9CA3AF', flex: 1 }}>{k}</Text>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: v === 'Gratuit' || v === 'Inclus' ? '#22C55E' : '#FFFFFF' }}>{v}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: v.startsWith('−') ? '#F97316' : v === 'Gratuit' || v === 'Inclus' ? '#22C55E' : '#FFFFFF' }}>{v}</Text>
             </View>
           ))}
+          {result && result.loyalty_discount_percent > 0 && (
+            <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#2A2A2A', flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Total</Text>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#F97316' }}>${result.final_price.toFixed(2)}</Text>
+            </View>
+          )}
         </View>
 
         <TouchableOpacity onPress={() => router.push('/shopper')} activeOpacity={0.9}

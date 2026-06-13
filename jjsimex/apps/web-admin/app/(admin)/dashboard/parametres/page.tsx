@@ -1,536 +1,306 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { getShippingRates, updateShippingRate, getExchangeRates, updateExchangeRate } from '@jjsimex/supabase/shipping';
+import type { ShippingRate, ExchangeRate } from '@jjsimex/supabase/shipping';
+import { useAuth } from '@/contexts/AuthContext';
 
 const TABS = ['Tarifs', 'Taux de change', 'Comptes employés', 'Général'] as const;
 type Tab = (typeof TABS)[number];
 
-const rateHistory = [
-  {
-    date: '10 juin 2026',
-    user: 'J. Moreau',
-    field: 'Avion → Haïti',
-    old: '$8.50/lb',
-    next: '$9.50/lb',
-  },
-  {
-    date: '02 mai 2026',
-    user: 'C. Beaubrun',
-    field: 'Bateau → Rép. Dom.',
-    old: '$5.00/lb',
-    next: '$5.50/lb',
-  },
-  {
-    date: '15 avr. 2026',
-    user: 'J. Moreau',
-    field: 'Avion → Rép. Dom.',
-    old: '$10.00/lb',
-    next: '$11.00/lb',
-  },
-];
+const tabBtn = (active: boolean): React.CSSProperties => ({
+  height: 38, padding: '0 18px', border: 'none', fontFamily: 'Sora, sans-serif', fontSize: 13,
+  fontWeight: active ? 600 : 400, cursor: 'pointer', borderRadius: '8px 8px 0 0',
+  background: active ? 'rgba(249,115,22,0.12)' : 'transparent',
+  color: active ? '#F97316' : '#9CA3AF',
+  borderBottom: active ? '2px solid #F97316' : '2px solid transparent',
+});
 
-export default function ParametresPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('Tarifs');
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 44, background: '#141414', border: '1px solid #2A2A2A',
+  borderRadius: 8, color: '#FFFFFF', padding: '0 14px', fontFamily: 'Sora, sans-serif',
+  fontSize: 14, boxSizing: 'border-box', outline: 'none',
+};
 
-  // Avion rates
-  const [avionHaiti, setAvionHaiti] = useState('9.50');
-  const [avionDom, setAvionDom] = useState('11.00');
-  // Bateau rates
-  const [bateauHaiti, setBateauHaiti] = useState('4.50');
-  const [bateauDom, setBateauDom] = useState('5.50');
+// ─── Onglet Tarifs ─────────────────────────────────────────────────────────────
 
-  // Toggles & limits
-  const [assuranceEnabled, setAssuranceEnabled] = useState(true);
-  const [assuranceLimit, setAssuranceLimit] = useState('100');
-  const [minimumEnabled, setMinimumEnabled] = useState(true);
-  const [minimumValue, setMinimumValue] = useState('5');
+function TarifsTab({ adminId }: { adminId: string }) {
+  const [rates, setRates] = useState<ShippingRate[]>([]);
+  const [editing, setEditing] = useState<Record<string, { air: string; sea: string }>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Focus tracking
-  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  useEffect(() => {
+    getShippingRates()
+      .then(r => { setRates(r); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, []);
 
-  const inputStyle = (id: string) => ({
-    backgroundColor: '#0D0D0D',
-    border: `1px solid ${focusedInput === id ? '#F97316' : '#2A2A2A'}`,
-    borderRadius: '6px',
-    color: '#fff',
-    fontSize: '15px',
-    fontWeight: '600',
-    padding: '8px 12px',
-    width: '120px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  });
+  function startEdit(r: ShippingRate) {
+    setEditing(prev => ({
+      ...prev,
+      [r.id]: { air: String(r.air_rate_per_lb), sea: String(r.sea_rate_per_lb) },
+    }));
+  }
+
+  async function saveRate(r: ShippingRate) {
+    const e = editing[r.id];
+    if (!e) return;
+    setSaving(r.id);
+    try {
+      const updated = await updateShippingRate(
+        r.id,
+        { air_rate_per_lb: parseFloat(e.air), sea_rate_per_lb: parseFloat(e.sea) },
+        adminId,
+      );
+      setRates(prev => prev.map(x => x.id === r.id ? updated : x));
+      setEditing(prev => { const n = { ...prev }; delete n[r.id]; return n; });
+      setSaved(r.id);
+      setTimeout(() => setSaved(null), 2000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  const haiti = rates.filter(r => r.destination_country === 'haiti');
+  const dr = rates.filter(r => r.destination_country === 'dr');
+
+  if (loading) return <div style={{ color: '#9CA3AF', textAlign: 'center', paddingTop: 60 }}>Chargement des tarifs…</div>;
+  if (error) return <div style={{ color: '#EF4444', padding: 16 }}>Erreur : {error}</div>;
+
+  function RateTable({ rows, title }: { rows: ShippingRate[]; title: string }) {
+    return (
+      <div style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 16, padding: 20 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>{title}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: 0 }}>
+          {['Ville', 'Avion / lb', 'Bateau / lb', ''].map(h => (
+            <div key={h} style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '8px 12px', borderBottom: '1px solid #2A2A2A' }}>{h}</div>
+          ))}
+          {rows.map(r => {
+            const isEdit = !!editing[r.id];
+            const isSaving = saving === r.id;
+            const isSaved = saved === r.id;
+            return [
+              <div key={`${r.id}-city`} style={{ padding: '12px', borderBottom: '1px solid #1F1F1F', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: '#FFFFFF', fontWeight: 600 }}>{r.destination_city}</span>
+                {!r.is_active && <span style={{ marginLeft: 8, background: 'rgba(239,68,68,0.14)', color: '#EF4444', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99 }}>Inactif</span>}
+              </div>,
+              <div key={`${r.id}-air`} style={{ padding: '10px 12px', borderBottom: '1px solid #1F1F1F', display: 'flex', alignItems: 'center' }}>
+                {isEdit
+                  ? <input style={inputStyle} type="number" step="0.5" min="0"
+                      value={editing[r.id]?.air ?? ''} onChange={e => setEditing(p => ({ ...p, [r.id]: { ...p[r.id], air: e.target.value } }))} />
+                  : <span style={{ fontSize: 14, fontWeight: 700, color: '#F97316' }}>${r.air_rate_per_lb}</span>
+                }
+              </div>,
+              <div key={`${r.id}-sea`} style={{ padding: '10px 12px', borderBottom: '1px solid #1F1F1F', display: 'flex', alignItems: 'center' }}>
+                {isEdit
+                  ? <input style={inputStyle} type="number" step="0.5" min="0"
+                      value={editing[r.id]?.sea ?? ''} onChange={e => setEditing(p => ({ ...p, [r.id]: { ...p[r.id], sea: e.target.value } }))} />
+                  : <span style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>${r.sea_rate_per_lb}</span>
+                }
+              </div>,
+              <div key={`${r.id}-action`} style={{ padding: '10px 12px', borderBottom: '1px solid #1F1F1F', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isEdit ? (
+                  <>
+                    <button onClick={() => saveRate(r)} disabled={isSaving}
+                      style={{ height: 32, padding: '0 12px', background: isSaved ? '#22C55E' : '#F97316', border: 'none', borderRadius: 7, color: '#0D0D0D', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      {isSaving ? '…' : isSaved ? '✓' : 'Sauver'}
+                    </button>
+                    <button onClick={() => setEditing(p => { const n = { ...p }; delete n[r.id]; return n; })}
+                      style={{ height: 32, padding: '0 10px', background: '#2A2A2A', border: 'none', borderRadius: 7, color: '#9CA3AF', fontSize: 12, cursor: 'pointer' }}>
+                      ✕
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => startEdit(r)}
+                    style={{ height: 32, padding: '0 12px', background: '#2A2A2A', border: 'none', borderRadius: 7, color: '#FFFFFF', fontSize: 12, cursor: 'pointer' }}>
+                    ✎ Modifier
+                  </button>
+                )}
+              </div>,
+            ];
+          })}
+        </div>
+        <div style={{ marginTop: 14, padding: '10px 14px', background: '#141414', borderRadius: 10, fontSize: 12, color: '#6B7280' }}>
+          ⚡ Les modifications sont répercutées immédiatement dans le calculateur client.
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      style={{
-        backgroundColor: '#0D0D0D',
-        minHeight: '100vh',
-        padding: '32px',
-        color: '#fff',
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      }}
-    >
-      {/* ── Header ── */}
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: '700', margin: '0 0 4px 0' }}>
-          Paramètres
-        </h1>
-        <p style={{ color: '#9CA3AF', margin: 0, fontSize: '14px' }}>
-          Configuration de la plateforme
-        </p>
-      </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <RateTable rows={haiti} title="🇭🇹 Tarifs Haïti" />
+      <RateTable rows={dr} title="🇩🇴 Tarifs Rép. Dominicaine" />
+    </div>
+  );
+}
 
-      {/* ── Tabs ── */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '4px',
-          backgroundColor: '#1A1A1A',
-          border: '1px solid #222222',
-          borderRadius: '10px',
-          padding: '4px',
-          marginBottom: '28px',
-          width: 'fit-content',
-        }}
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              backgroundColor: activeTab === tab ? '#F97316' : 'transparent',
-              color: activeTab === tab ? '#fff' : '#9CA3AF',
-              border: 'none',
-              borderRadius: '7px',
-              padding: '8px 20px',
-              fontSize: '14px',
-              fontWeight: activeTab === tab ? '600' : '400',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+// ─── Onglet Taux de change ─────────────────────────────────────────────────────
 
-      {/* ── Tab: Tarifs ── */}
-      {activeTab === 'Tarifs' && (
-        <>
-          {/* Two rate cards side by side */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '24px',
-              marginBottom: '32px',
-            }}
-          >
-            {/* Avion Card */}
-            <div
-              style={{
-                backgroundColor: '#1A1A1A',
-                border: '1px solid #222222',
-                borderRadius: '12px',
-                padding: '24px',
-              }}
-            >
-              {/* Card Header */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  marginBottom: '24px',
-                }}
-              >
-                <span style={{ fontSize: '24px' }}>✈️</span>
-                <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>
-                  Tarifs Avion
-                </h2>
-              </div>
+function TauxTab({ adminId }: { adminId: string }) {
+  const [rates, setRates] = useState<ExchangeRate | null>(null);
+  const [form, setForm] = useState({ usd_to_htg: '', usd_to_dop: '', eur_to_htg: '', cad_to_htg: '' });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-              {/* Rate Rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-                {[
-                  {
-                    label: 'Haïti',
-                    id: 'avionHaiti',
-                    value: avionHaiti,
-                    set: setAvionHaiti,
-                  },
-                  {
-                    label: 'Rép. Dominicaine',
-                    id: 'avionDom',
-                    value: avionDom,
-                    set: setAvionDom,
-                  },
-                ].map((row) => (
-                  <div
-                    key={row.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '14px 16px',
-                      backgroundColor: '#0D0D0D',
-                      borderRadius: '8px',
-                    }}
-                  >
-                    <span style={{ fontSize: '14px', color: '#9CA3AF' }}>{row.label}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#F97316', fontWeight: '700' }}>$</span>
-                      <input
-                        type="number"
-                        value={row.value}
-                        onChange={(e) => row.set(e.target.value)}
-                        onFocus={() => setFocusedInput(row.id)}
-                        onBlur={() => setFocusedInput(null)}
-                        style={inputStyle(row.id)}
-                      />
-                      <span style={{ color: '#9CA3AF', fontSize: '13px' }}>/lb</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+  useEffect(() => {
+    getExchangeRates()
+      .then(r => {
+        setRates(r);
+        setForm({
+          usd_to_htg: String(r.usd_to_htg),
+          usd_to_dop: String(r.usd_to_dop),
+          eur_to_htg: String(r.eur_to_htg),
+          cad_to_htg: String(r.cad_to_htg),
+        });
+        setLoading(false);
+      })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, []);
 
-              {/* Assurance Toggle */}
-              <div
-                style={{
-                  padding: '14px 16px',
-                  backgroundColor: '#0D0D0D',
-                  borderRadius: '8px',
-                  marginBottom: '12px',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: assuranceEnabled ? '12px' : '0',
-                  }}
-                >
-                  <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                    Assurance gratuite
-                  </span>
-                  <button
-                    onClick={() => setAssuranceEnabled(!assuranceEnabled)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      borderRadius: '999px',
-                      backgroundColor: assuranceEnabled ? '#F97316' : '#2A2A2A',
-                      border: 'none',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      transition: 'background-color 0.2s',
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '3px',
-                        left: assuranceEnabled ? '23px' : '3px',
-                        width: '18px',
-                        height: '18px',
-                        borderRadius: '50%',
-                        backgroundColor: '#fff',
-                        transition: 'left 0.2s',
-                      }}
-                    />
-                  </button>
-                </div>
-                {assuranceEnabled && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: '#9CA3AF', fontSize: '13px' }}>Limite:</span>
-                    <span style={{ color: '#F97316', fontWeight: '700' }}>$</span>
-                    <input
-                      type="number"
-                      value={assuranceLimit}
-                      onChange={(e) => setAssuranceLimit(e.target.value)}
-                      onFocus={() => setFocusedInput('assuranceLimit')}
-                      onBlur={() => setFocusedInput(null)}
-                      style={{ ...inputStyle('assuranceLimit'), width: '80px' }}
-                    />
-                  </div>
-                )}
-              </div>
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateExchangeRate({
+        usd_to_htg: parseFloat(form.usd_to_htg),
+        usd_to_dop: parseFloat(form.usd_to_dop),
+        eur_to_htg: parseFloat(form.eur_to_htg),
+        cad_to_htg: parseFloat(form.cad_to_htg),
+      }, adminId);
+      setRates(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
-              {/* Minimum Toggle */}
-              <div
-                style={{
-                  padding: '14px 16px',
-                  backgroundColor: '#0D0D0D',
-                  borderRadius: '8px',
-                  marginBottom: '20px',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: minimumEnabled ? '12px' : '0',
-                  }}
-                >
-                  <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                    Minimum de facturation
-                  </span>
-                  <button
-                    onClick={() => setMinimumEnabled(!minimumEnabled)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      borderRadius: '999px',
-                      backgroundColor: minimumEnabled ? '#F97316' : '#2A2A2A',
-                      border: 'none',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      transition: 'background-color 0.2s',
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '3px',
-                        left: minimumEnabled ? '23px' : '3px',
-                        width: '18px',
-                        height: '18px',
-                        borderRadius: '50%',
-                        backgroundColor: '#fff',
-                        transition: 'left 0.2s',
-                      }}
-                    />
-                  </button>
-                </div>
-                {minimumEnabled && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: '#9CA3AF', fontSize: '13px' }}>Valeur:</span>
-                    <span style={{ color: '#F97316', fontWeight: '700' }}>$</span>
-                    <input
-                      type="number"
-                      value={minimumValue}
-                      onChange={(e) => setMinimumValue(e.target.value)}
-                      onFocus={() => setFocusedInput('minimumValue')}
-                      onBlur={() => setFocusedInput(null)}
-                      style={{ ...inputStyle('minimumValue'), width: '80px' }}
-                    />
-                  </div>
-                )}
-              </div>
+  if (loading) return <div style={{ color: '#9CA3AF', textAlign: 'center', paddingTop: 60 }}>Chargement…</div>;
 
-              {/* Save */}
-              <button
-                style={{
-                  width: '100%',
-                  backgroundColor: '#F97316',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontSize: '14px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                }}
-              >
-                Sauvegarder — Avion
-              </button>
+  return (
+    <div style={{ maxWidth: 600 }}>
+      <div style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 16, padding: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>Taux de change</div>
+          {rates && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: rates.is_auto ? '#22C55E' : '#F97316' }} />
+              <span style={{ fontSize: 12, color: '#9CA3AF' }}>
+                {rates.is_auto ? 'Automatique' : 'Manuel'} · Mis à jour {new Date(rates.updated_at).toLocaleDateString('fr-FR')}
+              </span>
             </div>
-
-            {/* Bateau Card */}
-            <div
-              style={{
-                backgroundColor: '#1A1A1A',
-                border: '1px solid #222222',
-                borderRadius: '12px',
-                padding: '24px',
-              }}
-            >
-              {/* Card Header */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  marginBottom: '24px',
-                }}
-              >
-                <span style={{ fontSize: '24px' }}>🚢</span>
-                <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>
-                  Tarifs Bateau
-                </h2>
-              </div>
-
-              {/* Rate Rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-                {[
-                  {
-                    label: 'Haïti',
-                    id: 'bateauHaiti',
-                    value: bateauHaiti,
-                    set: setBateauHaiti,
-                  },
-                  {
-                    label: 'Rép. Dominicaine',
-                    id: 'bateauDom',
-                    value: bateauDom,
-                    set: setBateauDom,
-                  },
-                ].map((row) => (
-                  <div
-                    key={row.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '14px 16px',
-                      backgroundColor: '#0D0D0D',
-                      borderRadius: '8px',
-                    }}
-                  >
-                    <span style={{ fontSize: '14px', color: '#9CA3AF' }}>{row.label}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#F97316', fontWeight: '700' }}>$</span>
-                      <input
-                        type="number"
-                        value={row.value}
-                        onChange={(e) => row.set(e.target.value)}
-                        onFocus={() => setFocusedInput(row.id)}
-                        onBlur={() => setFocusedInput(null)}
-                        style={inputStyle(row.id)}
-                      />
-                      <span style={{ color: '#9CA3AF', fontSize: '13px' }}>/lb</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Spacer to align save button */}
-              <div style={{ height: '162px' }} />
-
-              {/* Save */}
-              <button
-                style={{
-                  width: '100%',
-                  backgroundColor: '#F97316',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontSize: '14px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                }}
-              >
-                Sauvegarder — Bateau
-              </button>
-            </div>
-          </div>
-
-          {/* ── Rate History Table ── */}
-          <div
-            style={{
-              backgroundColor: '#1A1A1A',
-              border: '1px solid #222222',
-              borderRadius: '12px',
-              padding: '24px',
-            }}
-          >
-            <h2 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 20px 0' }}>
-              Historique des modifications
-            </h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Date', 'Utilisateur', 'Champ modifié', 'Ancienne valeur', 'Nouvelle valeur'].map(
-                    (col) => (
-                      <th
-                        key={col}
-                        style={{
-                          textAlign: 'left',
-                          color: '#9CA3AF',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          paddingBottom: '12px',
-                          borderBottom: '1px solid #222222',
-                        }}
-                      >
-                        {col}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rateHistory.map((row, i) => (
-                  <tr key={i}>
-                    {[
-                      <span key="date" style={{ color: '#9CA3AF', fontSize: '14px' }}>
-                        {row.date}
-                      </span>,
-                      <span key="user" style={{ fontSize: '14px' }}>
-                        {row.user}
-                      </span>,
-                      <span key="field" style={{ fontSize: '14px', color: '#9CA3AF' }}>
-                        {row.field}
-                      </span>,
-                      <span
-                        key="old"
-                        style={{
-                          fontSize: '14px',
-                          color: '#EF4444',
-                          textDecoration: 'line-through',
-                        }}
-                      >
-                        {row.old}
-                      </span>,
-                      <span key="new" style={{ fontSize: '14px', color: '#22C55E', fontWeight: '600' }}>
-                        {row.next}
-                      </span>,
-                    ].map((cell, ci) => (
-                      <td
-                        key={ci}
-                        style={{
-                          padding: '14px 0',
-                          paddingRight: '16px',
-                          borderBottom: i < rateHistory.length - 1 ? '1px solid #222222' : 'none',
-                        }}
-                      >
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {/* ── Placeholder for other tabs ── */}
-      {activeTab !== 'Tarifs' && (
-        <div
-          style={{
-            backgroundColor: '#1A1A1A',
-            border: '2px dashed #2A2A2A',
-            borderRadius: '12px',
-            padding: '60px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <p style={{ color: '#9CA3AF', fontSize: '16px', margin: 0 }}>
-            Section «{activeTab}» — en cours de développement
-          </p>
+          )}
         </div>
-      )}
+
+        {error && <div style={{ background: 'rgba(239,68,68,0.1)', borderRadius: 8, padding: '10px 14px', color: '#EF4444', fontSize: 13, marginBottom: 16 }}>{error}</div>}
+
+        {[
+          { key: 'usd_to_htg', label: '1 USD → HTG (Gourde haïtienne)', icon: '🇭🇹' },
+          { key: 'usd_to_dop', label: '1 USD → DOP (Peso dominicain)', icon: '🇩🇴' },
+          { key: 'eur_to_htg', label: '1 EUR → HTG', icon: '🇪🇺' },
+          { key: 'cad_to_htg', label: '1 CAD → HTG', icon: '🇨🇦' },
+        ].map(({ key, label, icon }) => (
+          <div key={key} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 6 }}>{icon} {label}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="number" step="0.5" min="0"
+                style={{ ...inputStyle, flex: 1 }}
+                value={form[key as keyof typeof form]}
+                onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+              />
+              {rates && (
+                <div style={{ background: '#2A2A2A', borderRadius: 8, padding: '0 12px', height: 44, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 12, color: '#6B7280' }}>Actuel : </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginLeft: 4 }}>{(rates as any)[key]}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        <button onClick={handleSave} disabled={saving}
+          style={{ width: '100%', height: 46, background: saved ? '#22C55E' : '#F97316', border: 'none', borderRadius: 10, color: '#0D0D0D', fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginTop: 8 }}>
+          {saving ? 'Sauvegarde…' : saved ? '✓ Taux mis à jour !' : 'Sauvegarder les taux'}
+        </button>
+
+        <div style={{ marginTop: 14, padding: '10px 14px', background: '#141414', borderRadius: 10, fontSize: 12, color: '#6B7280' }}>
+          ⚡ La barre ticker de l'app client se met à jour en temps réel via Supabase Realtime.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Onglet Employés (placeholder) ────────────────────────────────────────────
+
+function EmployesTab() {
+  return (
+    <div style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 16, padding: 40, textAlign: 'center' }}>
+      <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: '#FFFFFF', marginBottom: 8 }}>Gestion des employés</div>
+      <div style={{ fontSize: 13, color: '#6B7280' }}>4 comptes actifs — Super Admin requis pour modification</div>
+    </div>
+  );
+}
+
+// ─── Onglet Général (placeholder) ─────────────────────────────────────────────
+
+function GeneralTab() {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      {[['🏢', 'Informations société', 'Nom, adresse, SIRET'], ['📱', 'App mobile', 'Version, store links'], ['🔐', 'Sécurité', 'MFA, logs accès'], ['📧', 'Emails', 'Templates, SMTP']].map(([icon, title, sub]) => (
+        <div key={title} style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 14, padding: 20, cursor: 'pointer' }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>{icon}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{title}</div>
+          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{sub}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Page principale ───────────────────────────────────────────────────────────
+
+export default function ParametresPage() {
+  const [tab, setTab] = useState<Tab>('Tarifs');
+  const { profile } = useAuth();
+  const adminId = profile?.id ?? '';
+
+  return (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div style={{ height: 64, flexShrink: 0, background: '#0D0D0D', borderBottom: '1px solid #2A2A2A', display: 'flex', alignItems: 'center', gap: 14, padding: '0 24px' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#FFFFFF', lineHeight: 1.1 }}>Paramètres</div>
+          <div style={{ fontSize: 12, color: '#9CA3AF' }}>Configuration de la plateforme</div>
+        </div>
+        <button style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: '#1A1A1A', border: '1px solid #2A2A2A', color: '#FFFFFF', cursor: 'pointer', fontSize: 18 }}>🔔</button>
+        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F97316', color: '#0D0D0D', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>MJ</div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, padding: '14px 24px 0', borderBottom: '1px solid #2A2A2A', flexShrink: 0 }}>
+        {TABS.map(t => <button key={t} onClick={() => setTab(t)} style={tabBtn(tab === t)}>{t}</button>)}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+        {tab === 'Tarifs' && <TarifsTab adminId={adminId} />}
+        {tab === 'Taux de change' && <TauxTab adminId={adminId} />}
+        {tab === 'Comptes employés' && <EmployesTab />}
+        {tab === 'Général' && <GeneralTab />}
+      </div>
     </div>
   );
 }
