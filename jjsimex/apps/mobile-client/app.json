@@ -13,14 +13,16 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.jjsimex.client"
+      "bundleIdentifier": "com.jjsimex.client",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D0D0D"
       },
-      "package": "com.jjsimex.client"
+      "package": "com.jjsimex.client",
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",

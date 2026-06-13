@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
+import { registerForPushNotifications, unregisterPushNotifications } from '@jjsimex/ui/notifications';
 
 interface UserProfile {
   id: string;
@@ -79,40 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }
 
-  async function savePushToken(userId: string) {
-    try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      if (!projectId) return;
-
-      const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      const platform = 'android';
-
-      await supabase.from('push_tokens').upsert(
-        { user_id: userId, token, platform, is_active: true },
-        { onConflict: 'token' },
-      );
-    } catch {
-      // Push notifications non critiques
-    }
-  }
-
-  async function deactivatePushTokens(userId: string) {
-    try {
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      if (!projectId) return;
-      const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      await supabase
-        .from('push_tokens')
-        .update({ is_active: false })
-        .eq('user_id', userId)
-        .eq('token', token);
-    } catch {
-      // Non critique
-    }
-  }
 
   async function signIn(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -132,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: 'Votre compte a été suspendu. Contactez JJ\'s IMEX au +1 (305) 600-9364.' };
     }
 
-    await savePushToken(data.user.id);
+    await registerForPushNotifications(data.user.id);
     return { error: null };
   }
 
@@ -159,14 +124,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (authData.user) {
-      await savePushToken(authData.user.id);
+      await registerForPushNotifications(authData.user.id);
     }
 
     return { error: null };
   }
 
   async function signOut() {
-    if (user) await deactivatePushTokens(user.id);
+    if (user) await unregisterPushNotifications(user.id);
     await supabase.auth.signOut();
   }
 

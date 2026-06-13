@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
+import { registerForPushNotifications, unregisterPushNotifications } from '@jjsimex/ui/notifications';
 
 interface AdminProfile {
   id: string;
@@ -61,21 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }
 
-  async function savePushToken(userId: string) {
-    try {
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      if (!projectId) return;
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') return;
-      const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      await supabase.from('push_tokens').upsert(
-        { user_id: userId, token, platform: 'android', is_active: true },
-        { onConflict: 'token' },
-      );
-    } catch {
-      // Non critique
-    }
-  }
 
   async function signIn(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -104,11 +88,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: 'Accès refusé. Cette application est réservée au personnel JJ\'s IMEX.' };
     }
 
-    await savePushToken(data.user.id);
+    await registerForPushNotifications(data.user.id);
     return { error: null };
   }
 
   async function signOut() {
+    if (user) await unregisterPushNotifications(user.id);
     await supabase.auth.signOut();
   }
 

@@ -111,13 +111,121 @@ export async function sendPushToAll(
     }));
 
     try {
-      await fetch(EXPO_PUSH_URL, {
+      const res = await fetch(EXPO_PUSH_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payloads),
       });
+
+      const result = await res.json();
+
+      // Désactiver les tokens expirés
+      if (result.data) {
+        const expired: string[] = [];
+        result.data.forEach((item: { status: string; message?: string }, idx: number) => {
+          if (item.status === 'error' && item.message?.includes('DeviceNotRegistered')) {
+            expired.push(batch[idx]);
+          }
+        });
+        if (expired.length > 0) {
+          await supabaseAdmin
+            .from('push_tokens')
+            .update({ is_active: false })
+            .in('token', expired);
+        }
+      }
     } catch {
       // Non critique
     }
   }
+}
+
+// ─── sendBulkNotification (pour campagnes marketing) ────────────────────
+
+export async function sendBulkNotification(
+  title: string,
+  message: string,
+  target?: 'haiti' | 'dr' | 'all',
+  data?: Record<string, unknown>,
+): Promise<{ sent: number; failed: number }> {
+  let query = supabaseAdmin
+    .from('push_tokens')
+    .select('token')
+    .eq('is_active', true);
+
+  if (target && target !== 'all') {
+    // Mapper les codes pays
+    const countryMap: Record<string, string> = { haiti: 'haiti', dr: 'dr' };
+    const country = countryMap[target];
+
+    if (country) {
+      const { data: users } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('destination_country', country);
+
+      if (!users || users.length === 0) return { sent: 0, failed: 0 };
+      const ids = users.map((u) => u.id);
+      query = query.in('user_id', ids) as typeof query;
+    }
+  }
+
+  const { data: tokens } = await query;
+  if (!tokens || tokens.length === 0) return { sent: 0, failed: 0 };
+
+  let sentCount = 0;
+  let failedCount = 0;
+
+  // Envoyer par batch de 100
+  const batches: string[][] = [];
+  for (let i = 0; i < tokens.length; i += 100) {
+    batches.push(tokens.slice(i, i + 100).map((t) => t.token));
+  }
+
+  for (const batch of batches) {
+    const payloads: PushPayload[] = batch.map((token) => ({
+      to: token,
+      title,
+      body: message,
+      data,
+      sound: 'default',
+      badge: 1,
+      channelId: 'jjsimex',
+    }));
+
+    try {
+      const res = await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payloads),
+      });
+
+      const result = await res.json();
+
+      if (result.data) {
+        const expired: string[] = [];
+        result.data.forEach((item: { status: string; message?: string }, idx: number) => {
+          if (item.status === 'ok') {
+            sentCount++;
+          } else {
+            failedCount++;
+            if (item.message?.includes('DeviceNotRegistered')) {
+              expired.push(batch[idx]);
+            }
+          }
+        });
+        if (expired.length > 0) {
+          await supabaseAdmin
+            .from('push_tokens')
+            .update({ is_active: false })
+            .in('token', expired);
+        }
+      }
+    } catch (error) {
+      failedCount += batch.length;
+      console.error('Erreur envoi batch notifications:', error);
+    }
+  }
+
+  return { sent: sentCount, failed: failedCount };
 }

@@ -1,34 +1,25 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useEffect, useState, useContext } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { AuthContext } from '@/contexts/AuthContext';
+import { createClient } from '@supabase/supabase-js';
 
 type Tab = 'tous' | 'colis' | 'paiements' | 'clients' | 'systeme';
 
-const NOTIFS = [
-  {
-    section: "Aujourd'hui",
-    items: [
-      { id: '1', icon: '🚨', iconBg: 'rgba(239,68,68,0.14)', titre: 'Colis en attente de douane', texte: '3 colis bloqués à Miami nécessitent des documents supplémentaires.', heure: 'il y a 12 min', unread: true, type: 'colis', btns: [{ label: 'Voir les colis', color: '#F97316', textColor: '#0D0D0D' }, { label: 'Ignorer', color: '#2A2A2A', textColor: '#FFFFFF' }] },
-      { id: '2', icon: '💵', iconBg: 'rgba(34,197,94,0.14)', titre: 'Paiement reçu — $340', texte: 'Marie Joseph a payé $340 via MonCash pour 2 colis.', heure: 'il y a 34 min', unread: true, type: 'paiements', btns: [] },
-      { id: '3', icon: '📦', iconBg: 'rgba(249,115,22,0.14)', titre: 'Nouveau colis enregistré', texte: 'Colis JJI-2847 ajouté par Jean-Pierre Dumas — Miami entrepôt.', heure: 'il y a 1h', unread: false, type: 'colis', btns: [{ label: 'Voir le colis', color: '#2A2A2A', textColor: '#FFFFFF' }] },
-      { id: '4', icon: '👤', iconBg: 'rgba(139,92,246,0.14)', titre: 'Nouveau client inscrit', texte: 'Sophie Belizaire (sophie.b@yahoo.fr) a créé un compte.', heure: 'il y a 2h', unread: false, type: 'clients', btns: [] },
-    ],
-  },
-  {
-    section: 'Hier',
-    items: [
-      { id: '5', icon: '✈️', iconBg: 'rgba(249,115,22,0.14)', titre: 'Vol confirmé — 18 juin', texte: 'American Airlines AA 1234 · 847 colis · 1,000 kg confirmés.', heure: 'hier 16:30', unread: false, type: 'systeme', btns: [{ label: 'Notifier clients', color: '#22C55E', textColor: '#052E14' }] },
-      { id: '6', icon: '⚠️', iconBg: 'rgba(249,115,22,0.14)', titre: 'Capacité à 85%', texte: 'Le vol du 18 juin est à 85% de sa capacité. Fermeture recommandée dans 48h.', heure: 'hier 14:12', unread: false, type: 'systeme', btns: [] },
-      { id: '7', icon: '💵', iconBg: 'rgba(34,197,94,0.14)', titre: 'Virement reçu — $2,340', texte: 'Zelle — Claude Alexis · Référence: ZEL-84920.', heure: 'hier 11:05', unread: false, type: 'paiements', btns: [] },
-    ],
-  },
-  {
-    section: 'Cette semaine',
-    items: [
-      { id: '8', icon: '🔒', iconBg: 'rgba(239,68,68,0.14)', titre: 'Tentative connexion suspecte', texte: '3 tentatives échouées — IP: 192.168.1.45 · Accès bloqué.', heure: 'lun 09:22', unread: false, type: 'systeme', btns: [{ label: 'Voir logs', color: '#EF4444', textColor: '#FFFFFF' }] },
-      { id: '9', icon: '📊', iconBg: 'rgba(249,115,22,0.14)', titre: 'Rapport hebdo disponible', texte: '847 colis traités · $18,450 collectés · 23 succursales actives.', heure: 'lun 08:00', unread: false, type: 'systeme', btns: [{ label: 'Voir rapport', color: '#2A2A2A', textColor: '#FFFFFF' }] },
-    ],
-  },
-];
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
+
+interface Notification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  action_url?: string;
+  is_read: boolean;
+  created_at: string;
+}
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'tous', label: 'Tous' },
@@ -37,6 +28,42 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'clients', label: 'Clients' },
   { key: 'systeme', label: 'Système' },
 ];
+
+function formatTime(dateString: string): string {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'À l\'instant';
+  if (diffMins < 60) return `Il y a ${diffMins}m`;
+  if (diffHours < 24) return `Il y a ${diffHours}h`;
+  if (diffDays < 7) return `Il y a ${diffDays}j`;
+  return date.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' });
+}
+
+function groupByDate(notifications: Notification[]): Record<string, Notification[]> {
+  const grouped: Record<string, Notification[]> = {};
+  notifications.forEach(n => {
+    const date = new Date(n.created_at);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    let key = 'Cette semaine';
+    if (date.toDateString() === today.toDateString()) {
+      key = "Aujourd'hui";
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      key = 'Hier';
+    }
+
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(n);
+  });
+  return grouped;
+}
 
 function NavItem({ icon, label, active, badge }: { icon: string; label: string; active?: boolean; badge?: number }) {
   return (
@@ -55,21 +82,79 @@ function NavItem({ icon, label, active, badge }: { icon: string; label: string; 
 }
 
 export default function NotificationsAdminScreen() {
+  const authContext = useContext(AuthContext);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('tous');
-  const [read, setRead] = useState<Record<string, boolean>>({});
 
-  const unread = NOTIFS.flatMap(s => s.items).filter(n => n.unread && !read[n.id]).length;
+  useEffect(() => {
+    if (!authContext?.user) return;
+    loadNotifications();
+  }, [authContext?.user]);
 
-  function markAllRead() {
-    const all: Record<string, boolean> = {};
-    NOTIFS.flatMap(s => s.items).forEach(n => { all[n.id] = true; });
-    setRead(all);
+  async function loadNotifications() {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', authContext!.user!.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setNotifications((data ?? []) as Notification[]);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const filtered = NOTIFS.map(sec => ({
-    ...sec,
-    items: sec.items.filter(n => tab === 'tous' || n.type === tab),
-  })).filter(sec => sec.items.length > 0);
+  async function markAsRead(notifId: string) {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notifId);
+
+      setNotifications(prev =>
+        prev.map(n => n.id === notifId ? { ...n, is_read: true } : n)
+      );
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
+  }
+
+  async function markAllRead() {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', authContext!.user!.id);
+
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+    }
+  }
+
+  const unread = notifications.filter(n => !n.is_read).length;
+  const grouped = groupByDate(notifications);
+  const filtered = Object.entries(grouped).reduce((acc, [section, items]) => {
+    const filtered = items.filter(n => tab === 'tous' || n.type === tab);
+    if (filtered.length > 0) {
+      acc[section] = filtered;
+    }
+    return acc;
+  }, {} as Record<string, Notification[]>);
+
+  if (loading) {
+    return (
+      <View style={[S.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color="#F97316" size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={S.container}>
@@ -84,9 +169,11 @@ export default function NotificationsAdminScreen() {
               </View>
             )}
           </View>
-          <TouchableOpacity onPress={markAllRead} activeOpacity={0.8}>
-            <Text style={{ color: '#F97316', fontSize: 13, fontWeight: '600' }}>Tout lire</Text>
-          </TouchableOpacity>
+          {unread > 0 && (
+            <TouchableOpacity onPress={markAllRead} activeOpacity={0.8}>
+              <Text style={{ color: '#F97316', fontSize: 13, fontWeight: '600' }}>Tout lire</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Tabs */}
@@ -102,44 +189,38 @@ export default function NotificationsAdminScreen() {
         </ScrollView>
 
         {/* Sections */}
-        {filtered.map(sec => (
-          <View key={sec.section} style={{ paddingHorizontal: 22, marginTop: 20 }}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>{sec.section}</Text>
-            <View style={{ gap: 10 }}>
-              {sec.items.map(n => {
-                const isUnread = n.unread && !read[n.id];
-                return (
-                  <TouchableOpacity key={n.id} activeOpacity={0.8} onPress={() => setRead(r => ({ ...r, [n.id]: true }))}
-                    style={[S.notifCard, isUnread && S.notifCardUnread]}>
+        {notifications.length === 0 ? (
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>🔔</Text>
+            <Text style={{ fontSize: 14, color: '#9CA3AF', textAlign: 'center' }}>Aucune notification</Text>
+          </View>
+        ) : (
+          Object.entries(filtered).map(([section, items]) => (
+            <View key={section} style={{ paddingHorizontal: 22, marginTop: 20 }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>{section}</Text>
+              <View style={{ gap: 10 }}>
+                {items.map(n => (
+                  <TouchableOpacity key={n.id} activeOpacity={0.8} onPress={() => markAsRead(n.id)}
+                    style={[S.notifCard, !n.is_read && S.notifCardUnread]}>
                     <View style={{ flexDirection: 'row', gap: 12 }}>
-                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: n.iconBg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Text style={{ fontSize: 18 }}>{n.icon}</Text>
+                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.14)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Text style={{ fontSize: 18 }}>🔔</Text>
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', flex: 1, lineHeight: 18 }}>{n.titre}</Text>
-                          {isUnread && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F97316', marginTop: 4 }} />}
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', flex: 1, lineHeight: 18 }}>{n.title}</Text>
+                          {!n.is_read && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F97316', marginTop: 4 }} />}
                         </View>
-                        <Text style={{ fontSize: 12, color: '#9CA3AF', lineHeight: 18, marginTop: 4 }}>{n.texte}</Text>
-                        <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 7 }}>{n.heure}</Text>
-                        {n.btns.length > 0 && (
-                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
-                            {n.btns.map(b => (
-                              <TouchableOpacity key={b.label} activeOpacity={0.8}
-                                style={{ height: 34, paddingHorizontal: 14, borderRadius: 8, backgroundColor: b.color, alignItems: 'center', justifyContent: 'center' }}>
-                                <Text style={{ color: b.textColor, fontSize: 12, fontWeight: '700' }}>{b.label}</Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        )}
+                        <Text style={{ fontSize: 12, color: '#9CA3AF', lineHeight: 18, marginTop: 4 }}>{n.message}</Text>
+                        <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 7 }}>{formatTime(n.created_at)}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
-                );
-              })}
+                ))}
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
 
       {/* Bottom nav */}
