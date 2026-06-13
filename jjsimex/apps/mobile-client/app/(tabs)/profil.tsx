@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 
 type ToggleKey = 'whatsapp' | 'email' | 'theme';
@@ -36,6 +37,7 @@ function Sep() {
 }
 
 export default function ProfilScreen() {
+  const router = useRouter();
   const { profile, signOut } = useAuth();
   const [toggles, setToggles] = useState<Record<ToggleKey, boolean>>({ whatsapp: true, email: true, theme: true });
   const toggle = (k: ToggleKey) => setToggles(p => ({ ...p, [k]: !p[k] }));
@@ -95,6 +97,7 @@ export default function ProfilScreen() {
         <View style={S.section}>
           <MenuItem icon="👤" label="Mes informations personnelles" sub="Nom, email, téléphone" />
           <Sep /><MenuItem icon="📦" label="Historique des colis" sub="24 expéditions au total" />
+          <Sep /><MenuItem icon="🛒" label="Mes demandes Personal Shopper" sub="Commandes en cours" onPress={() => router.push('/demandes')} />
           <Sep /><MenuItem icon="📍" label="Mes adresses de livraison" sub="Port-au-Prince, Delmas 31" />
           <Sep /><MenuItem icon="💳" label="Mes paiements" sub="MonCash, Zelle configurés" />
         </View>
