@@ -235,3 +235,127 @@ export async function sendShopperShippedEmail(
     html,
   });
 }
+
+export async function sendPaymentConfirmationEmail(
+  to: string,
+  firstName: string,
+  transactionNumber: string,
+  amount: number,
+  method: string,
+  reference: string,
+) {
+  const html = wrapper(`
+    <div style="padding:36px 40px">
+      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Paiement reçu 💳</h1>
+      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre paiement de $${amount.toFixed(2)} a bien été reçu. Nous le confirmons dans les 24 heures.</p>
+      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Transaction</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${transactionNumber}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Montant</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">$${amount.toFixed(2)}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Méthode</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${method}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Référence</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${reference}</td></tr>
+        </table>
+      </div>
+      <p style="color:#9CA3AF;font-size:12px;margin:0">Statut: En attente de confirmation</p>
+    </div>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Paiement reçu — en attente de confirmation`,
+    html,
+  });
+}
+
+export async function sendPaymentConfirmedEmail(
+  to: string,
+  firstName: string,
+  amount: number,
+  transactionNumber: string,
+  trackingNumber: string,
+) {
+  const html = wrapper(`
+    <div style="padding:36px 40px">
+      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Paiement confirmé ✅</h1>
+      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre paiement de $${amount.toFixed(2)} a été confirmé. Votre colis est en traitement.</p>
+      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Transaction</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${transactionNumber}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Montant</td><td style="color:#22C55E;font-weight:700;font-size:15px;text-align:right;border-top:1px solid #2A2A2A">$${amount.toFixed(2)}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Suivi du colis</td><td style="color:#3B82F6;text-align:right;border-top:1px solid #2A2A2A">${trackingNumber}</td></tr>
+        </table>
+      </div>
+      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Suivre mon colis</a>
+      <p style="color:#9CA3AF;font-size:12px;margin-top:20px">Merci de faire confiance à JJ's IMEX !</p>
+    </div>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Paiement confirmé ✅`,
+    html,
+  });
+}
+
+export async function sendPaymentRefusedEmail(
+  to: string,
+  firstName: string,
+  reason: string,
+) {
+  const html = wrapper(`
+    <div style="padding:36px 40px">
+      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Action requise — Paiement ❌</h1>
+      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre paiement n'a pas été confirmé.</p>
+      <div style="background:rgba(239,68,68,0.1);border-radius:12px;padding:16px;border:1px solid rgba(239,68,68,0.3);margin-bottom:24px">
+        <p style="margin:0;color:#EF4444;font-size:14px;font-weight:600">Raison : ${reason}</p>
+      </div>
+      <p style="color:#D1D5DB;font-size:14px;margin:0 0 20px">Veuillez nous contacter pour résoudre ce problème.</p>
+      <p style="color:#9CA3AF;font-size:13px;margin:0">
+        📞 +1 (305) 600-9364<br/>
+        📧 support@jjsimex.com<br/>
+        💬 WhatsApp : +1 (305) 600-9364
+      </p>
+    </div>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Action requise — Paiement`,
+    html,
+  });
+}
+
+export async function sendPaymentRefundedEmail(
+  to: string,
+  firstName: string,
+  amount: number,
+  reason: string,
+) {
+  const html = wrapper(`
+    <div style="padding:36px 40px">
+      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Remboursement effectué 💰</h1>
+      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Un remboursement de $${amount.toFixed(2)} a été traité sur votre compte.</p>
+      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Montant remboursé</td><td style="color:#22C55E;font-weight:700;font-size:15px;text-align:right">$${amount.toFixed(2)}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Raison</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${reason}</td></tr>
+        </table>
+      </div>
+      <p style="color:#9CA3AF;font-size:12px;margin:0">Le remboursement sera reçu dans 3-5 jours ouvrables.</p>
+    </div>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Remboursement effectué 💰`,
+    html,
+  });
+}
