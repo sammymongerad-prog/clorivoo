@@ -2,6 +2,16 @@
   "name": "@jjsimex/supabase",
   "version": "0.1.0",
   "private": true,
-  "main": "./types.ts",
-  "types": "./types.ts"
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts",
+    "./packages": "./packages.ts",
+    "./push": "./push.ts",
+    "./emails": "./emails.ts",
+    "./client": "./client.ts",
+    "./server": "./server.ts",
+    "./admin": "./admin.ts"
+  }
 }
