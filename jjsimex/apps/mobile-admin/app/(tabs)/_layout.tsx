@@ -18,6 +18,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="scanner" options={{ title: 'Scanner' }} />
       <Tabs.Screen name="colis" options={{ title: 'Colis' }} />
+      <Tabs.Screen name="shopper" options={{ title: 'Shopper' }} />
       <Tabs.Screen name="profil" options={{ title: 'Profil' }} />
     </Tabs>
   );
