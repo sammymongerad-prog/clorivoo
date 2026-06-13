@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { createShopperRequest } from '@jjsimex/supabase/shopper';
+import { AuthContext } from '@/contexts/AuthContext';
 
 const SITES = ['Amazon', 'Shein', 'Nike', 'Adidas', 'eBay', 'Walmart', 'Autre'];
 const DESTINATIONS = [
@@ -13,8 +15,21 @@ const DESTINATIONS = [
 
 type Mode = 'avion' | 'bateau';
 
+const CITY_TO_COUNTRY: Record<string, 'haiti' | 'dr'> = {
+  'Port-au-Prince': 'haiti',
+  'Cap-Haïtien': 'haiti',
+  'Pétion-Ville': 'haiti',
+  'Les Cayes': 'haiti',
+  'Gonaïves': 'haiti',
+  'Jacmel': 'haiti',
+  'Santo Domingo': 'dr',
+  'Santiago': 'dr',
+  'Punta Cana': 'dr',
+};
+
 export default function PersonalShopperScreen() {
   const router = useRouter();
+  const authContext = useContext(AuthContext);
   const [lien, setLien] = useState('');
   const [site, setSite] = useState('Amazon');
   const [qty, setQty] = useState(1);
@@ -26,12 +41,29 @@ export default function PersonalShopperScreen() {
 
   async function handleSubmit() {
     if (!lien) { Alert.alert('Champ requis', 'Veuillez entrer le lien du produit.'); return; }
+    if (!authContext?.user) { Alert.alert('Erreur', 'Veuillez vous connecter pour soumettre une demande.'); return; }
+
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    Alert.alert('Demande envoyée !', 'Nous vous enverrons un devis sous 2h via WhatsApp.', [
-      { text: 'OK', onPress: () => router.back() },
-    ]);
+    try {
+      await createShopperRequest({
+        product_url: lien,
+        merchant: site,
+        quantity: qty,
+        variant: variante || undefined,
+        destination_city: destination,
+        destination_country: CITY_TO_COUNTRY[destination],
+        transport_mode: mode === 'avion' ? 'air' : 'sea',
+        notes: notes || undefined,
+      }, authContext.user.id);
+
+      setLoading(false);
+      Alert.alert('Demande envoyée !', 'Nos experts analyseront votre demande et vous enverront un devis sous 2h.', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Erreur', error instanceof Error ? error.message : 'Erreur lors de l\'envoi de la demande.');
+    }
   }
 
   const modeBtn = (m: Mode, label: string, sub: string) => ({

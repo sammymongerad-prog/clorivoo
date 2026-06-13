@@ -139,24 +139,26 @@ export async function createShopperRequest(
   }
 
   // 2. Push notification admin
-  const adminTokens = admins?.filter(a => a.expo_push_token).map(a => a.expo_push_token!) ?? [];
-  if (adminTokens.length > 0) {
-    await sendPushNotification(adminTokens, {
-      title: 'Nouvelle demande PS 🛒',
-      body: `${client?.full_name ?? 'Client'} — ${data.merchant}\nDestination: ${data.destination_city}`,
-      data: { request_id: request.id },
-    }).catch(() => {});
+  if (admins && admins.length > 0) {
+    for (const admin of admins) {
+      await sendPushNotification(
+        admin.id,
+        'Nouvelle demande PS 🛒',
+        `${client?.full_name ?? 'Client'} — ${data.merchant}\nDestination: ${data.destination_city}`,
+        { request_id: request.id },
+      ).catch(() => {});
+    }
   }
 
   // 3. Email confirmation client
   if (client?.email) {
-    await sendShopperNotificationEmail({
-      to: client.email,
-      requestNumber: request_number,
-      clientName: client.full_name ?? 'Client',
-      merchant: data.merchant,
-      product: data.product_url,
-    }).catch(() => {});
+    await sendShopperNotificationEmail(
+      client.email,
+      client.full_name ?? 'Client',
+      request_number,
+      data.merchant,
+      data.destination_city,
+    ).catch(() => {});
   }
 
   return request as ShopperRequest;
@@ -261,28 +263,25 @@ export async function sendQuote(
   });
 
   // 2. Push notification client
-  if (client?.expo_push_token) {
-    await sendPushNotification([client.expo_push_token], {
-      title: 'Devis reçu 💰',
-      body: `PS-${request.request_number}\n$${total_price.toFixed(2)}\nConfirmez pour procéder.`,
-      data: { request_id },
-    }).catch(() => {});
-  }
+  await sendPushNotification(
+    request.client_id,
+    'Devis reçu 💰',
+    `PS-${request.request_number}\n$${total_price.toFixed(2)}\nConfirmez pour procéder.`,
+    { request_id },
+  ).catch(() => {});
 
   // 3. Email devis
   if (client?.email) {
-    await sendShopperQuoteEmail({
-      to: client.email,
-      clientName: client.full_name ?? 'Client',
-      requestNumber: request.request_number,
-      merchant: request.merchant,
-      product: request.product_url,
-      productPrice: final_price,
-      shippingCost: shipping_cost,
-      totalPrice: total_price,
-      transport: shipping.transport_mode === 'air' ? 'Avion' : 'Bateau',
-      destination: request.destination_city,
-    }).catch(() => {});
+    await sendShopperQuoteEmail(
+      client.email,
+      client.full_name ?? 'Client',
+      request.request_number,
+      request.merchant,
+      final_price,
+      shipping_cost,
+      total_price,
+      request.destination_city,
+    ).catch(() => {});
   }
 
   return updated as ShopperRequest;
@@ -330,13 +329,15 @@ export async function confirmRequest(request_id: string, user_id: string): Promi
   }
 
   // Push admin
-  const adminTokens = admins?.filter(a => a.expo_push_token).map(a => a.expo_push_token!) ?? [];
-  if (adminTokens.length > 0) {
-    await sendPushNotification(adminTokens, {
-      title: 'Commande confirmée ✅',
-      body: `${updated.request_number} — ${client?.full_name ?? 'Client'}\nProc à l'achat.`,
-      data: { request_id },
-    }).catch(() => {});
+  if (admins && admins.length > 0) {
+    for (const admin of admins) {
+      await sendPushNotification(
+        admin.id,
+        'Commande confirmée ✅',
+        `${updated.request_number} — ${client?.full_name ?? 'Client'}\nProc à l'achat.`,
+        { request_id },
+      ).catch(() => {});
+    }
   }
 
   return updated as ShopperRequest;
@@ -374,13 +375,12 @@ export async function markAsPurchased(request_id: string, admin_id: string): Pro
   });
 
   // Push client
-  if (client?.expo_push_token) {
-    await sendPushNotification([client.expo_push_token], {
-      title: 'Commande achetée 🛍️',
-      body: `${updated.request_number}\nExpédition vers ${updated.destination_city} bientôt.`,
-      data: { request_id },
-    }).catch(() => {});
-  }
+  await sendPushNotification(
+    updated.client_id,
+    'Commande achetée 🛍️',
+    `${updated.request_number}\nExpédition vers ${updated.destination_city} bientôt.`,
+    { request_id },
+  ).catch(() => {});
 
   return updated as ShopperRequest;
 }
@@ -450,22 +450,24 @@ export async function markAsShipped(
   });
 
   // Push client
-  if (client?.expo_push_token) {
-    await sendPushNotification([client.expo_push_token], {
-      title: 'Commande expédiée ✈️',
-      body: `${updated.request_number}\nSuivez: ${tracking_number}`,
-      data: { request_id, tracking_number },
-    }).catch(() => {});
-  }
+  await sendPushNotification(
+    shopper.client_id,
+    'Commande expédiée ✈️',
+    `${updated.request_number}\nSuivez: ${tracking_number}`,
+    { request_id, tracking_number },
+  ).catch(() => {});
 
   // Email expédition
   if (client?.email) {
-    await sendShopperShippedEmail({
-      to: client.email,
-      clientName: client.full_name ?? 'Client',
-      requestNumber: updated.request_number,
-      trackingNumber: tracking_number,
-    }).catch(() => {});
+    await sendShopperShippedEmail(
+      client.email,
+      client.full_name ?? 'Client',
+      updated.request_number,
+      tracking_number,
+      updated.merchant,
+      updated.total_price ?? 0,
+      updated.destination_city,
+    ).catch(() => {});
   }
 
   return updated as ShopperRequest;
