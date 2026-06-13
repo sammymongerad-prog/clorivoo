@@ -100,6 +100,7 @@ export default function ProfilScreen() {
           <Sep /><MenuItem icon="🛒" label="Mes demandes Personal Shopper" sub="Commandes en cours" onPress={() => router.push('/demandes')} />
           <Sep /><MenuItem icon="📍" label="Mes adresses de livraison" sub="Port-au-Prince, Delmas 31" />
           <Sep /><MenuItem icon="💳" label="Mes paiements" sub="MonCash, Zelle configurés" onPress={() => router.push('/paiements')} />
+          <Sep /><MenuItem icon="🔔" label="Notifications" sub="Mises à jour et alertes" onPress={() => router.push('/notifications')} />
         </View>
 
         {/* Préférences */}
