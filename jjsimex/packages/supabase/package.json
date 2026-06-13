@@ -13,6 +13,7 @@
     "./client": "./client.ts",
     "./server": "./server.ts",
     "./admin": "./admin.ts",
-    "./shipping": "./shipping.ts"
+    "./shipping": "./shipping.ts",
+    "./shopper": "./shopper.ts"
   }
 }

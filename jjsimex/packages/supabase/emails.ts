@@ -132,3 +132,106 @@ export async function sendPasswordResetEmail(
     html,
   });
 }
+
+export async function sendShopperNotificationEmail(
+  to: string,
+  firstName: string,
+  requestNumber: string,
+  merchant: string,
+  destination: string,
+) {
+  const html = wrapper(`
+    <div style="padding:36px 40px">
+      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Nouvelle demande confirmée 🛒</h1>
+      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre demande Personal Shopper a bien été reçue. Nos experts vont analyser votre demande et vous envoyer un devis très bientôt.</p>
+      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Numéro de demande</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${requestNumber}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Marchand</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${merchant}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Destination</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${destination}</td></tr>
+        </table>
+      </div>
+      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Voir ma demande</a>
+    </div>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Demande reçue ${requestNumber} 🛒`,
+    html,
+  });
+}
+
+export async function sendShopperQuoteEmail(
+  to: string,
+  firstName: string,
+  requestNumber: string,
+  merchant: string,
+  finalPrice: number,
+  shippingCost: number,
+  totalPrice: number,
+  destination: string,
+) {
+  const html = wrapper(`
+    <div style="padding:36px 40px">
+      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Votre devis est prêt 💰</h1>
+      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Nous avons préparé un devis pour votre demande. Consultez les détails ci-dessous et confirmez si vous souhaiter continuer.</p>
+      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Numéro de demande</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${requestNumber}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Marchand</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${merchant}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Destination</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${destination}</td></tr>
+          <tr style="border-top:2px solid #F97316"><td style="color:#9CA3AF;font-size:12px;padding:8px 0">Prix du produit</td><td style="color:#fff;text-align:right;padding:8px 0">$${finalPrice.toFixed(2)}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Frais d'expédition</td><td style="color:#fff;text-align:right">$${shippingCost.toFixed(2)}</td></tr>
+          <tr style="border-top:1px solid #2A2A2A"><td style="color:#fff;font-size:14px;font-weight:700;padding:8px 0">TOTAL</td><td style="color:#22C55E;font-weight:700;font-size:16px;text-align:right;padding:8px 0;border-top:1px solid #2A2A2A">$${totalPrice.toFixed(2)}</td></tr>
+        </table>
+      </div>
+      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Confirmer le devis</a>
+    </div>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Votre devis ${requestNumber} 💰`,
+    html,
+  });
+}
+
+export async function sendShopperShippedEmail(
+  to: string,
+  firstName: string,
+  requestNumber: string,
+  trackingNumber: string,
+  merchant: string,
+  totalPrice: number,
+  destination: string,
+) {
+  const html = wrapper(`
+    <div style="padding:36px 40px">
+      <h1 style="margin:0 0 6px;font-size:20px;color:#fff">Votre commande a été expédiée ✈️</h1>
+      <p style="color:#9CA3AF;margin:0 0 24px;font-size:14px">Bonjour ${firstName},</p>
+      <p style="color:#D1D5DB;font-size:14px;margin:0 0 24px">Votre commande a quitté nos entrepôts et est en route vers ${destination}. Suivez votre colis avec le numéro de suivi ci-dessous.</p>
+      <div style="background:#0D0D0D;border-radius:12px;padding:20px;border:1px solid #2A2A2A;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0">Numéro de demande</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${requestNumber}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Numéro de suivi</td><td style="color:#F97316;font-weight:700;font-size:15px;text-align:right">${trackingNumber}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Marchand</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${merchant}</td></tr>
+          <tr><td style="color:#9CA3AF;font-size:12px;padding:6px 0;border-top:1px solid #2A2A2A">Destination</td><td style="color:#fff;text-align:right;border-top:1px solid #2A2A2A">${destination}</td></tr>
+          <tr style="border-top:1px solid #2A2A2A"><td style="color:#fff;font-size:14px;font-weight:700;padding:8px 0">Montant payé</td><td style="color:#22C55E;font-weight:700;font-size:16px;text-align:right;padding:8px 0;border-top:1px solid #2A2A2A">$${totalPrice.toFixed(2)}</td></tr>
+        </table>
+      </div>
+      <a href="https://jjsimex.com" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:600;font-size:14px">Suivre mon colis</a>
+    </div>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Commande expédiée ${requestNumber} ✈️`,
+    html,
+  });
+}
