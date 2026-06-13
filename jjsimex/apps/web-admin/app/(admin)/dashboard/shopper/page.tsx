@@ -1,145 +1,172 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
+import { useState } from 'react'
 
-type Tab = 'attente' | 'cours' | 'done' | 'annule';
+const siteStyle: Record<string, { color: string; bg: string }> = {
+  Amazon: { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  Shein: { color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
+  Nike: { color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+  Walmart: { color: '#22C55E', bg: 'rgba(34,197,94,0.12)' },
+}
 
-const DEMANDES = [
-  { id: 'PS-001', client: 'Marie Joseph', initials: 'MJ', color: '#7C3AED', email: 'marie.joseph@gmail.com', produit: 'Nike Air Max 270 React - Taille 40', lien: 'https://nike.com/t/air-max-270', site: 'Nike', siteColor: '#E53E3E', qty: 1, dest: 'Port-au-Prince', mode: 'avion', date: 'Aujourd\'hui 09:14', montant: '$158', statut: 'attente' as Tab },
-  { id: 'PS-002', client: 'Jean-Pierre Dumas', initials: 'JD', color: '#0891B2', email: 'jp.dumas@hotmail.com', produit: 'Set de 3 robes d\'été - Taille M', lien: 'https://shein.com/p/123', site: 'Shein', siteColor: '#EA4C89', qty: 3, dest: 'Cap-Haïtien', mode: 'bateau', date: 'Hier 16:30', montant: '$67', statut: 'attente' as Tab },
-  { id: 'PS-003', client: 'Sophie Belizaire', initials: 'SB', color: '#059669', email: 'sophie.b@yahoo.fr', produit: 'iPad 10ème génération 64GB Wifi', lien: 'https://amazon.com/dp/XXXX', site: 'Amazon', siteColor: '#F97316', qty: 1, dest: 'Santo Domingo', mode: 'avion', date: 'Hier 11:05', montant: '$449', statut: 'cours' as Tab },
-  { id: 'PS-004', client: 'Robert Thermidor', initials: 'RT', color: '#7C3AED', email: 'r.thermidor@outlook.com', produit: 'Adidas Ultraboost 22 - Taille 42', lien: 'https://adidas.com/us/ultraboost', site: 'Adidas', siteColor: '#1A1A2E', qty: 1, dest: 'Port-au-Prince', mode: 'avion', date: '11 juin 2025', montant: '$190', statut: 'done' as Tab },
-  { id: 'PS-005', client: 'Claude Alexis', initials: 'CA', color: '#D97706', email: 'claude.alexis@gmail.com', produit: 'Écouteurs Sony WH-1000XM5', lien: 'https://amazon.com/dp/YYYY', site: 'Amazon', siteColor: '#F97316', qty: 1, dest: 'Pétion-Ville', mode: 'avion', date: '10 juin 2025', montant: '$348', statut: 'attente' as Tab },
-];
+const requests = [
+  { id: 'PS-0041', client: 'Marie Joseph', email: 'marie.joseph@gmail.com', initials: 'MJ', color: '#F97316', link: 'https://amazon.com/dp/B09XY4R2MN', site: 'Amazon', qty: 2, destination: 'Port-au-Prince', mode: '✈️', date: '13 juin 2025', status: 'En attente' },
+  { id: 'PS-0040', client: 'Jean Pierre', email: 'jean.pierre@yahoo.com', initials: 'JP', color: '#22C55E', link: 'https://shein.com/products/dress-floral-p-12345678.html', site: 'Shein', qty: 1, destination: 'Santo Domingo', mode: '🚢', date: '13 juin 2025', status: 'En attente' },
+  { id: 'PS-0039', client: 'Sophia Laurent', email: 'sophia.l@gmail.com', initials: 'SL', color: '#8B5CF6', link: 'https://nike.com/t/air-max-270-mens-shoes', site: 'Nike', qty: 1, destination: 'Cap-Haïtien', mode: '✈️', date: '12 juin 2025', status: 'En attente' },
+  { id: 'PS-0038', client: 'Anne Duval', email: 'anne.duval@outlook.com', initials: 'AD', color: '#EC4899', link: 'https://amazon.com/dp/B0BSHF7WHW', site: 'Amazon', qty: 3, destination: 'Port-au-Prince', mode: '✈️', date: '12 juin 2025', status: 'En attente' },
+  { id: 'PS-0037', client: 'Paul Moreau', email: 'paul.moreau@yahoo.fr', initials: 'PM', color: '#06B6D4', link: 'https://shein.com/products/bag-crossbody-p-98765432.html', site: 'Shein', qty: 2, destination: 'Santo Domingo', mode: '🚢', date: '11 juin 2025', status: 'En attente' },
+  { id: 'PS-0036', client: 'Rose Dieu', email: 'rose.dieu@hotmail.com', initials: 'RD', color: '#9CA3AF', link: 'https://walmart.com/ip/Kitchen-Blender/123456789', site: 'Walmart', qty: 1, destination: 'Gonaïves', mode: '✈️', date: '11 juin 2025', status: 'En attente' },
+  { id: 'PS-0035', client: 'Yves Blanc', email: 'yves.blanc@gmail.com', initials: 'YB', color: '#F59E0B', link: 'https://nike.com/t/dri-fit-training-tshirt', site: 'Nike', qty: 4, destination: 'Port-au-Prince', mode: '✈️', date: '10 juin 2025', status: 'En attente' },
+  { id: 'PS-0034', client: 'Claude Martin', email: 'claude.martin@gmail.com', initials: 'CM', color: '#EF4444', link: 'https://amazon.com/dp/B08N5WRWNW', site: 'Amazon', qty: 1, destination: 'Cap-Haïtien', mode: '🚢', date: '10 juin 2025', status: 'En attente' },
+]
 
-const TABS: { key: Tab; label: string; count: number }[] = [
-  { key: 'attente', label: 'En attente', count: 8 },
-  { key: 'cours', label: 'En cours', count: 3 },
-  { key: 'done', label: 'Complétées', count: 47 },
-  { key: 'annule', label: 'Annulées', count: 2 },
-];
-
-const SITE_COLORS: Record<string, string> = {
-  Amazon: '#F97316', Shein: '#EA4C89', Nike: '#E53E3E', Adidas: '#1A1A2E', eBay: '#E43137', Walmart: '#0071CE',
-};
+const tabs = [
+  { label: 'En attente', count: 8 },
+  { label: 'En cours', count: 3 },
+  { label: 'Complétées', count: 47 },
+  { label: 'Annulées', count: 2 },
+]
 
 export default function ShopperPage() {
-  const [tab, setTab] = useState<Tab>('attente');
-  const [selected, setSelected] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('En attente')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const filtered = DEMANDES.filter(d => d.statut === tab);
-  const selectedItem = DEMANDES.find(d => d.id === selected);
-
-  const tabStyle = (t: Tab): React.CSSProperties => ({
-    height: 38, padding: '0 18px', borderRadius: '8px 8px 0 0', border: 'none',
-    fontFamily: 'Sora, sans-serif', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-    background: tab === t ? 'rgba(249,115,22,0.12)' : 'transparent',
-    color: tab === t ? '#F97316' : '#9CA3AF',
-    borderBottom: tab === t ? '2px solid #F97316' : '2px solid transparent',
-  });
+  const selected = requests.find(r => r.id === selectedId)
 
   return (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ padding: '28px 32px', background: '#0D0D0D', minHeight: '100vh', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* Header */}
-      <div style={{ height: 64, flexShrink: 0, background: '#0D0D0D', borderBottom: '1px solid #2A2A2A', display: 'flex', alignItems: 'center', gap: 14, padding: '0 24px' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#FFFFFF', lineHeight: 1.1 }}>Personal Shopper</div>
-          <div style={{ fontSize: 12, color: '#F97316', fontWeight: 600 }}>8 demandes en attente de traitement</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Personal Shopper</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 14, color: '#F97316', fontWeight: 500 }}>8 demandes en attente de traitement</p>
         </div>
-        <button style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: '#1A1A1A', border: '1px solid #2A2A2A', color: '#FFFFFF', cursor: 'pointer', fontSize: 18 }}>
-          🔔<span style={{ position: 'absolute', top: 6, right: 7, minWidth: 15, height: 15, background: '#F97316', borderRadius: 99, color: '#0D0D0D', fontSize: 9, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0D0D0D', padding: '0 3px' }}>5</span>
-        </button>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F97316', color: '#0D0D0D', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>MJ</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button style={{ background: 'transparent', border: '1px solid #2A2A2A', borderRadius: 8, color: '#9CA3AF', padding: '8px 12px', cursor: 'pointer', fontSize: 18 }}>🔔</button>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#F97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>MJ</div>
+        </div>
       </div>
 
       {/* Stats pills */}
-      <div style={{ display: 'flex', gap: 10, padding: '12px 24px 0', flexShrink: 0 }}>
-        {[['8', 'En attente', '#F97316', 'rgba(249,115,22,0.14)'], ['3', 'En cours', '#A5B4FC', '#1E1B4B'], ['47', 'Complétées', '#22C55E', 'rgba(34,197,94,0.14)'], ['$12,450', 'CA généré', '#FFFFFF', '#2A2A2A']].map(([v, l, c, bg]) => (
-          <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, background: bg as string, borderRadius: 99, padding: '7px 14px' }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: c as string }}>{v}</span>
-            <span style={{ fontSize: 12, color: '#9CA3AF' }}>{l}</span>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        {[
+          { label: 'En attente', value: '8', color: '#F97316', bg: 'rgba(249,115,22,0.1)' },
+          { label: 'En cours', value: '3', color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
+          { label: 'Complétées', value: '47', color: '#22C55E', bg: 'rgba(34,197,94,0.1)' },
+          { label: 'CA généré', value: '$12,840', color: '#9CA3AF', bg: '#1A1A1A' },
+        ].map(pill => (
+          <div key={pill.label} style={{ background: pill.bg, border: '1px solid #2A2A2A', borderRadius: 20, padding: '6px 14px', fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span style={{ color: '#9CA3AF' }}>{pill.label}:</span>
+            <span style={{ color: pill.color, fontWeight: 700 }}>{pill.value}</span>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, padding: '12px 24px 0', borderBottom: '1px solid #2A2A2A', flexShrink: 0 }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={tabStyle(t.key)}>
-            {t.label} ({t.count})
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#1A1A1A', border: '1px solid #222', borderRadius: 10, padding: 4, width: 'fit-content' }}>
+        {tabs.map(tab => (
+          <button key={tab.label} onClick={() => setActiveTab(tab.label)}
+            style={{ background: activeTab === tab.label ? '#2A2A2A' : 'transparent', border: activeTab === tab.label ? '1px solid #333' : '1px solid transparent', borderRadius: 8, color: activeTab === tab.label ? '#fff' : '#9CA3AF', padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: activeTab === tab.label ? 600 : 400, display: 'flex', alignItems: 'center', gap: 7, transition: 'all 0.15s' }}>
+            {tab.label}
+            <span style={{ background: activeTab === tab.label ? '#F97316' : '#2A2A2A', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{tab.count}</span>
           </button>
         ))}
       </div>
 
-      {/* Content split */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Left: list */}
-        <div style={{ width: '60%', overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 12, borderRight: '1px solid #2A2A2A' }}>
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#6B7280', paddingTop: 60, fontSize: 14 }}>Aucune demande dans cette catégorie</div>
-          ) : filtered.map(d => (
-            <div key={d.id} onClick={() => setSelected(d.id === selected ? null : d.id)}
-              style={{ background: selected === d.id ? 'rgba(249,115,22,0.07)' : '#1A1A1A', border: `1px solid ${selected === d.id ? '#F97316' : '#1F1F1F'}`, borderRadius: 16, padding: 16, cursor: 'pointer' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                <div style={{ width: 42, height: 42, borderRadius: '50%', background: d.color, color: '#FFFFFF', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{d.initials}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{d.client}</div>
-                  <div style={{ fontSize: 12, color: '#9CA3AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.email}</div>
+      {/* Content: two-panel layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '60% 40%', gap: 16 }}>
+        {/* Left: request list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {activeTab === 'En attente' ? requests.map(req => {
+            const ss = siteStyle[req.site] || { color: '#9CA3AF', bg: '#2A2A2A' }
+            const isSelected = selectedId === req.id
+            return (
+              <div key={req.id} onClick={() => setSelectedId(isSelected ? null : req.id)}
+                style={{ background: isSelected ? '#1F1F1F' : '#1A1A1A', border: `1px solid ${isSelected ? '#F97316' : '#222'}`, borderRadius: 12, padding: '16px 18px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: req.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{req.initials}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{req.client}</div>
+                      <div style={{ fontSize: 12, color: '#9CA3AF' }}>{req.email}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ background: ss.bg, color: ss.color, border: `1px solid ${ss.color}30`, borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>{req.site}</span>
+                    <span style={{ fontSize: 16 }}>{req.mode}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                  🔗 <span style={{ color: '#3B82F6' }}>{req.link}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>Qté: <span style={{ color: '#fff', fontWeight: 600 }}>{req.qty}</span></span>
+                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>Destination: <span style={{ color: '#fff', fontWeight: 600 }}>{req.destination}</span></span>
+                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>{req.date}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <span style={{ background: `${SITE_COLORS[d.site] ?? '#2A2A2A'}22`, color: SITE_COLORS[d.site] ?? '#9CA3AF', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 99 }}>{d.site}</span>
-                  <span style={{ background: d.mode === 'avion' ? 'rgba(249,115,22,0.14)' : 'rgba(59,130,246,0.14)', color: d.mode === 'avion' ? '#F97316' : '#3B82F6', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 99 }}>{d.mode === 'avion' ? '✈️' : '🚢'}</span>
+                  <button onClick={e => { e.stopPropagation() }}
+                    style={{ background: '#F97316', border: 'none', borderRadius: 8, color: '#fff', padding: '7px 16px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Traiter</button>
+                  <button onClick={e => { e.stopPropagation() }}
+                    style={{ background: '#2A2A2A', border: '1px solid #333', borderRadius: 8, color: '#9CA3AF', padding: '7px 16px', cursor: 'pointer', fontSize: 12 }}>Refuser</button>
                 </div>
               </div>
-              <div style={{ fontSize: 13, color: '#FFFFFF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 8 }}>{d.produit}</div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>Qté: {d.qty}</span>
-                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>→ {d.dest}</span>
-                  <span style={{ fontSize: 12, color: '#6B7280' }}>{d.date}</span>
-                </div>
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#F97316' }}>{d.montant}</span>
-              </div>
-              {tab === 'attente' && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  <button onClick={e => e.stopPropagation()} style={{ flex: 1, height: 36, background: '#F97316', border: 'none', borderRadius: 8, color: '#0D0D0D', fontFamily: 'Sora, sans-serif', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Traiter</button>
-                  <button onClick={e => e.stopPropagation()} style={{ flex: 1, height: 36, background: '#2A2A2A', border: 'none', borderRadius: 8, color: '#FFFFFF', fontFamily: 'Sora, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Refuser</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Right: detail */}
-        <div style={{ width: '40%', overflowY: 'auto', padding: 24 }}>
-          {selectedItem ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ background: '#1A1A1A', border: '1px solid #1F1F1F', borderRadius: 16, padding: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14 }}>Détail demande — {selectedItem.id}</div>
-                {[['Client', `${selectedItem.client} (${selectedItem.initials})`], ['Email', selectedItem.email], ['Produit', selectedItem.produit], ['Lien', selectedItem.lien], ['Site', selectedItem.site], ['Quantité', String(selectedItem.qty)], ['Destination', selectedItem.dest], ['Mode', selectedItem.mode === 'avion' ? '✈️ Avion' : '🚢 Bateau'], ['Montant estimé', selectedItem.montant], ['Date demande', selectedItem.date]].map(([k, v]) => (
-                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #242424' }}>
-                    <span style={{ fontSize: 13, color: '#9CA3AF' }}>{k}</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', textAlign: 'right', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-              {tab === 'attente' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <button style={{ height: 46, background: '#F97316', border: 'none', borderRadius: 12, color: '#0D0D0D', fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Commencer le traitement</button>
-                  <button style={{ height: 46, background: '#2A2A2A', border: 'none', borderRadius: 12, color: '#FFFFFF', fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Demander plus d'infos</button>
-                  <button style={{ height: 46, background: '#2D0A0A', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 12, color: '#EF4444', fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Refuser la demande</button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #2A2A2A', borderRadius: 16, gap: 12 }}>
-              <div style={{ fontSize: 40 }}>🛍️</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#6B7280' }}>Sélectionnez une demande</div>
-              <div style={{ fontSize: 12, color: '#4B5563', textAlign: 'center' }}>Cliquez sur une demande<br />pour voir les détails</div>
+            )
+          }) : (
+            <div style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 12, padding: 40, textAlign: 'center' }}>
+              <p style={{ color: '#9CA3AF', fontSize: 14 }}>Aucune demande dans cette catégorie</p>
             </div>
           )}
         </div>
+
+        {/* Right: detail panel */}
+        <div style={{ position: 'sticky', top: 20 }}>
+          <div style={{ background: '#1A1A1A', border: `1px solid ${selected ? '#2A2A2A' : '#222'}`, borderRadius: 12, padding: 24, minHeight: 400 }}>
+            {selected ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: selected.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff' }}>{selected.initials}</div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{selected.client}</div>
+                    <div style={{ fontSize: 13, color: '#9CA3AF' }}>{selected.email}</div>
+                  </div>
+                </div>
+                <div style={{ borderTop: '1px solid #2A2A2A', paddingTop: 16, marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px' }}>Référence</p>
+                  <p style={{ margin: 0, fontSize: 14, color: '#fff', fontFamily: 'monospace' }}>{selected.id}</p>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px' }}>Lien produit</p>
+                  <p style={{ margin: 0, fontSize: 12, color: '#3B82F6', wordBreak: 'break-all' }}>{selected.link}</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                  {[
+                    { label: 'Site', value: selected.site },
+                    { label: 'Quantité', value: String(selected.qty) },
+                    { label: 'Destination', value: selected.destination },
+                    { label: 'Mode', value: `${selected.mode} ${selected.mode === '✈️' ? 'Avion' : 'Bateau'}` },
+                  ].map(d => (
+                    <div key={d.label} style={{ background: '#111', border: '1px solid #222', borderRadius: 8, padding: '10px 14px' }}>
+                      <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>{d.label}</p>
+                      <p style={{ margin: '4px 0 0', fontSize: 13, fontWeight: 600, color: '#fff' }}>{d.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                  <button style={{ flex: 1, background: '#F97316', border: 'none', borderRadius: 8, color: '#fff', padding: '10px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Traiter la demande</button>
+                  <button style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#EF4444', padding: '10px 16px', cursor: 'pointer', fontSize: 13 }}>Refuser</button>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 360, border: '2px dashed #2A2A2A', borderRadius: 10 }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>🛍️</div>
+                <p style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', margin: 0 }}>Détail commande</p>
+                <p style={{ color: '#555', fontSize: 13, textAlign: 'center', margin: '6px 0 0' }}>Sélectionnez une demande</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
-  );
+  )
 }
