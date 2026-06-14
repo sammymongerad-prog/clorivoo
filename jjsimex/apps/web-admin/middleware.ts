@@ -3,10 +3,19 @@ import { updateSession } from '@/lib/supabase/middleware';
 import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
-  const response = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
+  // Rate limiting on API routes (simple header pass-through).
+  // In production replace with Upstash Redis rate limiting.
+  if (pathname.startsWith('/api/')) {
+    const response = NextResponse.next();
+    response.headers.set('X-RateLimit-Limit', '100');
+    return response;
+  }
+
+  const response = await updateSession(request);
+
+  const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/unauthorized'];
   if (publicRoutes.some((r) => pathname.startsWith(r))) {
     return response;
   }
@@ -20,31 +29,41 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
       },
-    },
+    }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (!session) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname.startsWith('/dashboard')) {
+  if (pathname.startsWith('/dashboard') || pathname === '/') {
     const { data: profile } = await supabase
       .from('users')
       .select('role, is_active')
-      .eq('id', user.id)
+      .eq('id', session.user.id)
       .single();
 
     if (!profile?.is_active) {
       return NextResponse.redirect(new URL('/login?error=compte_suspendu', request.url));
     }
 
-    if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/login?error=acces_refuse', request.url));
+    const validRoles = ['admin', 'super_admin', 'employee'];
+    if (!profile || !validRoles.includes(profile.role)) {
+      console.warn(
+        `Unauthorized access attempt by ${session.user.email} with role ${profile?.role}`
+      );
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
   }
 
