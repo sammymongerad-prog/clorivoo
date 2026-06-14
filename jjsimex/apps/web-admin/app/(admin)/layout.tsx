@@ -1,7 +1,9 @@
 'use client';
 
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { getClient } from '@jjsimex/supabase';
 
 const NAV_ITEMS = [
   {
@@ -19,6 +21,7 @@ const NAV_ITEMS = [
     key: 'colis',
     label: 'Colis',
     href: '/dashboard/colis',
+    badgeKey: 'pending_packages',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -41,7 +44,7 @@ const NAV_ITEMS = [
     key: 'shopper',
     label: 'Personal Shopper',
     href: '/dashboard/shopper',
-    badge: '8',
+    badgeKey: 'pending_shopper',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
@@ -63,6 +66,7 @@ const NAV_ITEMS = [
     key: 'paiements',
     label: 'Paiements',
     href: '/dashboard/paiements',
+    badgeKey: 'pending_payments',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
@@ -102,10 +106,25 @@ const NAV_ITEMS = [
   },
 ];
 
-function Sidebar({ pathname }: { pathname: string }) {
+interface AdminUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+}
+
+interface Badges {
+  pending_packages: number;
+  pending_shopper: number;
+  pending_payments: number;
+}
+
+function Sidebar({ pathname, badges, user, onSignOut }: { pathname: string; badges: Badges; user: AdminUser | null; onSignOut: () => void }) {
+  const initials = user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : '??';
+  const fullName = user ? `${user.first_name} ${user.last_name}` : 'Admin';
+
   return (
     <aside style={{ width: 260, flexShrink: 0, background: '#111111', borderRight: '1px solid #2A2A2A', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Logo */}
       <div style={{ padding: '26px 22px 20px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', fontWeight: 800, fontSize: 21, letterSpacing: -0.6, color: '#F97316', lineHeight: 1 }}>
           <span style={{ color: '#FFFFFF' }}>JJ</span>
@@ -115,31 +134,27 @@ function Sidebar({ pathname }: { pathname: string }) {
         <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 6 }}>Panel Administrateur</div>
       </div>
 
-      {/* Nav items */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          const badgeCount = item.badgeKey ? badges[item.badgeKey as keyof Badges] : 0;
           return (
             <Link
               key={item.key}
               href={item.href}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '11px 22px',
+                display: 'flex', alignItems: 'center', gap: 12, padding: '11px 22px',
                 background: isActive ? '#1A1A1A' : 'transparent',
                 borderLeft: isActive ? '3px solid #F97316' : '3px solid transparent',
                 color: isActive ? '#F97316' : '#9CA3AF',
-                textDecoration: 'none',
-                cursor: 'pointer',
+                textDecoration: 'none', cursor: 'pointer',
               }}
             >
               {item.icon}
               <span style={{ fontSize: 14, fontWeight: isActive ? 600 : 500, flex: 1 }}>{item.label}</span>
-              {item.badge && (
+              {badgeCount > 0 && (
                 <span style={{ background: '#F97316', color: '#0D0D0D', fontSize: 11, fontWeight: 700, minWidth: 20, height: 20, padding: '0 6px', boxSizing: 'border-box', borderRadius: 99, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {item.badge}
+                  {badgeCount > 99 ? '99+' : badgeCount}
                 </span>
               )}
             </Link>
@@ -147,14 +162,13 @@ function Sidebar({ pathname }: { pathname: string }) {
         })}
       </div>
 
-      {/* User card */}
       <div style={{ borderTop: '1px solid #2A2A2A', padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F97316', color: '#0D0D0D', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>MJ</div>
+        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F97316', color: '#0D0D0D', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{initials}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>Marie Joseph</div>
-          <div style={{ fontSize: 12, color: '#9CA3AF' }}>Super Admin</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fullName}</div>
+          <div style={{ fontSize: 12, color: '#9CA3AF' }}>{user?.role ?? 'Admin'}</div>
         </div>
-        <button style={{ width: 34, height: 34, borderRadius: 8, background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444', cursor: 'pointer' }}>
+        <button onClick={onSignOut} style={{ width: 34, height: 34, borderRadius: 8, background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444', cursor: 'pointer' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
@@ -165,14 +179,16 @@ function Sidebar({ pathname }: { pathname: string }) {
   );
 }
 
-function AdminHeader({ pathname }: { pathname: string }) {
+function AdminHeader({ pathname, user, totalBadges }: { pathname: string; user: AdminUser | null; totalBadges: number }) {
   const title = NAV_ITEMS.find(i => pathname === i.href || (i.href !== '/dashboard' && pathname.startsWith(i.href)))?.label ?? 'Dashboard';
+  const firstName = user?.first_name ?? 'Admin';
+  const initials = user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : '??';
 
   return (
     <header style={{ height: 64, flexShrink: 0, background: '#0D0D0D', borderBottom: '1px solid #2A2A2A', display: 'flex', alignItems: 'center', gap: 20, padding: '0 24px' }}>
       <div style={{ flexShrink: 0 }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: '#FFFFFF', lineHeight: 1.1 }}>{title}</div>
-        <div style={{ fontSize: 12, color: '#9CA3AF' }}>Bienvenue, Marie 👋</div>
+        <div style={{ fontSize: 12, color: '#9CA3AF' }}>Bienvenue, {firstName} 👋</div>
       </div>
 
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
@@ -190,20 +206,17 @@ function AdminHeader({ pathname }: { pathname: string }) {
       </div>
 
       <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ display: 'flex', gap: 4, background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 8, padding: 4 }}>
-          {['Aujourd\'hui', '7 jours', '30 jours', 'Ce mois'].map((label, i) => (
-            <button key={i} style={{ background: i === 3 ? '#2A2A2A' : 'none', border: 'none', borderRadius: 6, padding: '5px 10px', color: i === 3 ? '#FFFFFF' : '#6B7280', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-              {label}
-            </button>
-          ))}
-        </div>
         <button style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: '#1A1A1A', border: '1px solid #2A2A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', cursor: 'pointer' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          <span style={{ position: 'absolute', top: 6, right: 7, minWidth: 15, height: 15, padding: '0 3px', boxSizing: 'border-box', borderRadius: 99, background: '#F97316', color: '#0D0D0D', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0D0D0D' }}>5</span>
+          {totalBadges > 0 && (
+            <span style={{ position: 'absolute', top: 6, right: 7, minWidth: 15, height: 15, padding: '0 3px', boxSizing: 'border-box', borderRadius: 99, background: '#F97316', color: '#0D0D0D', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0D0D0D' }}>
+              {totalBadges > 99 ? '99+' : totalBadges}
+            </span>
+          )}
         </button>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F97316', color: '#0D0D0D', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>MJ</div>
+        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F97316', color: '#0D0D0D', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>{initials}</div>
       </div>
     </header>
   );
@@ -211,12 +224,59 @@ function AdminHeader({ pathname }: { pathname: string }) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = getClient();
+
+  const [user, setUser] = useState<AdminUser | null>(null);
+  const [badges, setBadges] = useState<Badges>({ pending_packages: 0, pending_shopper: 0, pending_payments: 0 });
+
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/login'); return; }
+
+      const { data } = await supabase.from('users').select('id, first_name, last_name, role').eq('id', session.user.id).single();
+      if (data) setUser(data as AdminUser);
+    })();
+  }, []);
+
+  useEffect(() => {
+    const loadBadges = async () => {
+      const [pkgRes, shopRes, payRes] = await Promise.all([
+        supabase.from('packages').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('shopper_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      ]);
+      setBadges({
+        pending_packages: pkgRes.count ?? 0,
+        pending_shopper: shopRes.count ?? 0,
+        pending_payments: payRes.count ?? 0,
+      });
+    };
+
+    loadBadges();
+
+    const ch = supabase.channel('admin-badges')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'packages' }, loadBadges)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shopper_requests' }, loadBadges)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, loadBadges)
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
+  const totalBadges = badges.pending_packages + badges.pending_shopper + badges.pending_payments;
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#0D0D0D', overflow: 'hidden', fontFamily: "'Sora', sans-serif" }}>
-      <Sidebar pathname={pathname} />
+      <Sidebar pathname={pathname} badges={badges} user={user} onSignOut={handleSignOut} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <AdminHeader pathname={pathname} />
+        <AdminHeader pathname={pathname} user={user} totalBadges={totalBadges} />
         <main style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
           {children}
         </main>

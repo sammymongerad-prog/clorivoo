@@ -1,152 +1,296 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react';
+import { getClient } from '@jjsimex/supabase';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Modal } from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
-const clients = [
-  { id: 'CL-0001', name: 'Marie Joseph', email: 'marie.joseph@gmail.com', phone: '+509 3456-7890', status: 'Actif', colis: 12, spent: '$1,240', lastPurchase: '12 juin 2025', initials: 'MJ', color: '#F97316' },
-  { id: 'CL-0002', name: 'Jean Pierre', email: 'jean.pierre@yahoo.com', phone: '+1 305-234-5678', status: 'Actif', colis: 8, spent: '$890', lastPurchase: '11 juin 2025', initials: 'JP', color: '#22C55E' },
-  { id: 'CL-0003', name: 'Rose Dieu', email: 'rose.dieu@hotmail.com', phone: '+509 4567-8901', status: 'Inactif', colis: 3, spent: '$320', lastPurchase: '2 mai 2025', initials: 'RD', color: '#9CA3AF' },
-  { id: 'CL-0004', name: 'Claude Martin', email: 'claude.martin@gmail.com', phone: '+1 809-345-6789', status: 'Bloqué', colis: 0, spent: '$150', lastPurchase: '15 mars 2025', initials: 'CM', color: '#EF4444' },
-  { id: 'CL-0005', name: 'Sophia Laurent', email: 'sophia.l@gmail.com', phone: '+509 2345-6789', status: 'Actif', colis: 21, spent: '$2,780', lastPurchase: '13 juin 2025', initials: 'SL', color: '#8B5CF6' },
-  { id: 'CL-0006', name: 'Paul Moreau', email: 'paul.moreau@yahoo.fr', phone: '+1 305-987-6543', status: 'Actif', colis: 5, spent: '$560', lastPurchase: '10 juin 2025', initials: 'PM', color: '#06B6D4' },
-  { id: 'CL-0007', name: 'Yves Blanc', email: 'yves.blanc@gmail.com', phone: '+509 3789-0123', status: 'Inactif', colis: 1, spent: '$89', lastPurchase: '20 avr. 2025', initials: 'YB', color: '#F59E0B' },
-  { id: 'CL-0008', name: 'Anne Duval', email: 'anne.duval@outlook.com', phone: '+1 809-876-5432', status: 'Actif', colis: 16, spent: '$1,890', lastPurchase: '12 juin 2025', initials: 'AD', color: '#EC4899' },
-]
+const AVATAR_COLORS = ['#F97316', '#22C55E', '#3B82F6', '#A855F7', '#06B6D4', '#F59E0B', '#EC4899', '#8B5CF6'];
 
-const statusColor = (s: string) => s === 'Actif' ? '#22C55E' : s === 'Bloqué' ? '#EF4444' : '#9CA3AF'
-const statusBg = (s: string) => s === 'Actif' ? 'rgba(34,197,94,0.12)' : s === 'Bloqué' ? 'rgba(239,68,68,0.12)' : 'rgba(156,163,175,0.12)'
+interface Client {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  status: string;
+  created_at: string;
+  package_count?: number;
+  total_spent?: number;
+}
+
+interface ClientDetail extends Client {
+  packages: { id: string; tracking_number: string; status: string; created_at: string }[];
+  payments: { id: string; amount: number; status: string; method: string; created_at: string }[];
+}
+
+const PAGE_SIZE = 20;
 
 export default function ClientsPage() {
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('Tous')
-  const [countryFilter, setCountryFilter] = useState('Tous')
-  const [selected, setSelected] = useState<string[]>([])
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null)
+  const supabase = getClient();
+  const { show, ToastEl } = useToast();
 
-  const filtered = clients.filter(c => {
-    if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.email.toLowerCase().includes(search.toLowerCase())) return false
-    if (statusFilter !== 'Tous' && c.status !== statusFilter) return false
-    return true
-  })
+  const [clients, setClients] = useState<Client[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('tous');
+  const [selectedClient, setSelectedClient] = useState<ClientDetail | null>(null);
+  const [modalTab, setModalTab] = useState<'info' | 'colis' | 'paiements'>('info');
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  const toggleSelect = (id: string) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const [stats, setStats] = useState({ total: 0, actif: 0, nouveau: 0 });
 
-  const inputStyle: React.CSSProperties = {
-    background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 8, color: '#fff',
-    padding: '8px 12px', fontSize: 13, outline: 'none', width: '100%'
-  }
-  const selectStyle: React.CSSProperties = { ...inputStyle, width: 'auto', cursor: 'pointer' }
+  const loadClients = useCallback(async () => {
+    setLoading(true);
+    let query = supabase
+      .from('users')
+      .select('id, first_name, last_name, email, phone, status, created_at', { count: 'exact' })
+      .eq('role', 'client')
+      .order('created_at', { ascending: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    if (search) {
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+    }
+    if (statusFilter !== 'tous') {
+      query = query.eq('status', statusFilter);
+    }
+
+    const { data, count } = await query;
+    setClients((data ?? []) as Client[]);
+    setTotal(count ?? 0);
+    setLoading(false);
+  }, [page, search, statusFilter]);
+
+  const loadStats = useCallback(async () => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const [tot, act, nouv] = await Promise.all([
+      supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'client'),
+      supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'client').eq('status', 'actif'),
+      supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'client').gte('created_at', monthStart),
+    ]);
+    setStats({ total: tot.count ?? 0, actif: act.count ?? 0, nouveau: nouv.count ?? 0 });
+  }, []);
+
+  useEffect(() => { loadClients(); }, [loadClients]);
+  useEffect(() => { loadStats(); }, [loadStats]);
+
+  const openClient = async (c: Client) => {
+    setLoadingDetail(true);
+    setSelectedClient({ ...c, packages: [], payments: [] });
+    setModalTab('info');
+    const [pkgs, pays] = await Promise.all([
+      supabase.from('packages').select('id, tracking_number, status, created_at').eq('user_id', c.id).order('created_at', { ascending: false }).limit(10),
+      supabase.from('payments').select('id, amount, status, method, created_at').eq('user_id', c.id).order('created_at', { ascending: false }).limit(10),
+    ]);
+    setSelectedClient({ ...c, packages: pkgs.data ?? [], payments: pays.data ?? [] });
+    setLoadingDetail(false);
+  };
+
+  const changeStatus = async (clientId: string, newStatus: string) => {
+    setUpdatingStatus(true);
+    const { error } = await supabase.from('users').update({ status: newStatus }).eq('id', clientId);
+    if (error) {
+      show(`Erreur: ${error.message}`, 'error');
+    } else {
+      show('Statut mis à jour', 'success');
+      setSelectedClient(prev => prev ? { ...prev, status: newStatus } : prev);
+      loadClients();
+      loadStats();
+    }
+    setUpdatingStatus(false);
+  };
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const avatarColor = (id: string) => AVATAR_COLORS[id.charCodeAt(0) % AVATAR_COLORS.length];
+  const initials = (c: Client) => `${c.first_name[0] ?? ''}${c.last_name[0] ?? ''}`.toUpperCase();
+  const fmt = (n: number) => n.toLocaleString('fr-FR');
+  const fmtDate = (s: string) => new Date(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const inputStyle: React.CSSProperties = { background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 8, color: '#fff', padding: '8px 12px', fontSize: 13, outline: 'none', fontFamily: 'inherit' };
 
   return (
-    <div style={{ padding: '28px 32px', background: '#0D0D0D', minHeight: '100vh', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#fff' }}>Clients</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: '#9CA3AF' }}>Gestion des comptes</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {[
-            { label: 'Total', value: '22,847', color: '#9CA3AF', bg: '#1A1A1A' },
-            { label: 'Actifs', value: '18,234', color: '#22C55E', bg: 'rgba(34,197,94,0.1)' },
-            { label: 'Inactifs', value: '4,613', color: '#9CA3AF', bg: '#1A1A1A' },
-            { label: 'Nouveaux ce mois', value: '342', color: '#F97316', bg: 'rgba(249,115,22,0.1)' },
-          ].map(pill => (
-            <div key={pill.label} style={{ background: pill.bg, border: `1px solid #2A2A2A`, borderRadius: 20, padding: '6px 14px', fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ color: '#9CA3AF' }}>{pill.label}:</span>
-              <span style={{ color: pill.color, fontWeight: 600 }}>{pill.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {ToastEl}
 
-      {/* Filter bar */}
-      <div style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
-          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', fontSize: 14 }}>🔍</span>
-          <input placeholder="Rechercher un client..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ ...inputStyle, paddingLeft: 32 }} />
-        </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
-          <option>Tous</option><option>Actif</option><option>Inactif</option><option>Bloqué</option>
-        </select>
-        <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} style={selectStyle}>
-          <option>Tous</option><option>Haïti</option><option>Rép. Dom.</option><option>USA</option>
-        </select>
-        <button style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 8, color: '#9CA3AF', padding: '8px 16px', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-          ⬇ Exporter
-        </button>
-      </div>
-
-      {/* Stats summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
-          { label: 'Total clients', value: '22,847', sub: '+2.4% ce mois' },
-          { label: 'Actifs ce mois', value: '18,234', sub: '79.8% du total' },
-          { label: 'Nouveaux ce mois', value: '342', sub: '+18% vs mois dernier' },
-          { label: 'Moy. colis/client', value: '7.3', sub: 'sur 12 mois glissants' },
+          { label: 'Total clients', value: fmt(stats.total), color: '#FFFFFF' },
+          { label: 'Actifs', value: fmt(stats.actif), color: '#22C55E' },
+          { label: 'Inactifs', value: fmt(Math.max(0, stats.total - stats.actif)), color: '#9CA3AF' },
+          { label: 'Nouveaux ce mois', value: fmt(stats.nouveau), color: '#F97316' },
         ].map(card => (
           <div key={card.label} style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 12, padding: '16px 20px' }}>
             <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF' }}>{card.label}</p>
-            <p style={{ margin: '6px 0 4px', fontSize: 22, fontWeight: 700, color: '#fff' }}>{card.value}</p>
-            <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF' }}>{card.sub}</p>
+            <p style={{ margin: '6px 0 0', fontSize: 22, fontWeight: 700, color: card.color }}>{card.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Filter bar */}
+      <div style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 12, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+          <input
+            placeholder="Rechercher un client..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(0); }}
+            style={{ ...inputStyle, paddingLeft: 32, width: '100%', boxSizing: 'border-box' }}
+          />
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', fontSize: 14 }}>🔍</span>
+        </div>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }} style={{ ...inputStyle, cursor: 'pointer' }}>
+          <option value="tous">Tous les statuts</option>
+          <option value="actif">Actif</option>
+          <option value="inactif">Inactif</option>
+          <option value="bloqué">Bloqué</option>
+        </select>
       </div>
 
       {/* Table */}
       <div style={{ background: '#1A1A1A', border: '1px solid #222', borderRadius: 12, overflow: 'hidden' }}>
-        {/* Table header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '44px 2fr 1fr 1.2fr 0.8fr 0.7fr 1fr 1fr 1.2fr', padding: '12px 20px', borderBottom: '1px solid #222', background: '#161616' }}>
-          {['', 'Client', 'ID Client', 'Téléphone', 'Statut', 'Colis', 'Total dépensé', 'Dernier achat', 'Actions'].map((col, i) => (
-            <div key={i} style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{col}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 0.8fr 1fr 1fr', padding: '12px 20px', borderBottom: '1px solid #222', background: '#161616' }}>
+          {['Client', 'Téléphone', 'Statut', 'Inscrit le', 'Actions'].map(h => (
+            <div key={h} style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</div>
           ))}
         </div>
-        {/* Rows */}
-        {filtered.map(client => (
-          <div key={client.id}
-            onMouseEnter={() => setHoveredRow(client.id)}
-            onMouseLeave={() => setHoveredRow(null)}
-            style={{ display: 'grid', gridTemplateColumns: '44px 2fr 1fr 1.2fr 0.8fr 0.7fr 1fr 1fr 1.2fr', padding: '14px 20px', borderBottom: '1px solid #1E1E1E', alignItems: 'center', background: hoveredRow === client.id ? '#1F1F1F' : 'transparent', transition: 'background 0.15s' }}>
-            <div>
-              <input type="checkbox" checked={selected.includes(client.id)} onChange={() => toggleSelect(client.id)}
-                style={{ accentColor: '#F97316', cursor: 'pointer', width: 16, height: 16 }} />
-            </div>
+
+        {loading ? <LoadingSpinner /> : clients.map(client => (
+          <div
+            key={client.id}
+            style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 0.8fr 1fr 1fr', padding: '14px 20px', borderBottom: '1px solid #1E1E1E', alignItems: 'center', transition: 'background 0.15s', cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#1F1F1F')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: client.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                {client.initials}
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: avatarColor(client.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                {initials(client)}
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{client.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{client.first_name} {client.last_name}</div>
                 <div style={{ fontSize: 12, color: '#9CA3AF' }}>{client.email}</div>
               </div>
             </div>
-            <div style={{ fontSize: 13, color: '#9CA3AF', fontFamily: 'monospace' }}>{client.id}</div>
-            <div style={{ fontSize: 13, color: '#fff' }}>{client.phone}</div>
+            <div style={{ fontSize: 13, color: '#fff' }}>{client.phone ?? '—'}</div>
+            <div><StatusBadge status={client.status} /></div>
+            <div style={{ fontSize: 12, color: '#9CA3AF' }}>{fmtDate(client.created_at)}</div>
             <div>
-              <span style={{ background: statusBg(client.status), color: statusColor(client.status), border: `1px solid ${statusColor(client.status)}30`, borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 500 }}>
-                {client.status}
-              </span>
-            </div>
-            <div style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{client.colis}</div>
-            <div style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{client.spent}</div>
-            <div style={{ fontSize: 12, color: '#9CA3AF' }}>{client.lastPurchase}</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button style={{ background: '#2A2A2A', border: '1px solid #333', borderRadius: 6, color: '#fff', padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>Voir</button>
-              <button style={{ background: 'transparent', border: '1px solid #2A2A2A', borderRadius: 6, color: '#9CA3AF', padding: '5px 8px', cursor: 'pointer', fontSize: 14 }}>···</button>
+              <button
+                onClick={() => openClient(client)}
+                style={{ background: '#2A2A2A', border: '1px solid #333', borderRadius: 6, color: '#fff', padding: '5px 14px', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}
+              >
+                Voir
+              </button>
             </div>
           </div>
         ))}
+
         {/* Pagination */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px' }}>
-          <span style={{ fontSize: 13, color: '#9CA3AF' }}>Affichage de 1 à {filtered.length} sur 22,847 clients</span>
+          <span style={{ fontSize: 13, color: '#9CA3AF' }}>
+            {clients.length > 0 ? `${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + clients.length} sur ${fmt(total)} clients` : 'Aucun client'}
+          </span>
           <div style={{ display: 'flex', gap: 6 }}>
-            {['‹', '1', '2', '3', '...', '12', '›'].map((p, i) => (
-              <button key={i} style={{ background: p === '1' ? '#F97316' : '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 6, color: p === '1' ? '#fff' : '#9CA3AF', padding: '5px 10px', cursor: 'pointer', fontSize: 13, minWidth: 32 }}>{p}</button>
-            ))}
+            <button disabled={page === 0} onClick={() => setPage(p => p - 1)} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 6, color: '#9CA3AF', padding: '5px 10px', cursor: page === 0 ? 'default' : 'pointer', fontSize: 13, opacity: page === 0 ? 0.4 : 1, fontFamily: 'inherit' }}>‹</button>
+            <span style={{ padding: '5px 12px', fontSize: 13, color: '#FFFFFF', background: '#F97316', borderRadius: 6 }}>{page + 1}</span>
+            <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 6, color: '#9CA3AF', padding: '5px 10px', cursor: page >= totalPages - 1 ? 'default' : 'pointer', fontSize: 13, opacity: page >= totalPages - 1 ? 0.4 : 1, fontFamily: 'inherit' }}>›</button>
           </div>
         </div>
       </div>
+
+      {/* Client detail modal */}
+      <Modal open={!!selectedClient} onClose={() => setSelectedClient(null)} title={selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name}` : ''} maxWidth={700}>
+        {selectedClient && (
+          <div>
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #2A2A2A', marginBottom: 20 }}>
+              {(['info', 'colis', 'paiements'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setModalTab(tab)}
+                  style={{ background: modalTab === tab ? 'rgba(249,115,22,0.12)' : 'none', border: 'none', borderBottom: modalTab === tab ? '2px solid #F97316' : '2px solid transparent', padding: '8px 18px', color: modalTab === tab ? '#F97316' : '#9CA3AF', fontSize: 13, fontWeight: modalTab === tab ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', borderRadius: '8px 8px 0 0' }}
+                >
+                  {tab === 'info' ? 'Informations' : tab === 'colis' ? `Colis (${selectedClient.packages.length})` : `Paiements (${selectedClient.payments.length})`}
+                </button>
+              ))}
+            </div>
+
+            {loadingDetail ? <LoadingSpinner /> : (
+              <>
+                {modalTab === 'info' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      {[
+                        { label: 'Prénom', value: selectedClient.first_name },
+                        { label: 'Nom', value: selectedClient.last_name },
+                        { label: 'Email', value: selectedClient.email },
+                        { label: 'Téléphone', value: selectedClient.phone ?? '—' },
+                        { label: 'Statut', value: selectedClient.status },
+                        { label: 'Inscrit le', value: fmtDate(selectedClient.created_at) },
+                      ].map(row => (
+                        <div key={row.label}>
+                          <div style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{row.label}</div>
+                          <div style={{ fontSize: 14, color: '#FFFFFF', fontWeight: 500 }}>{row.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ borderTop: '1px solid #2A2A2A', paddingTop: 16 }}>
+                      <div style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 10 }}>Changer le statut</div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {['actif', 'inactif', 'bloqué'].map(s => (
+                          <button
+                            key={s}
+                            disabled={updatingStatus || selectedClient.status === s}
+                            onClick={() => changeStatus(selectedClient.id, s)}
+                            style={{ background: selectedClient.status === s ? '#2A2A2A' : '#1A1A1A', border: `1px solid ${selectedClient.status === s ? '#F97316' : '#2A2A2A'}`, borderRadius: 8, padding: '7px 16px', color: selectedClient.status === s ? '#F97316' : '#9CA3AF', fontSize: 13, fontWeight: 500, cursor: updatingStatus ? 'default' : 'pointer', fontFamily: 'inherit', textTransform: 'capitalize', opacity: updatingStatus ? 0.6 : 1 }}
+                          >
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {modalTab === 'colis' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {selectedClient.packages.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#6B7280', padding: 30 }}>Aucun colis</div>
+                    ) : selectedClient.packages.map(pkg => (
+                      <div key={pkg.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#111', borderRadius: 8 }}>
+                        <span style={{ fontSize: 13, color: '#F97316', fontWeight: 600 }}>{pkg.tracking_number}</span>
+                        <span style={{ fontSize: 12, color: '#9CA3AF' }}>{fmtDate(pkg.created_at)}</span>
+                        <StatusBadge status={pkg.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {modalTab === 'paiements' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {selectedClient.payments.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#6B7280', padding: 30 }}>Aucun paiement</div>
+                    ) : selectedClient.payments.map(pay => (
+                      <div key={pay.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#111', borderRadius: 8 }}>
+                        <span style={{ fontSize: 13, color: '#E5E7EB', fontWeight: 600 }}>${pay.amount.toFixed(2)}</span>
+                        <span style={{ fontSize: 12, color: '#9CA3AF' }}>{pay.method}</span>
+                        <span style={{ fontSize: 12, color: '#9CA3AF' }}>{fmtDate(pay.created_at)}</span>
+                        <StatusBadge status={pay.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
-  )
+  );
 }
