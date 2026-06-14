@@ -1,13 +1,30 @@
-import { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Alert,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  SafeAreaView,
+  Animated,
+  StyleSheet,
+  Dimensions,
+  Alert,
 } from 'react-native';
-import { scanPackage, updatePackageStatus } from '@jjsimex/supabase/packages';
-import type { PackageStatus } from '@jjsimex/supabase/packages';
+import { scanPackage } from '@jjsimex/supabase';
+import { StatusChanger } from '@/components/ui/StatusChanger';
 import { useAuth } from '@/contexts/AuthContext';
 
-const STATUS_LABELS: Record<PackageStatus, string> = {
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const VIEWFINDER_SIZE = SCREEN_WIDTH * 0.65;
+const CORNER_SIZE = 30;
+const CORNER_THICKNESS = 3;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ScanResult = any;
+
+const STATUS_LABELS: Record<string, string> = {
   pending: 'En attente',
   received_usa: 'Reçu USA',
   in_transit: 'En transit',
@@ -16,7 +33,7 @@ const STATUS_LABELS: Record<PackageStatus, string> = {
   delivered: 'Livré',
 };
 
-const STATUS_COLORS: Record<PackageStatus, string> = {
+const STATUS_COLORS: Record<string, string> = {
   pending: '#EAB308',
   received_usa: '#3B82F6',
   in_transit: '#F97316',
@@ -25,35 +42,89 @@ const STATUS_COLORS: Record<PackageStatus, string> = {
   delivered: '#22C55E',
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  mark_received_usa: 'Reçu USA',
-  mark_in_transit: 'Mettre en transit',
-  mark_arrived: 'Marquer arrivé',
-  mark_ready_pickup: 'Prêt à retirer',
-  mark_delivered: 'Livré',
-};
+function ViewfinderCorners() {
+  return (
+    <View style={styles.viewfinder}>
+      {/* Top-left */}
+      <View style={[styles.corner, styles.cornerTopLeft]}>
+        <View style={[styles.cornerH, { top: 0, left: 0 }]} />
+        <View style={[styles.cornerV, { top: 0, left: 0 }]} />
+      </View>
+      {/* Top-right */}
+      <View style={[styles.corner, styles.cornerTopRight]}>
+        <View style={[styles.cornerH, { top: 0, right: 0 }]} />
+        <View style={[styles.cornerV, { top: 0, right: 0 }]} />
+      </View>
+      {/* Bottom-left */}
+      <View style={[styles.corner, styles.cornerBottomLeft]}>
+        <View style={[styles.cornerH, { bottom: 0, left: 0 }]} />
+        <View style={[styles.cornerV, { bottom: 0, left: 0 }]} />
+      </View>
+      {/* Bottom-right */}
+      <View style={[styles.corner, styles.cornerBottomRight]}>
+        <View style={[styles.cornerH, { bottom: 0, right: 0 }]} />
+        <View style={[styles.cornerV, { bottom: 0, right: 0 }]} />
+      </View>
+    </View>
+  );
+}
 
-const ACTION_STATUS_MAP: Record<string, PackageStatus> = {
-  mark_received_usa: 'received_usa',
-  mark_in_transit: 'in_transit',
-  mark_arrived: 'arrived',
-  mark_ready_pickup: 'ready_pickup',
-  mark_delivered: 'delivered',
-};
+function ScanLine() {
+  const anim = useRef(new Animated.Value(0)).current;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ScanResult = any;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, VIEWFINDER_SIZE - 4],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.scanLine,
+        { transform: [{ translateY }] },
+      ]}
+    />
+  );
+}
+
+function InfoRow({ label, value, valueColor = '#FFFFFF' }: { label: string; value: string; valueColor?: string }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={[styles.infoValue, { color: valueColor }]}>{value}</Text>
+    </View>
+  );
+}
 
 export default function ScannerScreen() {
   const { session } = useAuth();
-  const [input, setInput] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
   const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState('');
   const [result, setResult] = useState<ScanResult>(null);
   const [error, setError] = useState('');
+  const [statusChangerVisible, setStatusChangerVisible] = useState(false);
 
-  async function handleScan() {
-    const trimmed = input.trim();
+  async function handleSearch() {
+    const trimmed = trackingNumber.trim();
     if (!trimmed) return;
     setLoading(true);
     setError('');
@@ -68,157 +139,350 @@ export default function ScannerScreen() {
     }
   }
 
-  async function handleAction(action: string) {
-    if (!result || !session?.user.id) return;
-    const newStatus = ACTION_STATUS_MAP[action];
-    if (!newStatus) return;
-
-    Alert.alert(
-      'Confirmer',
-      `Changer le statut en "${STATUS_LABELS[newStatus]}" ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Confirmer',
-          onPress: async () => {
-            setActionLoading(action);
-            try {
-              await updatePackageStatus(result.id, newStatus, undefined, session.user.id);
-              const refreshed = await scanPackage(result.tracking_number);
-              setResult(refreshed);
-            } catch (e) {
-              Alert.alert('Erreur', e instanceof Error ? e.message : 'Erreur lors du changement.');
-            } finally {
-              setActionLoading('');
-            }
-          },
-        },
-      ],
-    );
+  async function handleStatusSelected(status: string) {
+    setStatusChangerVisible(false);
+    if (!result) return;
+    try {
+      const refreshed = await scanPackage(result.tracking_number);
+      setResult(refreshed);
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof Error ? e.message : 'Erreur lors du rafraîchissement.');
+    }
   }
 
-  const color = result?.status ? STATUS_COLORS[result.status as PackageStatus] : '#9CA3AF';
+  const statusColor = result?.status ? (STATUS_COLORS[result.status] ?? '#9CA3AF') : '#9CA3AF';
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#0D0D0D' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 56 }} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Scanner</Text>
-        <Text style={styles.subtitle}>Entrez ou scannez un numéro de suivi.</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Scanner</Text>
+          <Text style={styles.subtitle}>Scanner un colis</Text>
+        </View>
 
-        <View style={styles.inputRow}>
+        {/* Viewfinder area */}
+        <View style={styles.viewfinderContainer}>
+          <View style={styles.viewfinderWrapper}>
+            <ViewfinderCorners />
+            <ScanLine />
+          </View>
+          <Text style={styles.viewfinderHint}>Pointez la caméra sur le QR code</Text>
+        </View>
+
+        {/* Bottom card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Saisie manuelle</Text>
+
           <TextInput
             style={styles.input}
-            value={input}
-            onChangeText={(t) => setInput(t.toUpperCase())}
-            placeholder="Numéro de suivi..."
+            value={trackingNumber}
+            onChangeText={(t) => setTrackingNumber(t.toUpperCase())}
+            placeholder="Entrez le numéro de tracking"
             placeholderTextColor="#6B7280"
             autoCapitalize="characters"
             autoCorrect={false}
             returnKeyType="search"
-            onSubmitEditing={handleScan}
+            onSubmitEditing={handleSearch}
           />
+
           <TouchableOpacity
-            onPress={handleScan}
-            disabled={loading || !input.trim()}
-            style={[styles.scanBtn, (!input.trim() || loading) && { opacity: 0.5 }]}
+            style={[styles.searchButton, (!trackingNumber.trim() || loading) && styles.searchButtonDisabled]}
+            onPress={handleSearch}
+            disabled={!trackingNumber.trim() || loading}
+            activeOpacity={0.8}
           >
-            {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.scanBtnText}>Scan</Text>}
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.searchButtonText}>Rechercher</Text>
+            )}
           </TouchableOpacity>
-        </View>
 
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        {result && (
-          <View style={{ gap: 12 }}>
-            {/* Résultat */}
-            <View style={styles.card}>
-              <Text style={styles.tracking}>{result.tracking_number}</Text>
-              <View style={[styles.badge, { backgroundColor: `${color}20` }]}>
-                <Text style={[styles.badgeText, { color }]}>{STATUS_LABELS[result.status as PackageStatus]}</Text>
-              </View>
-              <View style={{ marginTop: 12, gap: 6 }}>
-                <Row label="Client" value={result.users ? `${result.users.first_name} ${result.users.last_name}` : '—'} />
-                <Row label="Destination" value={result.destination_city} />
-                <Row label="Poids" value={`${result.weight_billed?.toFixed(2)} lbs`} />
-                <Row label="Prix" value={`$${result.price?.toFixed(2)}`} valueColor="#22C55E" />
-              </View>
+          {/* Error */}
+          {!!error && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
             </View>
+          )}
 
-            {/* Actions disponibles */}
-            {result.available_actions?.length > 0 && (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Actions disponibles</Text>
-                <View style={{ gap: 8 }}>
-                  {result.available_actions.map((action: string) => (
-                    <TouchableOpacity
-                      key={action}
-                      onPress={() => handleAction(action)}
-                      disabled={actionLoading === action}
-                      style={styles.actionBtn}
-                    >
-                      {actionLoading === action ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <Text style={styles.actionBtnText}>{ACTION_LABELS[action] ?? action}</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
+          {/* Result card */}
+          {result && (
+            <View style={styles.resultCard}>
+              <View style={styles.resultHeader}>
+                <Text style={styles.resultTracking}>{result.tracking_number}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: `${statusColor}22` }]}>
+                  <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                    {STATUS_LABELS[result.status] ?? result.status}
+                  </Text>
                 </View>
               </View>
-            )}
-          </View>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
 
-function Row({ label, value, valueColor = '#fff' }: { label: string; value: string; valueColor?: string }) {
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-      <Text style={{ color: '#9CA3AF', fontSize: 13 }}>{label}</Text>
-      <Text style={{ color: valueColor, fontSize: 13, fontWeight: '500' }}>{value}</Text>
-    </View>
+              <View style={styles.infoSection}>
+                <InfoRow
+                  label="Client"
+                  value={
+                    result.users
+                      ? `${result.users.first_name ?? ''} ${result.users.last_name ?? ''}`.trim()
+                      : '—'
+                  }
+                />
+                <InfoRow
+                  label="Destination"
+                  value={result.destination_city ?? '—'}
+                />
+                <InfoRow
+                  label="Poids"
+                  value={result.weight_billed != null ? `${result.weight_billed.toFixed(2)} lbs` : '—'}
+                />
+                <InfoRow
+                  label="Prix"
+                  value={result.price != null ? `$${result.price.toFixed(2)}` : '—'}
+                  valueColor="#22C55E"
+                />
+                {result.transport_mode && (
+                  <InfoRow label="Transport" value={result.transport_mode} />
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={styles.changeStatusButton}
+                onPress={() => setStatusChangerVisible(true)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.changeStatusButtonText}>Changer le statut</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* StatusChanger bottom sheet */}
+      {result && (
+        <StatusChanger
+          visible={statusChangerVisible}
+          currentStatus={result.status ?? ''}
+          trackingNumber={result.tracking_number}
+          onSelect={handleStatusSelected}
+          onClose={() => setStatusChangerVisible(false)}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 6 },
-  subtitle: { color: '#9CA3AF', fontSize: 14, marginBottom: 24 },
-  inputRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  input: {
-    flex: 1, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A',
-    borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12,
-    color: '#fff', fontSize: 15,
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#0D0D0D',
   },
-  scanBtn: {
-    backgroundColor: '#F97316', borderRadius: 12, paddingHorizontal: 20,
-    justifyContent: 'center', alignItems: 'center',
+  scrollContent: {
+    paddingBottom: 40,
   },
-  scanBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  errorBox: {
-    backgroundColor: '#EF444420', borderRadius: 12, borderWidth: 1,
-    borderColor: '#EF444450', padding: 14, marginBottom: 16,
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
-  errorText: { color: '#EF4444', fontSize: 14 },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  viewfinderContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    backgroundColor: '#111111',
+    marginHorizontal: 24,
+    borderRadius: 20,
+    marginBottom: 24,
+  },
+  viewfinderWrapper: {
+    width: VIEWFINDER_SIZE,
+    height: VIEWFINDER_SIZE,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  viewfinder: {
+    width: VIEWFINDER_SIZE,
+    height: VIEWFINDER_SIZE,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  corner: {
+    position: 'absolute',
+    width: CORNER_SIZE,
+    height: CORNER_SIZE,
+  },
+  cornerTopLeft: {
+    top: 0,
+    left: 0,
+  },
+  cornerTopRight: {
+    top: 0,
+    right: 0,
+  },
+  cornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+  },
+  cornerBottomRight: {
+    bottom: 0,
+    right: 0,
+  },
+  cornerH: {
+    position: 'absolute',
+    width: CORNER_SIZE,
+    height: CORNER_THICKNESS,
+    backgroundColor: '#F97316',
+    borderRadius: 2,
+  },
+  cornerV: {
+    position: 'absolute',
+    width: CORNER_THICKNESS,
+    height: CORNER_SIZE,
+    backgroundColor: '#F97316',
+    borderRadius: 2,
+  },
+  scanLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  viewfinderHint: {
+    marginTop: 16,
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
   card: {
-    backgroundColor: '#1A1A1A', borderRadius: 16, borderWidth: 1,
-    borderColor: '#2A2A2A', padding: 16,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    marginHorizontal: 24,
+    padding: 20,
   },
-  tracking: { color: '#F97316', fontSize: 22, fontWeight: '800', marginBottom: 8 },
-  badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, marginBottom: 8 },
-  badgeText: { fontSize: 13, fontWeight: '600' },
-  sectionTitle: { color: '#9CA3AF', fontSize: 11, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 },
-  actionBtn: {
-    backgroundColor: '#F97316', borderRadius: 12, padding: 14,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 14,
+  },
+  input: {
+    backgroundColor: '#0D0D0D',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: 15,
+    marginBottom: 12,
+  },
+  searchButton: {
+    backgroundColor: '#F97316',
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchButtonDisabled: {
+    opacity: 0.5,
+  },
+  searchButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  errorBox: {
+    marginTop: 14,
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
+    padding: 14,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 14,
+  },
+  resultCard: {
+    marginTop: 16,
+    backgroundColor: '#0D0D0D',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    padding: 16,
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  resultTracking: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#F97316',
+    flexShrink: 1,
+    marginRight: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    flexShrink: 0,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  infoSection: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  infoLabel: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  infoValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  changeStatusButton: {
+    backgroundColor: '#F97316',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  changeStatusButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

@@ -1,910 +1,174 @@
-// Écran principal — Dashboard admin JJ's IMEX
-import React, { useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
+  View, Text, ScrollView, TouchableOpacity, SafeAreaView,
+  RefreshControl, Dimensions, FlatList,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { getAllPackages, getPackageStats } from '@jjsimex/supabase/packages';
+import { getPaymentStats } from '@jjsimex/supabase/payments';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
-const { width: SW } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-// ─── Données statiques ──────────────────────────────────────────────────────
+const PERIODS = ["Aujourd'hui", '7 jours', '30 jours', 'Ce mois'];
 
-const PERIODES = ['Aujourd\'hui', 'Cette semaine', 'Ce mois', 'Cette année'];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Pkg = any;
+type PeriodStats = {
+  total: number; count_growth: number; revenue: number; revenue_growth: number;
+  by_status: Record<string, number>;
+};
+type PayStats = { total_confirmed: number; growth_percentage: number };
 
-const KPIS = [
-  {
-    icon: 'pkg',
-    label: 'Colis reçus',
-    value: '1,247',
-    growth: '+12%',
-    growthColor: '#22C55E',
-    iconBg: 'rgba(249,115,22,0.12)',
-    iconColor: '#F97316',
-    valueColor: '#FFFFFF',
-  },
-  {
-    icon: 'rev',
-    label: 'Revenus',
-    value: '$18,450',
-    growth: '+8%',
-    growthColor: '#22C55E',
-    iconBg: 'rgba(249,115,22,0.12)',
-    iconColor: '#F97316',
-    valueColor: '#FFFFFF',
-  },
-  {
-    icon: 'usr',
-    label: 'Nouveaux clients',
-    value: '342',
-    growth: '+23%',
-    growthColor: '#22C55E',
-    iconBg: 'rgba(249,115,22,0.12)',
-    iconColor: '#F97316',
-    valueColor: '#FFFFFF',
-  },
-  {
-    icon: 'clk',
-    label: 'En attente',
-    value: '47',
-    growth: '+5 hier',
-    growthColor: '#EF4444',
-    iconBg: 'rgba(239,68,68,0.12)',
-    iconColor: '#EF4444',
-    valueColor: '#F97316',
-  },
+const BRANCHES = [
+  { name: 'Delmas 31, PAP', perf: 87 },
+  { name: 'Cap-Haïtien', perf: 72 },
+  { name: 'Santiago, RD', perf: 65 },
 ];
 
-const DERNIERS_COLIS = [
-  {
-    id: 'JJI-2025-00847',
-    client: 'Jean Paul',
-    poids: '2.4 lbs',
-    mode: '✈ Avion',
-    statut: 'En transit',
-    statutBg: 'rgba(249,115,22,0.14)',
-    statutColor: '#F97316',
-  },
-  {
-    id: 'JJI-2025-00848',
-    client: 'Marie Claire',
-    poids: '5.1 lbs',
-    mode: '🚢 Bateau',
-    statut: 'Reçu USA',
-    statutBg: '#2A2A2A',
-    statutColor: '#C9CDD3',
-  },
-  {
-    id: 'JJI-2025-00849',
-    client: 'Pierre Louis',
-    poids: '1.8 lbs',
-    mode: '✈ Avion',
-    statut: 'Livré ✓',
-    statutBg: 'rgba(34,197,94,0.14)',
-    statutColor: '#22C55E',
-  },
-  {
-    id: 'JJI-2025-00850',
-    client: 'Rose Noel',
-    poids: '3.2 lbs',
-    mode: '✈ Avion',
-    statut: 'En transit',
-    statutBg: 'rgba(249,115,22,0.14)',
-    statutColor: '#F97316',
-  },
-];
+export default function AdminDashboard() {
+  const router = useRouter();
+  const { profile } = useAuth();
+  const [period, setPeriod] = useState(2); // 30 jours default
+  const [pkgStats, setPkgStats] = useState<PeriodStats | null>(null);
+  const [payStats, setPayStats] = useState<PayStats | null>(null);
+  const [recentPkgs, setRecentPkgs] = useState<Pkg[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-const SUCCURSALES = [
-  { nom: 'Miami – Entrepôt principal', stats: '489 colis', pct: 0.78 },
-  { nom: 'Orlando – Bureau secondaire', stats: '312 colis', pct: 0.51 },
-  { nom: 'New York – Dépôt Est', stats: '278 colis', pct: 0.45 },
-  { nom: 'Boston – Bureau Nord', stats: '168 colis', pct: 0.27 },
-];
+  const load = useCallback(async () => {
+    const p = period === 0 ? 'week' : period === 1 ? 'week' : 'month';
+    try {
+      const [ps, pays, pkgs] = await Promise.all([
+        getPackageStats(p),
+        getPaymentStats(p),
+        getAllPackages({ limit: 4 } as Parameters<typeof getAllPackages>[0]),
+      ]);
+      setPkgStats(ps as PeriodStats);
+      setPayStats(pays as PayStats);
+      setRecentPkgs(Array.isArray(pkgs) ? pkgs.slice(0, 4) : (pkgs as Pkg[]).slice(0, 4));
+    } catch {}
+  }, [period]);
 
-// ─── Icônes SVG inline (via composants légers) ───────────────────────────────
+  useEffect(() => { load(); }, [load]);
 
-// Composant icône KPI — rendu en Text car SVG natif nécessite react-native-svg
-// On utilise des émojis/caractères unicode comme fallback léger
-function KpiIcon({ icon, color }: { icon: string; color: string }) {
-  const map: Record<string, string> = {
-    pkg: '📦',
-    rev: '$',
-    usr: '👥',
-    clk: '⏱',
-  };
-  return (
-    <Text style={{ fontSize: 18, color }}>
-      {map[icon] ?? '•'}
-    </Text>
-  );
-}
+  async function onRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
-// ─── Composant barre de progression ──────────────────────────────────────────
+  const firstName = profile?.first_name ?? 'Admin';
+  const initials = profile ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase() : 'MJ';
+  const fmt = (n: number) => n.toLocaleString('fr-FR');
+  const fmtUSD = (n: number) => `$${n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}`;
+  const fmtGrowth = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
 
-function ProgressBar({
-  pct,
-  color = '#F97316',
-  height = 5,
-}: {
-  pct: number;
-  color?: string;
-  height?: number;
-}) {
-  return (
-    <View style={{ height, borderRadius: 99, backgroundColor: '#2A2A2A', overflow: 'hidden', marginTop: 12 }}>
-      <View style={{ width: `${Math.min(pct * 100, 100)}%`, height: '100%', borderRadius: 99, backgroundColor: color }} />
-    </View>
-  );
-}
-
-// ─── Bottom Nav partagé ───────────────────────────────────────────────────────
-
-function BottomNav({ active }: { active: 'dashboard' | 'colis' | 'scanner' | 'clients' | 'gestion' }) {
-  const tabColor = (key: string) => (active === key ? '#F97316' : '#666666');
+  const KPIS = [
+    { label: 'Colis reçus', value: fmt(pkgStats?.total ?? 0), growth: fmtGrowth(pkgStats?.count_growth ?? 0), up: (pkgStats?.count_growth ?? 0) >= 0, icon: '📦', color: '#F97316' },
+    { label: 'Revenus', value: fmtUSD(pkgStats?.revenue ?? 0), growth: fmtGrowth(pkgStats?.revenue_growth ?? 0), up: (pkgStats?.revenue_growth ?? 0) >= 0, icon: '💰', color: '#22C55E' },
+    { label: 'Paiements', value: fmtUSD(payStats?.total_confirmed ?? 0), growth: fmtGrowth(payStats?.growth_percentage ?? 0), up: (payStats?.growth_percentage ?? 0) >= 0, icon: '💳', color: '#3B82F6' },
+    { label: 'En attente', value: fmt((pkgStats?.by_status?.['pending'] as number) ?? 0), growth: 'À traiter', up: false, icon: '⏳', color: '#EF4444' },
+  ];
 
   return (
-    <View style={styles.bottomNav}>
-      {/* Dashboard */}
-      <TouchableOpacity style={styles.navBtn} activeOpacity={0.7}>
-        <View style={[styles.navItem, { opacity: active === 'dashboard' ? 1 : 0.6 }]}>
-          <Text style={{ fontSize: 20, color: tabColor('dashboard') }}>⊞</Text>
-          <Text style={[styles.navLabel, { color: tabColor('dashboard') }]}>Dashboard</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Colis */}
-      <TouchableOpacity style={styles.navBtn} activeOpacity={0.7}>
-        <View style={styles.navItem}>
-          <Text style={{ fontSize: 20, color: tabColor('colis') }}>📦</Text>
-          <Text style={[styles.navLabel, { color: tabColor('colis') }]}>Colis</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* FAB Scanner — central */}
-      <TouchableOpacity style={styles.navBtn} activeOpacity={0.85}>
-        <View style={styles.fab}>
-          <Text style={{ fontSize: 22, color: '#0D0D0D' }}>📷</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Clients */}
-      <TouchableOpacity style={styles.navBtn} activeOpacity={0.7}>
-        <View style={styles.navItem}>
-          <Text style={{ fontSize: 20, color: tabColor('clients') }}>👥</Text>
-          <Text style={[styles.navLabel, { color: tabColor('clients') }]}>Clients</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Gestion */}
-      <TouchableOpacity style={styles.navBtn} activeOpacity={0.7}>
-        <View style={styles.navItem}>
-          <Text style={{ fontSize: 20, color: tabColor('gestion') }}>⚙</Text>
-          <Text style={[styles.navLabel, { color: tabColor('gestion') }]}>Gestion</Text>
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-// ─── Écran principal ──────────────────────────────────────────────────────────
-
-export default function DashboardScreen() {
-  const [periodActive, setPeriodActive] = useState(0);
-
-  return (
-    <View style={styles.root}>
-      {/* Zone scrollable */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F97316" />}
       >
-        {/* ── 1. Header ── */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>MJ</Text>
+        {/* HEADER */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#0D0D0D' }}>{initials}</Text>
             </View>
             <View>
-              <Text style={styles.headerName}>Marie Joseph</Text>
-              <View style={styles.adminBadge}>
-                <Text style={styles.adminBadgeText}>SUPER ADMIN</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>{firstName}</Text>
+              <View style={{ backgroundColor: 'rgba(249,115,22,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginTop: 2 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#F97316' }}>{profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Admin' : 'Employé'}</Text>
               </View>
             </View>
           </View>
-          <View style={styles.headerRight}>
-            {/* Bouton notification */}
-            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-              <Text style={{ color: '#FFFFFF', fontSize: 18 }}>🔔</Text>
-              <View style={styles.notifBadge}>
-                <Text style={styles.notifBadgeText}>5</Text>
-              </View>
-            </TouchableOpacity>
-            {/* Bouton recherche */}
-            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-              <Text style={{ color: '#FFFFFF', fontSize: 18 }}>🔍</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => router.push('/screens/notifications')} style={{ width: 40, height: 40, backgroundColor: '#1A1A1A', borderRadius: 12, borderWidth: 1, borderColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 20 }}>🔔</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* ── 2. Période tabs ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.periodRow}
-        >
-          {PERIODES.map((p, i) => (
+        {/* PERIOD SELECTOR */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingBottom: 16 }}>
+          {PERIODS.map((p, i) => (
             <TouchableOpacity
               key={p}
-              onPress={() => setPeriodActive(i)}
-              activeOpacity={0.7}
-              style={[
-                styles.periodPill,
-                i === periodActive ? styles.periodPillActive : styles.periodPillInactive,
-              ]}
+              onPress={() => setPeriod(i)}
+              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: period === i ? '#F97316' : '#1A1A1A', borderWidth: 1, borderColor: period === i ? '#F97316' : '#2A2A2A' }}
+              activeOpacity={0.8}
             >
-              <Text
-                style={[
-                  styles.periodText,
-                  i === periodActive ? styles.periodTextActive : styles.periodTextInactive,
-                ]}
-              >
-                {p}
-              </Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: period === i ? '#0D0D0D' : '#9CA3AF' }}>{p}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        {/* ── 3. KPI cards ── */}
-        <ScrollView
+        {/* KPI CARDS */}
+        <FlatList
+          data={KPIS}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.kpiRow}
-        >
-          {KPIS.map((k) => (
-            <View key={k.label} style={styles.kpiCard}>
-              {/* Icône */}
-              <View style={[styles.kpiIconCircle, { backgroundColor: k.iconBg }]}>
-                <KpiIcon icon={k.icon} color={k.iconColor} />
-              </View>
-              {/* Label */}
-              <Text style={styles.kpiLabel}>{k.label}</Text>
-              {/* Valeur */}
-              <Text style={[styles.kpiValue, { color: k.valueColor }]}>{k.value}</Text>
-              {/* Croissance */}
-              <View style={styles.kpiGrowthRow}>
-                <Text style={{ color: k.growthColor, fontSize: 11 }}>↑ </Text>
-                <Text style={[styles.kpiGrowth, { color: k.growthColor }]}>{k.growth}</Text>
-              </View>
+          keyExtractor={(_, i) => String(i)}
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+          style={{ marginBottom: 20 }}
+          renderItem={({ item }) => (
+            <View style={{ width: 160, backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#242424' }}>
+              <Text style={{ fontSize: 24 }}>{item.icon}</Text>
+              <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 12 }}>{item.label}</Text>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 4, letterSpacing: -0.5 }}>{item.value}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: item.up ? '#22C55E' : '#EF4444', marginTop: 4 }}>{item.up ? '↑' : '↓'} {item.growth}</Text>
             </View>
-          ))}
-        </ScrollView>
+          )}
+        />
 
-        {/* ── 4. Alertes ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Alertes</Text>
-          <View style={styles.alertCountBadge}>
-            <Text style={styles.alertCountText}>3</Text>
+        {/* RECENT PACKAGES */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF' }}>Derniers colis</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/colis')}><Text style={{ fontSize: 13, color: '#F97316', fontWeight: '600' }}>Voir tout →</Text></TouchableOpacity>
           </View>
-        </View>
-
-        <View style={styles.sectionBody}>
-          {/* Alerte 1 — Vol presque complet */}
-          <View style={[styles.alertCard, { borderLeftColor: '#EF4444' }]}>
-            <View style={styles.alertRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.alertTitle}>Vol 14 Juin presque complet</Text>
-                <Text style={styles.alertSub}>47 lbs restantes sur 500 lbs</Text>
-              </View>
-              <TouchableOpacity style={styles.alertBtnOrange} activeOpacity={0.7}>
-                <Text style={styles.alertBtnOrangeText}>Gérer →</Text>
-              </TouchableOpacity>
+          {recentPkgs.length === 0 ? (
+            <View style={{ backgroundColor: '#1A1A1A', borderRadius: 14, padding: 20, borderWidth: 1, borderColor: '#242424', alignItems: 'center' }}>
+              <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Aucun colis récent</Text>
             </View>
-            <ProgressBar pct={0.9} color="#F97316" />
-          </View>
-
-          {/* Alerte 2 — Personal Shopper */}
-          <View style={[styles.alertCard, { borderLeftColor: '#F97316' }]}>
-            <View style={styles.alertRow}>
+          ) : recentPkgs.map((pkg: Pkg) => (
+            <TouchableOpacity key={pkg.id} onPress={() => router.push(`/colis/${pkg.id}` as never)} activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A1A', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#242424', marginBottom: 8 }}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.alertTitle}>8 Personal Shopper en attente</Text>
-                <Text style={styles.alertSub}>En attente de devis depuis +2h</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316' }}>{pkg.tracking_number}</Text>
+                <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
+                  {pkg.users?.first_name} {pkg.users?.last_name} · {pkg.destination_city ?? '—'}
+                </Text>
               </View>
-              <TouchableOpacity style={styles.alertBtnOrange} activeOpacity={0.7}>
-                <Text style={styles.alertBtnOrangeText}>Traiter →</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Alerte 3 — Paiement non confirmé */}
-          <View style={[styles.alertCard, { borderLeftColor: '#EAB308' }]}>
-            <View style={styles.alertRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.alertTitle}>Paiement non confirmé</Text>
-                <Text style={styles.alertSub}>JJI-2025-00851 — $24.50</Text>
-              </View>
-              <TouchableOpacity style={styles.alertBtnGray} activeOpacity={0.7}>
-                <Text style={styles.alertBtnGrayText}>Vérifier →</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* ── 5. Derniers colis ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Derniers colis</Text>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.sectionLink}>Voir tout →</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.sectionBody}>
-          {DERNIERS_COLIS.map((c) => (
-            <TouchableOpacity key={c.id} style={styles.colisCard} activeOpacity={0.75}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.colisId}>{c.id}</Text>
-                <Text style={styles.colisClient}>{c.client}</Text>
-                <Text style={styles.colisMeta}>{c.poids} — {c.mode}</Text>
-              </View>
-              <View style={[styles.statutBadge, { backgroundColor: c.statutBg }]}>
-                <Text style={[styles.statutBadgeText, { color: c.statutColor }]}>{c.statut}</Text>
-              </View>
-              <Text style={{ color: '#6B7280', fontSize: 16, marginLeft: 6 }}>›</Text>
+              <StatusBadge status={pkg.status} />
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* ── 6. Prochains départs ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Prochains départs</Text>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.sectionLink}>Gérer →</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.sectionBody, { gap: 12 }]}>
-          {/* Vol avion */}
-          <View style={styles.departCard}>
-            <View style={styles.departTopBorder} />
-            <View style={styles.departRow}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 }}>
-                <Text style={{ fontSize: 18, color: '#F97316' }}>✈</Text>
-                <View>
-                  <Text style={styles.departName}>Vol Miami → Port-au-Prince</Text>
-                  <Text style={styles.departDate}>Vendredi 14 Juin 2025</Text>
+        {/* BRANCHES PERFORMANCE */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 30 }}>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 12 }}>Performance succursales</Text>
+          <View style={{ backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#242424', gap: 14 }}>
+            {BRANCHES.map(b => (
+              <View key={b.name}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 13, color: '#FFFFFF', fontWeight: '600' }}>{b.name}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: b.perf >= 80 ? '#22C55E' : b.perf >= 65 ? '#F97316' : '#EF4444' }}>{b.perf}%</Text>
                 </View>
-              </View>
-              <View style={styles.departBadgeRed}>
-                <Text style={styles.departBadgeRedText}>Bientôt complet !</Text>
-              </View>
-            </View>
-            <View style={{ height: 6, borderRadius: 99, backgroundColor: '#2A2A2A', overflow: 'hidden', marginTop: 14 }}>
-              <View style={{ width: '90%', height: '100%', borderRadius: 99, backgroundColor: '#F97316' }} />
-            </View>
-            <Text style={styles.departMeta}>453 / 500 lbs</Text>
-            <TouchableOpacity style={styles.departBtnOrange} activeOpacity={0.8}>
-              <Text style={styles.departBtnOrangeText}>Ajouter des colis</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Bateau */}
-          <View style={[styles.departCard, { borderTopWidth: 0 }]}>
-            <View style={styles.departRow}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 }}>
-                <Text style={{ fontSize: 18, color: '#9CA3AF' }}>🚢</Text>
-                <View>
-                  <Text style={styles.departName}>Bateau Miami → PAP</Text>
-                  <Text style={styles.departDate}>Lundi 24 Juin 2025</Text>
+                <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3 }}>
+                  <View style={{ width: `${b.perf}%`, height: '100%', backgroundColor: b.perf >= 80 ? '#22C55E' : b.perf >= 65 ? '#F97316' : '#EF4444', borderRadius: 3 }} />
                 </View>
-              </View>
-              <View style={styles.departBadgeGreen}>
-                <Text style={styles.departBadgeGreenText}>Places disponibles</Text>
-              </View>
-            </View>
-            <View style={{ height: 6, borderRadius: 99, backgroundColor: '#2A2A2A', overflow: 'hidden', marginTop: 14 }}>
-              <View style={{ width: '23%', height: '100%', borderRadius: 99, backgroundColor: '#22C55E' }} />
-            </View>
-            <Text style={styles.departMeta}>1,840 / 8,000 lbs</Text>
-            <TouchableOpacity style={styles.departBtnGray} activeOpacity={0.8}>
-              <Text style={styles.departBtnGrayText}>Ajouter des colis</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── 7. Succursales ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Succursales</Text>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.sectionLink}>Voir tout →</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.sectionBody, { paddingHorizontal: 0 }]}>
-          <View style={styles.succursalesCard}>
-            {SUCCURSALES.map((s, i) => (
-              <View
-                key={s.nom}
-                style={[
-                  styles.succursaleRow,
-                  i < SUCCURSALES.length - 1 && { borderBottomWidth: 1, borderBottomColor: '#1F1F1F' },
-                ]}
-              >
-                <Text style={{ fontSize: 14, color: '#F97316', marginRight: 12 }}>📍</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.succursaleNom}>{s.nom}</Text>
-                  <View style={{ height: 4, borderRadius: 99, backgroundColor: '#2A2A2A', overflow: 'hidden', marginTop: 7 }}>
-                    <View style={{ width: `${s.pct * 100}%`, height: '100%', borderRadius: 99, backgroundColor: '#F97316' }} />
-                  </View>
-                </View>
-                <Text style={styles.succursaleStats}>{s.stats}</Text>
               </View>
             ))}
           </View>
         </View>
       </ScrollView>
-
-      {/* ── Bottom nav ── */}
-      <BottomNav active="dashboard" />
-    </View>
+    </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#0D0D0D',
-  },
-  scroll: {
-    position: 'absolute',
-    top: 0,
-    bottom: 84,
-    left: 0,
-    right: 0,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 18,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#F97316',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#0D0D0D',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  headerName: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15,
-    lineHeight: 18,
-  },
-  adminBadge: {
-    backgroundColor: '#F97316',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginTop: 4,
-    alignSelf: 'flex-start',
-  },
-  adminBadgeText: {
-    color: '#0D0D0D',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  iconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notifBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 7,
-    minWidth: 15,
-    height: 15,
-    borderRadius: 99,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#0D0D0D',
-    paddingHorizontal: 2,
-  },
-  notifBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-  },
-
-  // Période tabs
-  periodRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 22,
-  },
-  periodPill: {
-    borderRadius: 99,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderWidth: 1,
-  },
-  periodPillActive: {
-    backgroundColor: '#F97316',
-    borderColor: '#F97316',
-  },
-  periodPillInactive: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#2A2A2A',
-  },
-  periodText: {
-    fontSize: 13,
-  },
-  periodTextActive: {
-    color: '#0D0D0D',
-    fontWeight: '700',
-  },
-  periodTextInactive: {
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-
-  // KPI
-  kpiRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 22,
-    paddingTop: 18,
-  },
-  kpiCard: {
-    width: 160,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#1F1F1F',
-    borderRadius: 16,
-    padding: 16,
-  },
-  kpiIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  kpiLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 12,
-  },
-  kpiValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-    marginTop: 2,
-  },
-  kpiGrowthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  kpiGrowth: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  // Section header
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 26,
-    marginBottom: 12,
-    paddingHorizontal: 22,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  sectionLink: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#F97316',
-  },
-  alertCountBadge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 99,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 7,
-  },
-  alertCountText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  // Section body
-  sectionBody: {
-    paddingHorizontal: 22,
-    gap: 10,
-    flexDirection: 'column',
-  },
-
-  // Alerte card
-  alertCard: {
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#1F1F1F',
-    borderLeftWidth: 3,
-    borderRadius: 16,
-    padding: 14,
-    paddingHorizontal: 16,
-    marginBottom: 0,
-  },
-  alertRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  alertTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  alertSub: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  alertBtnOrange: {
-    backgroundColor: '#F97316',
-    borderRadius: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    flexShrink: 0,
-  },
-  alertBtnOrangeText: {
-    color: '#0D0D0D',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  alertBtnGray: {
-    backgroundColor: '#2A2A2A',
-    borderRadius: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    flexShrink: 0,
-  },
-  alertBtnGrayText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  // Colis card (liste)
-  colisCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#1F1F1F',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 0,
-  },
-  colisId: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  colisClient: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  colisMeta: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 3,
-  },
-  statutBadge: {
-    borderRadius: 99,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  statutBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-
-  // Départ card
-  departCard: {
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#1F1F1F',
-    borderTopWidth: 3,
-    borderTopColor: '#F97316',
-    borderRadius: 16,
-    padding: 16,
-    overflow: 'hidden',
-  },
-  departTopBorder: {
-    // handled via borderTopWidth in departCard
-  },
-  departRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  departName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  departDate: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 1,
-  },
-  departBadgeRed: {
-    backgroundColor: 'rgba(239,68,68,0.14)',
-    borderRadius: 99,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    flexShrink: 0,
-  },
-  departBadgeRedText: {
-    color: '#EF4444',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  departBadgeGreen: {
-    backgroundColor: 'rgba(34,197,94,0.14)',
-    borderRadius: 99,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    flexShrink: 0,
-  },
-  departBadgeGreenText: {
-    color: '#22C55E',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  departMeta: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 7,
-  },
-  departBtnOrange: {
-    marginTop: 12,
-    height: 42,
-    backgroundColor: '#F97316',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  departBtnOrangeText: {
-    color: '#0D0D0D',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  departBtnGray: {
-    marginTop: 12,
-    height: 42,
-    backgroundColor: '#2A2A2A',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  departBtnGrayText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  // Succursales
-  succursalesCard: {
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#1F1F1F',
-    borderRadius: 16,
-    marginHorizontal: 22,
-    paddingHorizontal: 16,
-  },
-  succursaleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 13,
-  },
-  succursaleNom: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  succursaleStats: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginLeft: 10,
-    flexShrink: 0,
-  },
-
-  // Bottom nav
-  bottomNav: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 84,
-    backgroundColor: '#111111',
-    borderTopWidth: 1,
-    borderTopColor: '#2A2A2A',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-around',
-    paddingTop: 12,
-    zIndex: 10,
-  },
-  navBtn: {
-    width: 56,
-    alignItems: 'center',
-  },
-  navItem: {
-    alignItems: 'center',
-    gap: 5,
-  },
-  navLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  fab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F97316',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -22,
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 12,
-    borderWidth: 4,
-    borderColor: '#111111',
-  },
-});
