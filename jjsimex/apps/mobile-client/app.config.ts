@@ -49,12 +49,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'jjsimex',
   extra: {
     eas: {
-      projectId: 'YOUR_EAS_PROJECT_ID',
+      projectId: '4401ebf2-2d5c-499f-9252-9fd35cfac89c',
     },
   },
   updates: {
     fallbackToCacheTimeout: 0,
-    url: 'https://u.expo.dev/YOUR_EAS_PROJECT_ID',
+    url: 'https://u.expo.dev/4401ebf2-2d5c-499f-9252-9fd35cfac89c',
   },
   runtimeVersion: {
     policy: 'appVersion',
