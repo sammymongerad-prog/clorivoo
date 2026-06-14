@@ -96,11 +96,11 @@ export default function ProfilScreen() {
         <Text style={S.sectionTitle}>Mon compte</Text>
         <View style={S.section}>
           <MenuItem icon="👤" label="Mes informations personnelles" sub="Nom, email, téléphone" />
-          <Sep /><MenuItem icon="📦" label="Historique des colis" sub="24 expéditions au total" />
-          <Sep /><MenuItem icon="🛒" label="Mes demandes Personal Shopper" sub="Commandes en cours" onPress={() => router.push('/demandes')} />
-          <Sep /><MenuItem icon="📍" label="Mes adresses de livraison" sub="Port-au-Prince, Delmas 31" />
+          <Sep /><MenuItem icon="📦" label="Historique des colis" sub="Toutes mes expéditions" onPress={() => router.push('/(tabs)/colis')} />
+          <Sep /><MenuItem icon="🛒" label="Personal Shopper" sub="Commandes en cours" onPress={() => router.push('/screens/personal-shopper')} />
+          <Sep /><MenuItem icon="📍" label="Mes adresses US" sub="Miami + Boston" onPress={() => router.push('/screens/adresses-us')} />
           <Sep /><MenuItem icon="💳" label="Mes paiements" sub="MonCash, Zelle configurés" onPress={() => router.push('/paiements')} />
-          <Sep /><MenuItem icon="🔔" label="Notifications" sub="Mises à jour et alertes" onPress={() => router.push('/notifications')} />
+          <Sep /><MenuItem icon="🧮" label="Calculateur de tarifs" sub="Estimez vos frais" onPress={() => router.push('/screens/calculateur')} />
         </View>
 
         {/* Préférences */}
