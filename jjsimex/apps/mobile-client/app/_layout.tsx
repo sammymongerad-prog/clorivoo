@@ -7,7 +7,7 @@ import {
   configureNotifications,
   handleNotificationReceived,
   handleNotificationTapped,
-} from '@jjsimex/ui/notifications';
+} from '@jjsimex/ui';
 
 function RootNavigator() {
   const router = useRouter();

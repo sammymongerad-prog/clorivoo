@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { registerForPushNotifications, unregisterPushNotifications } from '@jjsimex/ui/notifications';
+import { registerForPushNotifications, unregisterPushNotifications } from '@jjsimex/ui';
 
 interface UserProfile {
   id: string;
