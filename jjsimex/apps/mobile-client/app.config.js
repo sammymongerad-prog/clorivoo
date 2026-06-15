@@ -36,12 +36,6 @@ module.exports = ({ config }) => ({
         sounds: [],
       },
     ],
-    [
-      'expo-camera',
-      {
-        cameraPermission: "JJ's IMEX a besoin d'accéder à votre caméra pour scanner vos colis.",
-      },
-    ],
   ],
   scheme: 'jjsimex',
   extra: {
