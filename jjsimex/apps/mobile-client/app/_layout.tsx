@@ -9,7 +9,6 @@ import {
   handleNotificationReceived,
   handleNotificationTapped,
 } from '@jjsimex/ui';
-import '../global.css';
 
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: string | null }> {
   constructor(props: { children: React.ReactNode }) {
