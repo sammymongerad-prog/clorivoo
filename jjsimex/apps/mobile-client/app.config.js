@@ -28,26 +28,12 @@ module.exports = ({ config }) => ({
   },
   plugins: [
     'expo-router',
-    [
-      'expo-notifications',
-      {
-        icon: './assets/notification-icon.png',
-        color: '#F97316',
-        sounds: [],
-      },
-    ],
+    'expo-notifications',
   ],
   scheme: 'jjsimex',
   extra: {
     eas: {
       projectId: '20edae50-126c-49f3-be4d-8e4e8430ce3b',
     },
-  },
-  updates: {
-    fallbackToCacheTimeout: 0,
-    url: 'https://u.expo.dev/20edae50-126c-49f3-be4d-8e4e8430ce3b',
-  },
-  runtimeVersion: {
-    policy: 'appVersion',
   },
 });
