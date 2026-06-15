@@ -1,15 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-import { sendPushNotification } from './push';
-import { sendPaiementConfirmeEmail, sendPaymentRefusedEmail, sendPaymentRefundedEmail } from './emails';
-
-// ─── Client ───────────────────────────────────────────────────────────────────
-
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-}
+import { getClient } from './client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -151,32 +140,6 @@ export async function createPayment(
     );
   }
 
-  // 2. Push notification admin
-  if (admins && admins.length > 0) {
-    for (const admin of admins) {
-      await sendPushNotification(
-        admin.id,
-        'Paiement reçu 💳',
-        `${client?.full_name ?? 'Client'} — $${data.amount.toFixed(2)} via ${methodLabel[data.method]} — À confirmer`,
-        { payment_id: payment.id },
-      ).catch(() => {});
-    }
-  }
-
-  // 3. Email confirmation réception paiement (en attente)
-  if (client?.email) {
-    const firstName = (client.full_name ?? 'Client').split(' ')[0];
-    const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    await sendPaiementConfirmeEmail(
-      client.email,
-      firstName,
-      transaction_number,
-      data.amount,
-      methodLabel[data.method],
-      dateStr,
-    ).catch(() => {});
-  }
-
   return payment as Payment;
 }
 
@@ -297,29 +260,6 @@ export async function confirmPayment(
     action_url: `/colis/${payment.package_id}`,
   });
 
-  // 2. Push notification client
-  await sendPushNotification(
-    payment.user_id,
-    'Paiement confirmé ✅',
-    `Votre paiement de $${payment.amount.toFixed(2)} a été confirmé.\nVotre colis est en traitement.`,
-    { payment_id },
-  ).catch(() => {});
-
-  // 3. Email confirmation
-  if (client?.email) {
-    const firstName = (client.full_name ?? 'Client').split(' ')[0];
-    const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    await sendPaiementConfirmeEmail(
-      client.email,
-      firstName,
-      payment.transaction_number,
-      payment.amount,
-      payment.method,
-      dateStr,
-      pkg?.tracking_number,
-    ).catch(() => {});
-  }
-
   return updated as Payment;
 }
 
@@ -367,23 +307,6 @@ export async function refusePayment(
     message: `Votre paiement n'a pas pu être confirmé. Contactez-nous.`,
     action_url: '/colis',
   });
-
-  // 2. Push notification client
-  await sendPushNotification(
-    payment.user_id,
-    'Paiement non confirmé ❌',
-    `Votre paiement n'a pas pu être confirmé. Contactez-nous.`,
-    { payment_id },
-  ).catch(() => {});
-
-  // 3. Email
-  if (client?.email) {
-    await sendPaymentRefusedEmail(
-      client.email,
-      client.full_name ?? 'Client',
-      reason,
-    ).catch(() => {});
-  }
 
   return updated as Payment;
 }
@@ -445,24 +368,6 @@ export async function refundPayment(
     message: `Un remboursement de $${payment.amount.toFixed(2)} a été effectué.`,
     action_url: '/paiements',
   });
-
-  // 2. Push notification client
-  await sendPushNotification(
-    payment.user_id,
-    'Remboursement effectué 💰',
-    `Un remboursement de $${payment.amount.toFixed(2)} a été effectué.`,
-    { payment_id },
-  ).catch(() => {});
-
-  // 3. Email
-  if (client?.email) {
-    await sendPaymentRefundedEmail(
-      client.email,
-      client.full_name ?? 'Client',
-      payment.amount,
-      reason,
-    ).catch(() => {});
-  }
 
   return updated as Payment;
 }

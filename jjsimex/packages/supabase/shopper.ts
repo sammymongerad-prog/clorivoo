@@ -1,17 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
-import { sendPushNotification } from './push';
-import { sendShopperConfirmationEmail, sendDevisShopperEmail } from './emails';
+import { getClient } from './client';
 import { calculateShipping } from './shipping';
 import type { TransportMode, DestinationCountry } from './shipping';
-
-// ─── Client ───────────────────────────────────────────────────────────────────
-
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -138,29 +127,6 @@ export async function createShopperRequest(
     );
   }
 
-  // 2. Push notification admin
-  if (admins && admins.length > 0) {
-    for (const admin of admins) {
-      await sendPushNotification(
-        admin.id,
-        'Nouvelle demande PS 🛒',
-        `${client?.full_name ?? 'Client'} — ${data.merchant}\nDestination: ${data.destination_city}`,
-        { request_id: request.id },
-      ).catch(() => {});
-    }
-  }
-
-  // 3. Email confirmation client
-  if (client?.email) {
-    const firstName = (client.full_name ?? 'Client').split(' ')[0];
-    await sendShopperConfirmationEmail(
-      client.email, firstName, request_number,
-      data.merchant, data.destination_city,
-      data.transport_mode ?? 'air',
-      data.product_url,
-    ).catch(() => {});
-  }
-
   return request as ShopperRequest;
 }
 
@@ -262,33 +228,6 @@ export async function sendQuote(
     action_url: `/shopper/${request_id}`,
   });
 
-  // 2. Push notification client
-  await sendPushNotification(
-    request.client_id,
-    'Devis reçu 💰',
-    `PS-${request.request_number}\n$${total_price.toFixed(2)}\nConfirmez pour procéder.`,
-    { request_id },
-  ).catch(() => {});
-
-  // 3. Email devis
-  if (client?.email) {
-    const firstName = (client.full_name ?? 'Client').split(' ')[0];
-    await sendDevisShopperEmail(
-      client.email,
-      firstName,
-      request.request_number,
-      request.product_url ?? '',
-      request.merchant,
-      final_price,
-      shipping_cost,
-      total_price,
-      request.transport_mode ?? 'air',
-      request.destination_city,
-      `https://jjsimex.com/demandes/${request_id}/confirmer`,
-      `https://jjsimex.com/demandes/${request_id}/annuler`,
-    ).catch(() => {});
-  }
-
   return updated as ShopperRequest;
 }
 
@@ -333,18 +272,6 @@ export async function confirmRequest(request_id: string, user_id: string): Promi
     );
   }
 
-  // Push admin
-  if (admins && admins.length > 0) {
-    for (const admin of admins) {
-      await sendPushNotification(
-        admin.id,
-        'Commande confirmée ✅',
-        `${updated.request_number} — ${client?.full_name ?? 'Client'}\nProc à l'achat.`,
-        { request_id },
-      ).catch(() => {});
-    }
-  }
-
   return updated as ShopperRequest;
 }
 
@@ -378,14 +305,6 @@ export async function markAsPurchased(request_id: string, admin_id: string): Pro
     message: `${updated.request_number} a été acheté. Expédition en cours.`,
     action_url: `/shopper/${request_id}`,
   });
-
-  // Push client
-  await sendPushNotification(
-    updated.client_id,
-    'Commande achetée 🛍️',
-    `${updated.request_number}\nExpédition vers ${updated.destination_city} bientôt.`,
-    { request_id },
-  ).catch(() => {});
 
   return updated as ShopperRequest;
 }
@@ -453,29 +372,6 @@ export async function markAsShipped(
     message: `${updated.request_number} est en route. Suivi: ${tracking_number}`,
     action_url: `/colis/${pkg?.id}`,
   });
-
-  // Push client
-  await sendPushNotification(
-    shopper.client_id,
-    'Commande expédiée ✈️',
-    `${updated.request_number}\nSuivez: ${tracking_number}`,
-    { request_id, tracking_number },
-  ).catch(() => {});
-
-  // Email expédition
-  if (client?.email) {
-    const firstName = (client.full_name ?? 'Client').split(' ')[0];
-    const estimatedDate = new Date(Date.now() + 7 * 86400000)
-      .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    // Reuse colis transit email for shipped shopper request
-    const { sendColisTransitEmail } = await import('./emails');
-    await sendColisTransitEmail(
-      client.email, firstName, tracking_number,
-      (updated.transport_mode ?? 'air') as 'air' | 'sea',
-      updated.destination_city,
-      estimatedDate,
-    ).catch(() => {});
-  }
 
   return updated as ShopperRequest;
 }

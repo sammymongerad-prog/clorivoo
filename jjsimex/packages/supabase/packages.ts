@@ -1,16 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
-import { sendPushNotification } from './push';
-import {
-  sendColisRecuEmail,
-  sendColisTransitEmail,
-  sendColisPretRetraitEmail,
-  sendColisLivreEmail,
-} from './emails';
+import { getClient } from './client';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+const supabaseAdmin = getClient();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -219,32 +209,6 @@ async function insertPackage(
 
   const client = (pkg as { users?: { first_name: string; last_name: string; email: string } }).users;
 
-  // Push notification
-  await sendPushNotification(
-    data.client_id,
-    'Colis reçu ✅',
-    `Votre colis ${pkg.tracking_number} est arrivé dans notre entrepôt Miami.`,
-    { package_id: pkg.id },
-  );
-
-  // Email
-  if (client?.email) {
-    const today = new Date();
-    const estimatedDays = data.transport_mode === 'air' ? 7 : 28;
-    const estimatedDate = new Date(today.getTime() + estimatedDays * 86400000)
-      .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    await sendColisRecuEmail(
-      client.email,
-      client.first_name,
-      pkg.tracking_number,
-      weightBilled,
-      data.transport_mode,
-      data.destination_city,
-      shippingCost,
-      estimatedDate,
-    );
-  }
-
   return pkg;
 }
 
@@ -339,38 +303,6 @@ export async function updatePackageStatus(
       package_id: packageId,
     });
 
-    // Push
-    await sendPushNotification(client.id, msg.title, msg.body, {
-      package_id: packageId,
-    });
-
-    // Email per-status
-    if (client.email) {
-      const estimatedDays = newStatus === 'in_transit'
-        ? (pkg.transport_mode === 'air' ? 5 : 21) : 0;
-      const estimatedDate = estimatedDays
-        ? new Date(Date.now() + estimatedDays * 86400000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-        : '';
-
-      if (newStatus === 'in_transit') {
-        await sendColisTransitEmail(
-          client.email, client.first_name, pkg.tracking_number,
-          pkg.transport_mode, pkg.destination_city, estimatedDate,
-        );
-      } else if (newStatus === 'ready_pickup') {
-        await sendColisPretRetraitEmail(
-          client.email, client.first_name, pkg.tracking_number,
-          pkg.destination_city, pkg.destination_address ?? pkg.destination_city,
-          'Lun-Sam 8h-18h', '+1 (305) 600-9364',
-        );
-      } else if (newStatus === 'delivered') {
-        const deliveredAt = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-        await sendColisLivreEmail(
-          client.email, client.first_name, pkg.tracking_number,
-          pkg.destination_city, deliveredAt,
-        );
-      }
-    }
   }
 
   return pkg;
@@ -595,6 +527,23 @@ export async function getPackageStats(period: 'week' | 'month' | 'year' = 'month
     count_growth: parseFloat(countGrowth.toFixed(1)),
     period,
   };
+}
+
+// ─── subscribeToPackages (Realtime) ──────────────────────────────────────────
+
+export function subscribeToPackages(
+  callback: (pkg: Record<string, unknown>) => void,
+  filter?: { client_id?: string; status?: PackageStatus },
+): () => void {
+  const supabase = supabaseAdmin;
+  const channel = supabase
+    .channel(`packages_rt_${Date.now()}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'packages' }, (payload) => {
+      if (payload.new) callback(payload.new as Record<string, unknown>);
+    })
+    .subscribe();
+
+  return () => { supabase.removeChannel(channel); };
 }
 
 // ─── Utilitaire : Date estimée de livraison ───────────────────────────────────
