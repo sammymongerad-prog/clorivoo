@@ -30,4 +30,9 @@ module.exports = ({ config }) => ({
     'expo-router',
   ],
   scheme: 'jjsimex',
+  extra: {
+    eas: {
+      projectId: '8a062141-02bd-4404-b138-bafa6871a6f6',
+    },
+  },
 });
