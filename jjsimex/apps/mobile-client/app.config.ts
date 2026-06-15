@@ -26,7 +26,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0D0D0D',
     },
-    googleServicesFile: './google-services.json',
     permissions: ['CAMERA', 'RECEIVE_BOOT_COMPLETED', 'VIBRATE'],
   },
   plugins: [
@@ -49,12 +48,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'jjsimex',
   extra: {
     eas: {
-      projectId: '4401ebf2-2d5c-499f-9252-9fd35cfac89c',
+      projectId: '20edae50-126c-49f3-be4d-8e4e8430ce3b',
     },
   },
   updates: {
     fallbackToCacheTimeout: 0,
-    url: 'https://u.expo.dev/4401ebf2-2d5c-499f-9252-9fd35cfac89c',
+    url: 'https://u.expo.dev/20edae50-126c-49f3-be4d-8e4e8430ce3b',
   },
   runtimeVersion: {
     policy: 'appVersion',
