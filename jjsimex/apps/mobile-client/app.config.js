@@ -2,6 +2,7 @@ module.exports = ({ config }) => ({
   ...config,
   name: "JJ's IMEX",
   slug: 'jjsimex-client',
+  owner: 'mike0987654321s-organization',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
