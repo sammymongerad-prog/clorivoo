@@ -28,7 +28,6 @@ module.exports = ({ config }) => ({
   },
   plugins: [
     'expo-router',
-    'expo-notifications',
   ],
   scheme: 'jjsimex',
   extra: {
