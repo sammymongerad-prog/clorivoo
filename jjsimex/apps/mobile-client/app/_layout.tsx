@@ -8,13 +8,14 @@ import {
   handleNotificationReceived,
   handleNotificationTapped,
 } from '@jjsimex/ui';
+import '../global.css';
 
 function RootNavigator() {
   const router = useRouter();
   const { session, loading } = useAuth();
 
   useEffect(() => {
-    configureNotifications();
+    configureNotifications().catch(() => {});
   }, []);
 
   useEffect(() => {
