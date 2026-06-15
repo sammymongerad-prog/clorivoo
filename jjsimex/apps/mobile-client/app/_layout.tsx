@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, Component } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { View, Text, ScrollView } from 'react-native';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import {
   configureNotifications,
@@ -9,6 +10,29 @@ import {
   handleNotificationTapped,
 } from '@jjsimex/ui';
 import '../global.css';
+
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: string | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: unknown) {
+    return { error: String(error) };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ color: '#F97316', fontSize: 18, fontWeight: 'bold', marginBottom: 12 }}>ERREUR DE CRASH</Text>
+          <ScrollView>
+            <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'monospace' }}>{this.state.error}</Text>
+          </ScrollView>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function RootNavigator() {
   const router = useRouter();
@@ -63,11 +87,13 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
-      <StatusBar style="light" backgroundColor="#0D0D0D" />
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
+        <StatusBar style="light" backgroundColor="#0D0D0D" />
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
