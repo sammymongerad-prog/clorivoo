@@ -7,11 +7,6 @@ module.exports = ({ config }) => ({
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'dark',
-  splash: {
-    image: './assets/splash.png',
-    resizeMode: 'contain',
-    backgroundColor: '#0D0D0D',
-  },
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: false,
