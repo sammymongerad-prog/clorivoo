@@ -2,7 +2,7 @@ module.exports = ({ config }) => ({
   ...config,
   name: "JJs IMEX",
   slug: 'jjsimex-client',
-  owner: 'mike0987654321s-organization',
+  owner: 'cito1234567890s-team',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -28,9 +28,5 @@ module.exports = ({ config }) => ({
   },
   plugins: ['expo-router'],
   scheme: 'jjsimex',
-  extra: {
-    eas: {
-      projectId: '8a062141-02bd-4404-b138-bafa6871a6f6',
-    },
-  },
+  extra: {},
 });
