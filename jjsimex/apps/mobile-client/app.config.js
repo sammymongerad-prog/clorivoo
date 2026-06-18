@@ -23,9 +23,9 @@ module.exports = ({ config }) => ({
     permissions: ['CAMERA', 'RECEIVE_BOOT_COMPLETED', 'VIBRATE'],
   },
   splash: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0D0D0D',
   },
-  plugins: [],
+  plugins: ['expo-router'],
   scheme: 'jjsimex',
   extra: {
     eas: {
