@@ -1,17 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text } from 'react-native';
 
 export default function Index() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>JJ's IMEX</Text>
-      <Text style={styles.subtitle}>L'app fonctionne !</Text>
+    <View style={{ flex: 1, backgroundColor: '#FF6600', justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ color: '#FFFFFF', fontSize: 48, fontWeight: 'bold' }}>HELLO</Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0D0D0D', justifyContent: 'center', alignItems: 'center' },
-  title: { color: '#F97316', fontSize: 36, fontWeight: 'bold', marginBottom: 12 },
-  subtitle: { color: '#FFFFFF', fontSize: 18 },
-});
