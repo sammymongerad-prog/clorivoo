@@ -26,7 +26,7 @@ module.exports = ({ config }) => ({
     },
     permissions: ['CAMERA', 'RECEIVE_BOOT_COMPLETED', 'VIBRATE'],
   },
-  plugins: [],
+  plugins: ['expo-router'],
   scheme: 'jjsimex',
   extra: {
     eas: {

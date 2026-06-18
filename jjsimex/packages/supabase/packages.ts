@@ -1,7 +1,5 @@
 import { getClient } from './client';
 
-const supabaseAdmin = getClient();
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type PackageStatus =
@@ -40,7 +38,7 @@ export interface CreatePackageData {
 // ─── CLIENT : Suivre un colis ─────────────────────────────────────────────────
 
 export async function trackPackage(trackingNumber: string) {
-  const { data: pkg, error } = await supabaseAdmin
+  const { data: pkg, error } = await getClient()
     .from('packages')
     .select(`
       *,
@@ -74,7 +72,7 @@ export async function getMyPackages(
   const pageSize = 20;
   const from = (page - 1) * pageSize;
 
-  let query = supabaseAdmin
+  let query = getClient()
     .from('packages')
     .select('id, tracking_number, status, transport_mode, destination_city, destination_country, weight_billed, shipping_cost, is_paid, created_at, received_at, shipped_at, arrived_at, delivered_at', { count: 'exact' })
     .eq('client_id', userId)
@@ -100,7 +98,7 @@ export async function getMyPackages(
 // ─── CLIENT : Détail d'un colis ───────────────────────────────────────────────
 
 export async function getPackageDetail(packageId: string, userId: string) {
-  const { data: pkg, error } = await supabaseAdmin
+  const { data: pkg, error } = await getClient()
     .from('packages')
     .select(`
       *,
@@ -136,7 +134,7 @@ export async function createPackage(data: CreatePackageData, adminId: string) {
   const weightBilled = Math.max(data.weight_real, weightVolumetric);
 
   // Récupérer le tarif
-  const { data: rate, error: rateError } = await supabaseAdmin
+  const { data: rate, error: rateError } = await getClient()
     .from('shipping_rates')
     .select('price_per_lb, min_days, max_days')
     .eq('destination_country', data.destination_country)
@@ -163,7 +161,7 @@ async function insertPackage(
   weightBilled: number,
   shippingCost: number,
 ) {
-  const { data: pkg, error } = await supabaseAdmin
+  const { data: pkg, error } = await getClient()
     .from('packages')
     .insert({
       client_id: data.client_id,
@@ -189,7 +187,7 @@ async function insertPackage(
   }
 
   // Insérer statut initial dans historique
-  await supabaseAdmin.from('package_status_history').insert({
+  await getClient().from('package_status_history').insert({
     package_id: pkg.id,
     status: 'received_usa',
     updated_by: adminId,
@@ -197,7 +195,7 @@ async function insertPackage(
   });
 
   // Créer notification in-app
-  await supabaseAdmin.from('notifications').insert({
+  await getClient().from('notifications').insert({
     user_id: data.client_id,
     type: 'colis_received',
     title: 'Colis reçu ✅',
@@ -221,7 +219,7 @@ export async function updatePackageStatus(
   adminId: string,
 ) {
   // Récupérer le colis avec infos client et succursale
-  const { data: pkg, error } = await supabaseAdmin
+  const { data: pkg, error } = await getClient()
     .from('packages')
     .select(`
       *,
@@ -245,7 +243,7 @@ export async function updatePackageStatus(
   }
 
   // Update du statut
-  const { error: updateError } = await supabaseAdmin
+  const { error: updateError } = await getClient()
     .from('packages')
     .update(updateData)
     .eq('id', packageId);
@@ -253,7 +251,7 @@ export async function updatePackageStatus(
   if (updateError) throw new Error('Erreur lors de la mise à jour du statut.');
 
   // Historique
-  await supabaseAdmin.from('package_status_history').insert({
+  await getClient().from('package_status_history').insert({
     package_id: packageId,
     status: newStatus,
     updated_by: adminId,
@@ -293,7 +291,7 @@ export async function updatePackageStatus(
   const msg = pushMessages[newStatus];
   if (msg) {
     // Notification in-app
-    await supabaseAdmin.from('notifications').insert({
+    await getClient().from('notifications').insert({
       user_id: client.id,
       type: notifTypes[newStatus] ?? 'colis_transit',
       title: msg.title,
@@ -315,7 +313,7 @@ export async function getAllPackages(filters: PackageFilters = {}) {
   const pageSize = 20;
   const from = (page - 1) * pageSize;
 
-  let query = supabaseAdmin
+  let query = getClient()
     .from('packages')
     .select(
       `id, tracking_number, status, transport_mode, destination_country, destination_city,
@@ -352,7 +350,7 @@ export async function getAllPackages(filters: PackageFilters = {}) {
 
 export async function assignToDeparture(packageId: string, departureId: string) {
   // Récupérer le colis
-  const { data: pkg } = await supabaseAdmin
+  const { data: pkg } = await getClient()
     .from('packages')
     .select('weight_billed, destination_country')
     .eq('id', packageId)
@@ -361,7 +359,7 @@ export async function assignToDeparture(packageId: string, departureId: string) 
   if (!pkg) throw new Error('Colis introuvable.');
 
   // Vérifier capacité du départ
-  const { data: departure } = await supabaseAdmin
+  const { data: departure } = await getClient()
     .from('departures')
     .select('capacity_lbs, current_weight, destination_country, status')
     .eq('id', departureId)
@@ -381,7 +379,7 @@ export async function assignToDeparture(packageId: string, departureId: string) 
   }
 
   // Assigner le colis
-  const { error } = await supabaseAdmin
+  const { error } = await getClient()
     .from('packages')
     .update({ departure_id: departureId })
     .eq('id', packageId);
@@ -389,7 +387,7 @@ export async function assignToDeparture(packageId: string, departureId: string) 
   if (error) throw new Error('Erreur lors de l\'assignation.');
 
   // Mettre à jour le poids utilisé
-  await supabaseAdmin
+  await getClient()
     .from('departures')
     .update({ current_weight: departure.current_weight + pkg.weight_billed })
     .eq('id', departureId);
@@ -400,7 +398,7 @@ export async function assignToDeparture(packageId: string, departureId: string) 
 // ─── ADMIN MOBILE : Scanner un colis ─────────────────────────────────────────
 
 export async function scanPackage(trackingNumber: string) {
-  const { data: pkg, error } = await supabaseAdmin
+  const { data: pkg, error } = await getClient()
     .from('packages')
     .select(`
       id, tracking_number, status, transport_mode,
@@ -435,7 +433,7 @@ export async function scanPackage(trackingNumber: string) {
 // ─── ADMIN : Note interne ────────────────────────────────────────────────────
 
 export async function addInternalNote(packageId: string, note: string, adminId: string) {
-  const { data: pkg } = await supabaseAdmin
+  const { data: pkg } = await getClient()
     .from('packages')
     .select('internal_notes')
     .eq('id', packageId)
@@ -447,14 +445,14 @@ export async function addInternalNote(packageId: string, note: string, adminId: 
   const existingNotes = pkg.internal_notes ? pkg.internal_notes + '\n\n' : '';
   const newNote = `${existingNotes}[${timestamp}] ${note}`;
 
-  const { error } = await supabaseAdmin
+  const { error } = await getClient()
     .from('packages')
     .update({ internal_notes: newNote })
     .eq('id', packageId);
 
   if (error) throw new Error('Erreur lors de l\'ajout de la note.');
 
-  await supabaseAdmin.from('package_status_history').insert({
+  await getClient().from('package_status_history').insert({
     package_id: packageId,
     status: 'received_usa',
     updated_by: adminId,
@@ -483,11 +481,11 @@ export async function getPackageStats(period: 'week' | 'month' | 'year' = 'month
   }
 
   const [current, previous] = await Promise.all([
-    supabaseAdmin
+    getClient()
       .from('packages')
       .select('status, destination_country, transport_mode, shipping_cost')
       .gte('created_at', periodStart.toISOString()),
-    supabaseAdmin
+    getClient()
       .from('packages')
       .select('status, shipping_cost')
       .gte('created_at', prevStart.toISOString())
@@ -535,7 +533,7 @@ export function subscribeToPackages(
   callback: (pkg: Record<string, unknown>) => void,
   filter?: { client_id?: string; status?: PackageStatus },
 ): () => void {
-  const supabase = supabaseAdmin;
+  const supabase = getClient();
   const channel = supabase
     .channel(`packages_rt_${Date.now()}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'packages' }, (payload) => {
