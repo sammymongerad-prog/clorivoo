@@ -12,4 +12,13 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
+// Force a SINGLE copy of react-native and react to avoid duplicate-module
+// crashes (e.g. "RCTScrollView must be a function (received undefined)").
+// The monorepo root has react-native 0.74.1 but Expo SDK 51 needs 0.74.5
+// which lives in the app's own node_modules.
+config.resolver.extraNodeModules = {
+  'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+  react: path.resolve(monorepoRoot, 'node_modules/react'),
+};
+
 module.exports = config;
