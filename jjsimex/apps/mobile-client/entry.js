@@ -2,6 +2,6 @@ import 'react-native-url-polyfill/auto';
 import '@expo/metro-runtime';
 
 import { App } from 'expo-router/build/qualified-entry';
-import { renderRootComponent } from 'expo-router/build/renderRootComponent';
+import { registerRootComponent } from 'expo';
 
-renderRootComponent(App);
+registerRootComponent(App);
