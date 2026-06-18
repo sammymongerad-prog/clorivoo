@@ -1,15 +1,33 @@
 import '@expo/metro-runtime';
 import React from 'react';
-import { Text, View } from 'react-native';
-import { registerRootComponent } from 'expo';
+import { Text, View, ScrollView, AppRegistry } from 'react-native';
 
-function Root() {
+// Step 1: capture ALL errors before anything else
+const _errors = [];
+
+global.ErrorUtils?.setGlobalHandler?.((error, isFatal) => {
+  _errors.push(String(error?.message || error) + '\n' + String(error?.stack || ''));
+});
+
+// Step 2: error display
+function ErrorScreen() {
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ color: '#FF0000', fontSize: 40, fontWeight: 'bold' }}>TEST OK</Text>
-      <Text style={{ color: '#000000', fontSize: 18, marginTop: 20 }}>Si tu vois ceci, le splash etait le probleme.</Text>
-    </View>
+    <ScrollView style={{ flex: 1, backgroundColor: '#FFFFFF', paddingTop: 60, paddingHorizontal: 16 }}>
+      <Text style={{ fontSize: 24, color: '#FF0000', fontWeight: 'bold', marginBottom: 20 }}>
+        {_errors.length > 0 ? 'ERREURS (' + _errors.length + ')' : 'AUCUNE ERREUR - App montee OK'}
+      </Text>
+      {_errors.map((e, i) => (
+        <Text key={i} style={{ fontSize: 11, color: '#333', marginBottom: 16 }}>{e}</Text>
+      ))}
+    </ScrollView>
   );
 }
 
-registerRootComponent(Root);
+// Step 3: try loading expo, if it fails use AppRegistry directly
+try {
+  const { registerRootComponent } = require('expo');
+  registerRootComponent(ErrorScreen);
+} catch (e) {
+  _errors.push('EXPO IMPORT FAILED: ' + String(e?.message || e));
+  AppRegistry.registerComponent('main', () => ErrorScreen);
+}
