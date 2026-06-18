@@ -15,7 +15,7 @@ module.exports = ({ config }) => ({
   },
   android: {
     package: 'com.jjsimex.client',
-    versionCode: 8,
+    versionCode: 9,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0D0D0D',
