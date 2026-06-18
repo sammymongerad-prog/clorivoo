@@ -1,7 +1,7 @@
 {
   "name": "mobile-client",
   "version": "1.0.0",
-  "main": "./entry.js",
+  "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
     "android": "expo start --android",
