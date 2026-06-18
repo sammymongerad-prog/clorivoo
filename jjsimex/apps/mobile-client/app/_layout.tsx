@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -34,7 +34,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
   render() {
     if (this.state.err || _errors.length > 0) {
       return (
-        <ScrollView style={{ flex: 1, backgroundColor: '#FFFFFF', paddingTop: 60, paddingHorizontal: 16 }}>
+        <View style={{ flex: 1, backgroundColor: '#FFFFFF', paddingTop: 60, paddingHorizontal: 16 }}>
           <Text style={{ fontSize: 22, color: '#CC0000', fontWeight: 'bold', marginBottom: 16 }}>
             ERREUR REELLE ({_errors.length})
           </Text>
@@ -46,7 +46,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
           {_errors.map((e, i) => (
             <Text key={i} style={{ fontSize: 12, color: '#222', marginBottom: 14 }}>{e}</Text>
           ))}
-        </ScrollView>
+        </View>
       );
     }
     return this.props.children;
