@@ -1,10 +1,11 @@
 import 'react-native-url-polyfill/auto';
 
-import * as SplashScreen from 'expo-splash-screen';
-SplashScreen.hideAsync().catch(() => {});
-
 import React, { useEffect } from 'react';
-import { AppRegistry, View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
+import { registerRootComponent } from 'expo';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.hideAsync().catch(() => {});
 
 const _errors = [];
 const _prev = global.ErrorUtils?.getGlobalHandler?.();
@@ -71,4 +72,4 @@ function App() {
   );
 }
 
-AppRegistry.registerComponent('main', () => App);
+registerRootComponent(App);
