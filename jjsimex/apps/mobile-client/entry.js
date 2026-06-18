@@ -1,28 +1,22 @@
 import 'react-native-url-polyfill/auto';
 
 import React from 'react';
-import { registerRootComponent } from 'expo';
-import { View, Text, ScrollView } from 'react-native';
-import * as SplashScreen from 'expo-splash-screen';
+import { AppRegistry, View, Text, ScrollView } from 'react-native';
 
-// Capture every error before anything else
 const _errors = [];
 const _prev = global.ErrorUtils?.getGlobalHandler?.();
 global.ErrorUtils?.setGlobalHandler?.((error, isFatal) => {
-  _errors.push((isFatal ? '[FATAL] ' : '[ERR] ') + String(error?.message || error) + '\n' + String(error?.stack || ''));
+  _errors.push((isFatal ? '[FATAL] ' : '[ERR] ') + String(error?.message || error));
   _prev?.(error, isFatal);
 });
-
-// Hide splash so we can actually see content
-SplashScreen.hideAsync().catch((e) => { _errors.push('hideAsync: ' + String(e?.message || e)); });
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { err: null };
   }
-  componentDidCatch(error, info) {
-    _errors.push('[RENDER] ' + String(error?.message || error) + '\n' + String(info?.componentStack || ''));
+  componentDidCatch(error) {
+    _errors.push('[RENDER] ' + String(error?.message || error));
     this.setState({ err: error });
   }
   static getDerivedStateFromError(error) {
@@ -36,7 +30,7 @@ class ErrorBoundary extends React.Component {
             ERREURS ({_errors.length})
           </Text>
           {_errors.map((e, i) => (
-            <Text key={i} style={{ fontSize: 11, color: '#222', marginBottom: 14 }}>{e}</Text>
+            <Text key={i} style={{ fontSize: 12, color: '#222', marginBottom: 14 }}>{e}</Text>
           ))}
         </ScrollView>
       );
@@ -46,9 +40,6 @@ class ErrorBoundary extends React.Component {
 }
 
 function Inner() {
-  React.useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
   return (
     <View style={{ flex: 1, backgroundColor: '#FF6600', justifyContent: 'center', alignItems: 'center' }}>
       <Text style={{ color: '#FFFFFF', fontSize: 48, fontWeight: 'bold' }}>CA MARCHE</Text>
@@ -65,4 +56,4 @@ function App() {
   );
 }
 
-registerRootComponent(App);
+AppRegistry.registerComponent('main', () => App);
