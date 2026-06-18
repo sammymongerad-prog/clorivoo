@@ -15,14 +15,17 @@ module.exports = ({ config }) => ({
   },
   android: {
     package: 'com.jjsimex.client',
-    versionCode: 7,
+    versionCode: 8,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0D0D0D',
     },
     permissions: ['CAMERA', 'RECEIVE_BOOT_COMPLETED', 'VIBRATE'],
   },
-  plugins: [],
+  splash: {
+    backgroundColor: '#0D0D0D',
+  },
+  plugins: ['expo-router'],
   scheme: 'jjsimex',
   extra: {
     eas: {

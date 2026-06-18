@@ -25,11 +25,7 @@
     "react-native-svg": "15.2.0",
     "react-native-url-polyfill": "^2.0.0"
   },
-  "expo": {
-    "autolinking": {
-      "exclude": ["expo-splash-screen"]
-    }
-  },
+  "expo": {},
   "devDependencies": {
     "@babel/core": "^7.24.5",
     "@types/react": "~18.2.79",
