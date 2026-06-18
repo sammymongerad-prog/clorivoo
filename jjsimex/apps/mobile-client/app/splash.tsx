@@ -1,76 +1,30 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function SplashScreen() {
   const router = useRouter();
 
-  // Lueur orange — pulse
-  const glowOpacity = useRef(new Animated.Value(0.55)).current;
-  const glowScale = useRef(new Animated.Value(1)).current;
-
-  // Logo — apparition
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoY = useRef(new Animated.Value(8)).current;
-
-  // Barre de chargement
-  const barX = useRef(new Animated.Value(-38)).current;
-
   useEffect(() => {
-    // Glow pulse 4.5s
-    Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(glowOpacity, { toValue: 0.85, duration: 2250, useNativeDriver: true }),
-          Animated.timing(glowScale, { toValue: 1.08, duration: 2250, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(glowOpacity, { toValue: 0.55, duration: 2250, useNativeDriver: true }),
-          Animated.timing(glowScale, { toValue: 1, duration: 2250, useNativeDriver: true }),
-        ]),
-      ]),
-    ).start();
-
-    // Logo apparition 1s
-    Animated.parallel([
-      Animated.timing(logoOpacity, { toValue: 1, duration: 1000, useNativeDriver: true }),
-      Animated.timing(logoY, { toValue: 0, duration: 1000, useNativeDriver: true }),
-    ]).start();
-
-    // Loading bar slide
-    Animated.loop(
-      Animated.timing(barX, { toValue: 100, duration: 1400, useNativeDriver: false }),
-    ).start();
-
-    const timer = setTimeout(() => router.replace('/onboarding'), 2600);
+    const timer = setTimeout(() => router.replace('/onboarding'), 2000);
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <View style={styles.container}>
-      {/* Lueur radiale orange derrière le logo */}
-      <Animated.View
-        style={[
-          styles.glow,
-          { opacity: glowOpacity, transform: [{ scale: glowScale }] },
-        ]}
-      />
+      <View style={styles.glow} />
 
-      {/* Bloc logo */}
-      <Animated.View
-        style={[styles.logoBlock, { opacity: logoOpacity, transform: [{ translateY: logoY }] }]}
-      >
+      <View style={styles.logoBlock}>
         <View style={styles.logoRow}>
           <Text style={styles.logoWhite}>JJ</Text>
           <Text style={styles.logoOrange}>'s</Text>
           <Text style={styles.logoWhite}> IMEX</Text>
         </View>
         <Text style={styles.tagline}>Beyond Just Shipping</Text>
-      </Animated.View>
+      </View>
 
-      {/* Barre de chargement fine */}
       <View style={styles.loadBar}>
-        <Animated.View style={[styles.loadFill, { left: barX.interpolate({ inputRange: [-38, 100], outputRange: ['-38%', '100%'] }) }]} />
+        <View style={styles.loadFill} />
       </View>
     </View>
   );
@@ -88,12 +42,7 @@ const styles = StyleSheet.create({
     width: 460,
     height: 460,
     borderRadius: 230,
-    backgroundColor: 'rgba(249,115,22,0.28)',
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 80,
-    elevation: 0,
+    backgroundColor: 'rgba(249,115,22,0.18)',
   },
   logoBlock: {
     alignItems: 'center',
@@ -136,7 +85,8 @@ const styles = StyleSheet.create({
   loadFill: {
     position: 'absolute',
     top: 0,
-    width: '38%',
+    left: 0,
+    width: '40%',
     height: '100%',
     borderRadius: 99,
     backgroundColor: '#F97316',
