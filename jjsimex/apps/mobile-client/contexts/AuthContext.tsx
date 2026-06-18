@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { registerForPushNotifications, unregisterPushNotifications } from '@jjsimex/ui';
 
 interface UserProfile {
   id: string;
@@ -52,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) fetchProfile(session.user.id);
       else setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -68,23 +67,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, email, whatsapp, role, us_suite, loyalty_level, destination_country, destination_city, is_active')
-      .eq('id', userId)
-      .single();
-
-    setProfile(data ?? null);
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, email, whatsapp, role, us_suite, loyalty_level, destination_country, destination_city, is_active')
+        .eq('id', userId)
+        .single();
+      setProfile(data ?? null);
+    } catch {}
     setLoading(false);
   }
 
-
   async function signIn(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      return { error: 'Email ou mot de passe incorrect.' };
-    }
+    if (error) return { error: 'Email ou mot de passe incorrect.' };
 
     const { data: prof } = await supabase
       .from('users')
@@ -94,15 +90,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!prof?.is_active) {
       await supabase.auth.signOut();
-      return { error: 'Votre compte a été suspendu. Contactez JJ\'s IMEX au +1 (305) 600-9364.' };
+      return { error: "Votre compte a été suspendu. Contactez JJ's IMEX au +1 (305) 600-9364." };
     }
 
-    await registerForPushNotifications(data.user.id);
     return { error: null };
   }
 
   async function signUp(data: SignUpData) {
-    const { data: authData, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
@@ -122,22 +117,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { error: 'Erreur lors de la création du compte. Réessayez.' };
     }
-
-    if (authData.user) {
-      await registerForPushNotifications(authData.user.id);
-    }
-
     return { error: null };
   }
 
   async function signOut() {
-    if (user) await unregisterPushNotifications(user.id);
     await supabase.auth.signOut();
   }
 
   async function resetPassword(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
-    if (error) return { error: 'Erreur lors de l\'envoi. Vérifiez l\'adresse email.' };
+    if (error) return { error: "Erreur lors de l'envoi. Vérifiez l'adresse email." };
     return { error: null };
   }
 
