@@ -8,7 +8,7 @@ module.exports = ({ config }) => ({
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
   splash: {
-    backgroundColor: '#FF6600',
+    backgroundColor: '#FFFFFF',
     resizeMode: 'contain',
   },
   assetBundlePatterns: ['**/*'],
@@ -19,14 +19,14 @@ module.exports = ({ config }) => ({
   },
   android: {
     package: 'com.jjsimex.client',
-    versionCode: 3,
+    versionCode: 4,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0D0D0D',
     },
     permissions: ['CAMERA', 'RECEIVE_BOOT_COMPLETED', 'VIBRATE'],
   },
-  plugins: ['expo-router'],
+  plugins: [],
   scheme: 'jjsimex',
   extra: {
     eas: {
