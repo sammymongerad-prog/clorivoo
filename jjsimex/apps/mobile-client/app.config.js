@@ -8,7 +8,7 @@ module.exports = ({ config }) => ({
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
   splash: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0000FF',
     resizeMode: 'contain',
   },
   assetBundlePatterns: ['**/*'],
@@ -19,7 +19,7 @@ module.exports = ({ config }) => ({
   },
   android: {
     package: 'com.jjsimex.client',
-    versionCode: 4,
+    versionCode: 5,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0D0D0D',
