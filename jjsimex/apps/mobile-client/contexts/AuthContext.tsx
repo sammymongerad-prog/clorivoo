@@ -114,7 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('already registered')) {
         return { error: 'Un compte existe déjà avec cet email.' };
       }
-      return { error: 'Erreur lors de la création du compte. Réessayez.' };
+      // Affiche le vrai message pour diagnostiquer
+      return { error: `Erreur: ${error.message}` };
     }
     return { error: null };
   }
