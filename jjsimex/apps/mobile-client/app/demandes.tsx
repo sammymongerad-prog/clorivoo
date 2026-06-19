@@ -1,6 +1,5 @@
 import { useEffect, useState, useContext } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, ShoppingCart, MapPin, ShoppingBag, DollarSign } from 'lucide-react-native';
 import { getMyShopperRequests, subscribeToRequests, type ShopperRequest } from '@jjsimex/supabase/shopper';
@@ -89,7 +88,7 @@ export default function DemandesScreen() {
   }
 
   return (
-    <SafeAreaView style={S.container} edges={['top']}>
+    <SafeAreaView style={S.container}>
       <View style={S.header}>
         <TouchableOpacity style={S.backBtn} onPress={() => router.back()}>
           <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />

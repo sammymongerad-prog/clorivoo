@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  ActivityIndicator, StyleSheet, Linking,
+  ActivityIndicator, StyleSheet, Linking, SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft, MoreVertical, ArrowRight, Check, Shield, MessageCircle,
@@ -77,7 +76,7 @@ export default function ColisDetailScreen() {
   const currentIndex = STATUS_ORDER.indexOf(pkg.status);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>

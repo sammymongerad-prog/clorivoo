@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent, ActivityIndicator, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Plane, Ship, Calendar, Shield, Check, AlertTriangle, ArrowRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -140,7 +139,7 @@ export default function CalculateurScreen() {
     : `${Math.round((result?.estimated_days_min ?? 21) / 7)}-${Math.round((result?.estimated_days_max ?? 28) / 7)} semaines`;
 
   return (
-    <SafeAreaView style={S.container} edges={['top']}>
+    <SafeAreaView style={S.container}>
       <View style={S.header}>
         <TouchableOpacity style={S.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
           <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plane, Ship, Calendar } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,7 +76,7 @@ export default function CalculateurScreen() {
   const estimatedDays = transport === 'air' ? '5-7 jours' : '3-4 semaines';
 
   return (
-    <SafeAreaView edges={['top']} style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <BackButton />
         <View style={{ marginLeft: 12 }}>

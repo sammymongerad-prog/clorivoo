@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
 import {
   Pencil, Check, User, Package, ShoppingCart, MapPin, CreditCard, Calculator,
   Globe, MessageCircle, Mail, Moon, HelpCircle, Star, Megaphone, Heart, LucideIcon,
@@ -59,7 +58,7 @@ export default function ProfilScreen() {
   }
 
   return (
-    <SafeAreaView style={S.container} edges={['top']}>
+    <SafeAreaView style={S.container}>
       {/* Header */}
       <View style={S.header}>
         <Text style={S.headerTitle}>Mon Profil</Text>

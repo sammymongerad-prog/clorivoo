@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  ActivityIndicator, StyleSheet, Linking,
+  ActivityIndicator, StyleSheet, Linking, SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plane, Ship, Shield, MessageCircle, AlertTriangle } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,7 +43,7 @@ export default function ColisDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView edges={['top']} style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <ActivityIndicator color="#F97316" size="large" style={{ marginTop: 100 }} />
       </SafeAreaView>
     );
@@ -52,7 +51,7 @@ export default function ColisDetailScreen() {
 
   if (error || !pkg) {
     return (
-      <SafeAreaView edges={['top']} style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <View style={{ padding: 24 }}>
           <BackButton />
           <Text style={{ color: '#EF4444', fontSize: 15, marginTop: 40, textAlign: 'center' }}>{error || 'Colis introuvable.'}</Text>
@@ -64,7 +63,7 @@ export default function ColisDetailScreen() {
   const whatsappUrl = `https://wa.me/13056009364?text=Bonjour, j'ai une question sur mon colis ${pkg.tracking_number}`;
 
   return (
-    <SafeAreaView edges={['top']} style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
         <BackButton />

@@ -1,6 +1,5 @@
 import { useEffect, useState, useContext } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, CreditCard, DollarSign, Package, Tag } from 'lucide-react-native';
 import { getMyPayments, subscribeToPayments, type Payment } from '@jjsimex/supabase/payments';
@@ -96,7 +95,7 @@ export default function PaiementsScreen() {
   }
 
   return (
-    <SafeAreaView style={S.container} edges={['top']}>
+    <SafeAreaView style={S.container}>
       <View style={S.header}>
         <TouchableOpacity style={S.backBtn} onPress={() => router.back()}>
           <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />

@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Dimensions, RefreshControl, Modal, Pressable,
+  FlatList, Dimensions, RefreshControl, Modal, Pressable, SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Tag, Plane, BookOpen, Newspaper, Gift, Bell, ChevronDown,
@@ -104,7 +103,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}

@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Clipboard, Linking, Alert,
+  Clipboard, Linking, Alert, SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   MapPin, Copy, Check, MessageCircle, ShoppingBag, Package, Smartphone, Truck, AlertTriangle,
 } from 'lucide-react-native';
@@ -66,7 +65,7 @@ export default function AdressesUSScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top']} style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {ToastEl}
 
       <View style={styles.header}>

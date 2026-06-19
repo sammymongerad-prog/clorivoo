@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, ActivityIndicator, Linking,
+  StyleSheet, ActivityIndicator, Linking, SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plane, Ship, ShoppingCart } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -83,7 +82,7 @@ export default function PersonalShopperScreen() {
   const doneReqs = requests.filter((r: Request) => DONE_STATUSES.includes(r.status));
 
   return (
-    <SafeAreaView edges={['top']} style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {ToastEl}
 
       {/* Header */}
