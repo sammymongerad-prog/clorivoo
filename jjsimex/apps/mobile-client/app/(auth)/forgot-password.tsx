@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { ArrowLeft, Check } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ForgotPasswordScreen() {
@@ -56,7 +57,7 @@ export default function ForgotPasswordScreen() {
           {sent ? (
             <View className="items-center py-4">
               <View className="w-12 h-12 bg-green-500/10 rounded-full items-center justify-center mb-3">
-                <Text className="text-green-400 text-xl">✓</Text>
+                <Check size={20} color="#4ADE80" strokeWidth={2} />
               </View>
               <Text className="text-white font-semibold text-center">Email envoyé !</Text>
               <Text className="text-[#9CA3AF] text-sm text-center mt-2">
@@ -98,8 +99,9 @@ export default function ForgotPasswordScreen() {
           )}
         </View>
 
-        <TouchableOpacity onPress={() => router.back()} className="items-center mt-6">
-          <Text className="text-[#9CA3AF] text-sm">← Retour à la connexion</Text>
+        <TouchableOpacity onPress={() => router.back()} className="flex-row items-center justify-center mt-6" style={{ gap: 6 }}>
+          <ArrowLeft size={16} color="#9CA3AF" strokeWidth={2} />
+          <Text className="text-[#9CA3AF] text-sm">Retour à la connexion</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

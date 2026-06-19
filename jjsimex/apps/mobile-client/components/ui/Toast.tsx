@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
+import { Check, X, Info } from 'lucide-react-native';
 
 interface Props {
   message: string;
@@ -24,15 +25,16 @@ export function Toast({ message, type = 'success', visible, onHide }: Props) {
   if (!visible) return null;
 
   const colors = {
-    success: { bg: '#14532D', border: '#22C55E', icon: '✓' },
-    error:   { bg: '#450A0A', border: '#EF4444', icon: '✕' },
-    info:    { bg: '#1e3a5f', border: '#3B82F6', icon: 'ℹ' },
+    success: { bg: '#14532D', border: '#22C55E', Icon: Check },
+    error:   { bg: '#450A0A', border: '#EF4444', Icon: X },
+    info:    { bg: '#1e3a5f', border: '#3B82F6', Icon: Info },
   };
   const c = colors[type];
+  const Icon = c.Icon;
 
   return (
     <Animated.View style={[styles.container, { opacity, backgroundColor: c.bg, borderColor: c.border }]}>
-      <Text style={{ color: c.border, fontSize: 14, fontWeight: '700' }}>{c.icon}</Text>
+      <Icon size={16} color={c.border} strokeWidth={2} />
       <Text style={styles.message}>{message}</Text>
     </Animated.View>
   );

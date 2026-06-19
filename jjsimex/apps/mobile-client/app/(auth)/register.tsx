@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 const CITIES_HT = ['Port-au-Prince', 'Cap-Haïtien', 'Gonaïves', 'Saint-Marc', 'Pétion-Ville', 'Delmas', 'Jacmel', 'Les Cayes', 'Jérémie'];
@@ -44,7 +45,7 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={{ flex: 1, backgroundColor: '#0D0D0D' }} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={{ color: '#F97316', fontSize: 24 }}>←</Text>
+          <ArrowLeft size={24} color="#F97316" strokeWidth={2} />
         </TouchableOpacity>
 
         <Text style={styles.title}>Créer mon compte</Text>
@@ -79,7 +80,7 @@ export default function RegisterScreen() {
             <View style={{ position: 'relative' }}>
               <TextInput style={styles.input} placeholder="8 caractères minimum" placeholderTextColor="#6B7280" value={password} onChangeText={setPassword} secureTextEntry={!showPw} />
               <TouchableOpacity onPress={() => setShowPw(s => !s)} style={styles.eyeBtn}>
-                <Text style={{ fontSize: 18 }}>{showPw ? '🙈' : '👁️'}</Text>
+                {showPw ? <EyeOff size={18} color="#9CA3AF" strokeWidth={2} /> : <Eye size={18} color="#9CA3AF" strokeWidth={2} />}
               </TouchableOpacity>
             </View>
           </View>
