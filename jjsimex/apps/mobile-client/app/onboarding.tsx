@@ -25,22 +25,22 @@ interface Slide {
 
 const SLIDES: Slide[] = [
   {
-    image: require('../assets/images/onboarding/onboarding1.png'),
+    image: require('../assets/images/onboarding/onboarding1.jpg'),
     title: [{ text: 'Votre adresse US ' }, { text: 'gratuite', accent: true }],
     sub: 'Recevez vos achats Amazon, Shein et Nike directement à notre entrepôt de Miami.',
   },
   {
-    image: require('../assets/images/onboarding/onboarding2.png'),
+    image: require('../assets/images/onboarding/onboarding2.jpeg'),
     title: [{ text: 'On ' }, { text: 'expédie', accent: true }, { text: ' pour vous' }],
     sub: 'Par avion en 5 à 7 jours ou par bateau en 3 à 4 semaines. À vous de choisir.',
   },
   {
-    image: require('../assets/images/onboarding/onboarding3.png'),
+    image: require('../assets/images/onboarding/onboarding3.jpg'),
     title: [{ text: 'Suivez vos ' }, { text: 'colis', accent: true }, { text: ' en direct' }],
     sub: 'Des notifications à chaque étape, de Miami jusqu’à votre ville.',
   },
   {
-    image: require('../assets/images/onboarding/onboarding4.png'),
+    image: require('../assets/images/onboarding/onboarding4.jpeg'),
     title: [{ text: 'Retirez ' }, { text: 'près de chez vous', accent: true }],
     sub: '23+ points de retrait en Haïti et en République Dominicaine.',
   },
