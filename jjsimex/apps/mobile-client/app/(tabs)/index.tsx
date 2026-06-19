@@ -2,8 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   FlatList, Dimensions, RefreshControl, Platform, StatusBar,
+  Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Bell, ChevronDown } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
@@ -34,6 +36,11 @@ const QUICK_ACTIONS = [
   { icon: '📍', label: 'Adresses\nUS', route: '/screens/adresses-us' },
 ];
 
+const CITY_SECTIONS = [
+  { flag: '\u{1F1ED}\u{1F1F9}', country: 'haiti', title: 'Haïti', cities: ['Port-au-Prince', 'Cap-Haïtien', 'Pétion-Ville', 'Les Cayes', 'Gonaïves', 'Jacmel'] },
+  { flag: '\u{1F1E9}\u{1F1F4}', country: 'dr', title: 'Rép. Dom.', cities: ['Santo Domingo', 'Santiago', 'Punta Cana'] },
+];
+
 const STATUS_STEPS = ['received_usa', 'in_transit', 'arrived', 'ready_pickup', 'delivered'];
 const STATUS_LABELS: Record<string, string> = {
   received_usa: 'Reçu USA', in_transit: 'En transit', arrived: 'Arrivé', ready_pickup: 'Prêt retrait', delivered: 'Livré',
@@ -49,8 +56,10 @@ type Pkg = any;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { session, profile } = useAuth();
+  const { session, profile, updateDestination } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [citySheetOpen, setCitySheetOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
   const [activePackage, setActivePackage] = useState<Pkg>(null);
   const [recentPackages, setRecentPackages] = useState<Pkg[]>([]);
   const [rates, setRates] = useState<ExchangeRate | null>(null);
@@ -81,6 +90,12 @@ export default function HomeScreen() {
     setRefreshing(false);
   }
 
+  async function pickCity(country: string, city: string) {
+    await updateDestination(country, city);
+    setCitySheetOpen(false);
+    setCitySearch('');
+  }
+
   const nameParts = profile?.full_name?.split(' ') ?? [];
   const firstName = nameParts[0] ?? 'vous';
   const initials = nameParts.length >= 2 ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase() : (nameParts[0]?.[0]?.toUpperCase() ?? '?');
@@ -104,11 +119,14 @@ export default function HomeScreen() {
             </View>
             <View>
               <Text style={styles.greeting}>Bonjour {firstName} 👋</Text>
-              <Text style={styles.location}>{profile?.destination_city ?? 'JJ\'s IMEX'}</Text>
+              <TouchableOpacity onPress={() => setCitySheetOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
+                <Text style={styles.location}>{profile?.destination_city ?? 'JJ\'s IMEX'}</Text>
+                <ChevronDown size={14} color="#9CA3AF" strokeWidth={2} />
+              </TouchableOpacity>
             </View>
           </View>
           <TouchableOpacity onPress={() => router.push('/(tabs)/notifications')} style={styles.bellBtn}>
-            <Text style={{ fontSize: 22 }}>🔔</Text>
+            <Bell size={20} color="#FFFFFF" strokeWidth={2} />
           </TouchableOpacity>
         </View>
 
@@ -272,6 +290,49 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* CITY PICKER BOTTOM SHEET */}
+      <Modal visible={citySheetOpen} transparent animationType="slide" onRequestClose={() => setCitySheetOpen(false)}>
+        <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setCitySheetOpen(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+              <View style={styles.sheetContainer}>
+                <View style={styles.sheetHandle} />
+                <Text style={styles.sheetTitle}>Choisir ma ville</Text>
+                <TextInput
+                  style={styles.sheetInput}
+                  placeholder="Tapez une ville..."
+                  placeholderTextColor="#6B7280"
+                  value={citySearch}
+                  onChangeText={setCitySearch}
+                  autoCapitalize="words"
+                />
+                <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+                  {CITY_SECTIONS.map(section => {
+                    const filtered = section.cities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase()));
+                    if (filtered.length === 0) return null;
+                    return (
+                      <View key={section.country} style={{ marginBottom: 16 }}>
+                        <Text style={styles.sheetSectionTitle}>{section.flag} {section.title}</Text>
+                        {filtered.map(c => (
+                          <TouchableOpacity key={c} onPress={() => pickCity(section.country, c)} style={[styles.sheetCity, profile?.destination_city === c && styles.sheetCityActive]} activeOpacity={0.7}>
+                            <Text style={[styles.sheetCityText, profile?.destination_city === c && { color: '#F97316', fontWeight: '700' }]}>{c}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+                {citySearch.length > 0 && (
+                  <TouchableOpacity onPress={() => pickCity(profile?.destination_country ?? 'haiti', citySearch)} style={styles.sheetConfirmBtn} activeOpacity={0.85}>
+                    <Text style={styles.sheetConfirmText}>Confirmer "{citySearch}"</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -287,7 +348,7 @@ const styles = StyleSheet.create({
   bellBtn: { width: 40, height: 40, backgroundColor: '#1A1A1A', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A2A2A' },
   storiesRow: { paddingHorizontal: 20, paddingVertical: 14, gap: 14 },
   storyItem: { alignItems: 'center', gap: 6 },
-  storyCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#2A2A2A' },
+  storyCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#2A2A2A' },
   storyCircleActive: { borderColor: '#F97316' },
   storyLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
   banner: { borderRadius: 16, padding: 20, marginRight: 12 },
@@ -306,4 +367,15 @@ const styles = StyleSheet.create({
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   quickCard: { width: (width - 40 - 12) / 2, backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, alignItems: 'flex-start', borderWidth: 1, borderColor: '#242424' },
   quickLabel: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', lineHeight: 19 },
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheetContainer: { backgroundColor: '#141414', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#3A3A3A', alignSelf: 'center', marginBottom: 16 },
+  sheetTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 16 },
+  sheetInput: { height: 48, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 12, color: '#FFFFFF', paddingHorizontal: 16, fontSize: 15, marginBottom: 16 },
+  sheetSectionTitle: { fontSize: 14, fontWeight: '700', color: '#9CA3AF', marginBottom: 8 },
+  sheetCity: { paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10 },
+  sheetCityActive: { backgroundColor: 'rgba(249,115,22,0.1)' },
+  sheetCityText: { fontSize: 15, color: '#E5E7EB' },
+  sheetConfirmBtn: { backgroundColor: '#F97316', borderRadius: 14, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  sheetConfirmText: { fontSize: 15, fontWeight: '700', color: '#0D0D0D' },
 });
