@@ -17,7 +17,7 @@ export default function AdressesUSScreen() {
   const suiteId = profile?.us_suite ?? 'JJUS-XXXXX';
 
   const MIAMI_ROWS: AddressRow[] = [
-    { label: 'Nom complet', value: `JJ's IMEX / ${profile ? `${profile.first_name} ${profile.last_name}` : 'Votre Nom'}` },
+    { label: 'Nom complet', value: `JJ's IMEX / ${profile?.full_name ?? 'Votre Nom'}` },
     { label: 'Adresse ligne 1', value: '15490 NW 7th Ave' },
     { label: 'Suite / Apt', value: `Unit 207 — ${suiteId}` },
     { label: 'Ville', value: 'Miami' },

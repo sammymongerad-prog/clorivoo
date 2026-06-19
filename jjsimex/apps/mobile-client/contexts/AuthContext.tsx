@@ -4,16 +4,15 @@ import { supabase } from '@/lib/supabase';
 
 interface UserProfile {
   id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   email: string;
-  whatsapp: string;
+  phone_whatsapp: string;
   role: string;
   us_suite: string;
   loyalty_level: string;
   destination_country: string;
   destination_city: string;
-  is_active: boolean;
+  is_blocked: boolean;
 }
 
 interface AuthContextType {
@@ -70,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email, whatsapp, role, us_suite, loyalty_level, destination_country, destination_city, is_active')
+        .select('id, full_name, email, phone_whatsapp, role, us_suite, loyalty_level, destination_country, destination_city, is_blocked')
         .eq('id', userId)
         .single();
       setProfile(data ?? null);
@@ -84,11 +83,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: prof } = await supabase
       .from('users')
-      .select('is_active')
+      .select('is_blocked')
       .eq('id', data.user.id)
       .single();
 
-    if (!prof?.is_active) {
+    if (prof?.is_blocked) {
       await supabase.auth.signOut();
       return { error: "Votre compte a été suspendu. Contactez JJ's IMEX au +1 (305) 600-9364." };
     }

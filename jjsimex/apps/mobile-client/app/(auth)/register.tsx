@@ -32,7 +32,7 @@ export default function RegisterScreen() {
     }
     setError(''); setLoading(true);
     try {
-      const { error: err } = await signUp({ email, password, firstName, lastName, whatsapp: phone, destinationCountry: dest === 'HT' ? 'HT' : 'DO', destinationCity: city || cities[0] });
+      const { error: err } = await signUp({ email, password, firstName, lastName, whatsapp: phone, destinationCountry: dest === 'HT' ? 'haiti' : 'dr', destinationCity: city || cities[0] });
       if (err) { setError(err); return; }
       router.replace('/(tabs)/');
     } finally {

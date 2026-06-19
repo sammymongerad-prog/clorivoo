@@ -81,8 +81,9 @@ export default function HomeScreen() {
     setRefreshing(false);
   }
 
-  const firstName = profile?.first_name ?? 'vous';
-  const initials = profile ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase() : '?';
+  const nameParts = profile?.full_name?.split(' ') ?? [];
+  const firstName = nameParts[0] ?? 'vous';
+  const initials = nameParts.length >= 2 ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase() : (nameParts[0]?.[0]?.toUpperCase() ?? '?');
   const loyalty = profile?.loyalty_level ?? 'bronze';
   const stepIdx = activePackage ? STATUS_STEPS.indexOf(activePackage.status) : -1;
 
