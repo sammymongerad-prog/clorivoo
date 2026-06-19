@@ -1,27 +1,48 @@
 import { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Dimensions, ScrollView, GestureResponderEvent,
+  Dimensions, ScrollView, GestureResponderEvent, Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 const { width } = Dimensions.get('window');
 
-const SLIDES = [
+// ── Couleurs du thème ───────────────────────────────────────────────
+const ACCENT = '#F97316';        // orange de marque
+const ACCENT_SOFT = '#FFF3E9';   // teinte douce pour le fond de l'image
+const CARD = '#FFFFFF';
+const TITLE_DARK = '#0D0D0D';
+const SUB_GRAY = '#6B7280';
+
+interface Segment { text: string; accent?: boolean; }
+interface Slide {
+  image: ImageSourcePropType;
+  title: Segment[];
+  sub: string;
+}
+
+const SLIDES: Slide[] = [
   {
-    caption: 'colis  →  entrepôt Miami',
-    title: 'Votre adresse US, gratuite',
-    sub: 'Recevez vos achats Amazon, Shein et Nike directement à Miami.',
+    image: require('../assets/images/onboarding/onboarding1.png'),
+    title: [{ text: 'Votre adresse US ' }, { text: 'gratuite', accent: true }],
+    sub: 'Recevez vos achats Amazon, Shein et Nike directement à notre entrepôt de Miami.',
   },
   {
-    caption: 'avion / bateau\nMiami → Haïti',
-    title: 'On expédie pour vous',
-    sub: 'Avion en 5-7 jours ou bateau en 3-4 semaines. Vous choisissez.',
+    image: require('../assets/images/onboarding/onboarding2.png'),
+    title: [{ text: 'On ' }, { text: 'expédie', accent: true }, { text: ' pour vous' }],
+    sub: 'Par avion en 5 à 7 jours ou par bateau en 3 à 4 semaines. À vous de choisir.',
   },
   {
-    caption: 'retrait colis\nen succursale',
-    title: 'Retirez près de chez vous',
-    sub: '23+ villes en Haïti et en République Dominicaine.',
+    image: require('../assets/images/onboarding/onboarding3.png'),
+    title: [{ text: 'Suivez vos ' }, { text: 'colis', accent: true }, { text: ' en direct' }],
+    sub: 'Des notifications à chaque étape, de Miami jusqu’à votre ville.',
+  },
+  {
+    image: require('../assets/images/onboarding/onboarding4.png'),
+    title: [{ text: 'Retirez ' }, { text: 'près de chez vous', accent: true }],
+    sub: '23+ points de retrait en Haïti et en République Dominicaine.',
   },
 ];
 
@@ -51,19 +72,9 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Barre haut — Passer */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          onPress={() => goTo(SLIDES.length - 1)}
-          style={{ opacity: isLast ? 0 : 1 }}
-          pointerEvents={isLast ? 'none' : 'auto'}
-        >
-          <Text style={styles.passerText}>Passer</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Zone slides */}
-      <View style={styles.slidesArea} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <StatusBar style="dark" />
+      {/* Zone image (haut) */}
+      <View style={styles.imageArea} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -73,27 +84,25 @@ export default function OnboardingScreen() {
           style={{ width: SLIDES.length * width }}
         >
           {SLIDES.map((slide, i) => (
-            <View key={i} style={[styles.slide, { width }]}>
-              {/* Illustration placeholder */}
-              <View style={styles.illustration}>
-                <View style={styles.illustrationBg} />
-                <Text style={styles.illustrationLabel}>ILLUSTRATION</Text>
-                <View style={styles.illustrationIcon}>
-                  <View style={styles.illustrationDot} />
-                </View>
-                <Text style={styles.caption}>{slide.caption}</Text>
-              </View>
-
-              {/* Textes */}
-              <Text style={styles.title}>{slide.title}</Text>
-              <Text style={styles.sub}>{slide.sub}</Text>
+            <View key={i} style={[styles.imageSlide, { width }]}>
+              <Image source={slide.image} style={styles.image} resizeMode="contain" />
             </View>
           ))}
         </ScrollView>
       </View>
 
-      {/* Bas : dots + CTA */}
-      <View style={styles.bottom}>
+      {/* Carte (bas) */}
+      <View style={styles.card}>
+        <Text style={styles.title}>
+          {SLIDES[index].title.map((seg, i) => (
+            <Text key={i} style={seg.accent ? styles.titleAccent : undefined}>
+              {seg.text}
+            </Text>
+          ))}
+        </Text>
+        <Text style={styles.sub}>{SLIDES[index].sub}</Text>
+
+        {/* Dots */}
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
             <TouchableOpacity key={i} onPress={() => goTo(i)}>
@@ -101,132 +110,106 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <TouchableOpacity
-          style={styles.cta}
-          onPress={() => {
-            if (isLast) router.replace('/(auth)/login');
-            else goTo(index + 1);
-          }}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.ctaText}>{isLast ? 'Commencer' : 'Suivant'}</Text>
-        </TouchableOpacity>
+
+        {/* Boutons : pilule à gauche + lien à droite */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.pill}
+            activeOpacity={0.9}
+            onPress={() => {
+              if (isLast) router.replace('/(auth)/register');
+              else goTo(index + 1);
+            }}
+          >
+            <Text style={styles.pillText}>{isLast ? 'Commencer' : 'Suivant'}</Text>
+            <Text style={styles.pillArrow}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              if (isLast) router.replace('/(auth)/login');
+              else goTo(SLIDES.length - 1);
+            }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.skipText}>{isLast ? 'Se connecter' : 'Passer'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0D0D0D' },
-  topBar: {
-    height: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 22,
-  },
-  passerText: { color: '#9CA3AF', fontSize: 14, fontWeight: '500' },
-  slidesArea: { flex: 1, overflow: 'hidden' },
-  slide: {
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 8,
-  },
-  illustration: {
-    width: 280,
-    height: 300,
-    marginTop: 18,
-    borderRadius: 24,
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 18,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  illustrationBg: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: 'transparent',
-  },
-  illustrationLabel: {
-    position: 'absolute',
-    top: 14,
-    left: 16,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: '#4B5563',
-    fontFamily: 'monospace',
-  },
-  illustrationIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(249,115,22,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  illustrationDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-    backgroundColor: '#F97316',
-  },
-  caption: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#6B7280',
-    textAlign: 'center',
-    maxWidth: 200,
-    fontFamily: 'monospace',
+  container: { flex: 1, backgroundColor: ACCENT_SOFT },
+  imageArea: { flex: 1, overflow: 'hidden' },
+  imageSlide: { alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
+  image: { width: width * 0.82, height: '88%' },
+
+  card: {
+    backgroundColor: CARD,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 28,
+    paddingTop: 30,
+    paddingBottom: 40,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 12,
   },
   title: {
-    marginTop: 42,
-    fontWeight: '700',
-    fontSize: 27,
+    fontWeight: '800',
+    fontSize: 26,
     letterSpacing: -0.6,
-    color: '#FFFFFF',
+    color: TITLE_DARK,
     textAlign: 'center',
     lineHeight: 33,
   },
+  titleAccent: { color: ACCENT },
   sub: {
-    marginTop: 14,
-    fontWeight: '400',
-    fontSize: 15,
-    lineHeight: 23,
-    color: '#9CA3AF',
+    marginTop: 12,
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: SUB_GRAY,
     textAlign: 'center',
-    maxWidth: 290,
+    alignSelf: 'center',
+    maxWidth: 300,
   },
-  bottom: { paddingHorizontal: 28, paddingBottom: 40 },
+
   dots: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    height: 28,
+    gap: 7,
+    marginTop: 22,
+    height: 20,
   },
   dot: {
     width: 7,
     height: 7,
     borderRadius: 99,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(13,13,13,0.15)',
   },
-  dotActive: {
-    width: 22,
-    backgroundColor: '#F97316',
-  },
-  cta: {
-    marginTop: 22,
-    width: '100%',
-    height: 54,
-    borderRadius: 12,
-    backgroundColor: '#F97316',
+  dotActive: { width: 22, backgroundColor: ACCENT },
+
+  actions: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    marginTop: 26,
   },
-  ctaText: { color: '#0D0D0D', fontWeight: '700', fontSize: 16, letterSpacing: 0.2 },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 52,
+    paddingHorizontal: 28,
+    borderRadius: 99,
+    backgroundColor: ACCENT,
+  },
+  pillText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15.5 },
+  pillArrow: { color: '#FFFFFF', fontWeight: '700', fontSize: 17 },
+  skipText: { color: SUB_GRAY, fontWeight: '600', fontSize: 15, paddingHorizontal: 8 },
 });
