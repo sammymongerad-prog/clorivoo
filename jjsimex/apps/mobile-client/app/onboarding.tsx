@@ -1,22 +1,24 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Dimensions, ScrollView, GestureResponderEvent, Image,
-  ImageSourcePropType,
+  Dimensions, GestureResponderEvent, Image,
+  ImageSourcePropType, Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-const { width } = Dimensions.get('window');
+const { width, height: SCREEN_H } = Dimensions.get('window');
 
-// ── Couleurs du thème ───────────────────────────────────────────────
-const ACCENT = '#F97316';        // orange de marque
-const ACCENT_SOFT = '#FFF3E9';   // teinte douce pour le fond de l'image
+const ACCENT = '#F97316';
 const CARD = '#FFFFFF';
 const TITLE_DARK = '#0D0D0D';
 const SUB_GRAY = '#6B7280';
+const DOT_INACTIVE = 'rgba(13,13,13,0.15)';
+const DOT_SIZE = 8;
+const DOT_ACTIVE_W = 28;
+const DOT_FILL_MS = 5000;
 
-interface Segment { text: string; accent?: boolean; }
+interface Segment { text: string; accent?: boolean }
 interface Slide {
   image: ImageSourcePropType;
   title: Segment[];
@@ -37,7 +39,7 @@ const SLIDES: Slide[] = [
   {
     image: require('../assets/images/onboarding/onboarding3.jpg'),
     title: [{ text: 'Suivez vos ' }, { text: 'colis', accent: true }, { text: ' en direct' }],
-    sub: 'Des notifications à chaque étape, de Miami jusqu’à votre ville.',
+    sub: 'Des notifications à chaque étape, de Miami jusqu\'à votre ville.',
   },
   {
     image: require('../assets/images/onboarding/onboarding4.jpeg'),
@@ -46,16 +48,63 @@ const SLIDES: Slide[] = [
   },
 ];
 
+function ProgressDot({ active, index, onPress }: { active: boolean; index: number; onPress: () => void }) {
+  const fillAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (active) {
+      fillAnim.setValue(0);
+      Animated.timing(fillAnim, {
+        toValue: 1,
+        duration: DOT_FILL_MS,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      fillAnim.stopAnimation();
+      fillAnim.setValue(0);
+    }
+  }, [active]);
+
+  const dotWidth = active ? DOT_ACTIVE_W : DOT_SIZE;
+  const fillWidth = fillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, DOT_ACTIVE_W],
+  });
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.dot, { width: dotWidth }]}>
+        {active && (
+          <Animated.View
+            style={[styles.dotFill, { width: fillWidth }]}
+          />
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const [index, setIndex] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
   const touchX = useRef(0);
+  const imageAnim = useRef(new Animated.Value(1)).current;
 
   function goTo(i: number) {
     const next = Math.max(0, Math.min(SLIDES.length - 1, i));
-    setIndex(next);
-    scrollRef.current?.scrollTo({ x: next * width, animated: true });
+    if (next === index) return;
+    Animated.timing(imageAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setIndex(next);
+      Animated.timing(imageAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    });
   }
 
   function onTouchStart(e: GestureResponderEvent) {
@@ -72,26 +121,24 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-      {/* Zone image (haut) */}
-      <View style={styles.imageArea} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          scrollEnabled={false}
-          showsHorizontalScrollIndicator={false}
-          style={{ width: SLIDES.length * width }}
-        >
-          {SLIDES.map((slide, i) => (
-            <View key={i} style={[styles.imageSlide, { width }]}>
-              <Image source={slide.image} style={styles.image} resizeMode="contain" />
-            </View>
-          ))}
-        </ScrollView>
+      <StatusBar style="light" />
+
+      {/* Image full-bleed */}
+      <View
+        style={styles.imageArea}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        <Animated.View style={[styles.imageFull, { opacity: imageAnim }]}>
+          <Image
+            source={SLIDES[index].image}
+            style={styles.image}
+            resizeMode="cover"
+          />
+        </Animated.View>
       </View>
 
-      {/* Carte (bas) */}
+      {/* Carte blanche bas */}
       <View style={styles.card}>
         <Text style={styles.title}>
           {SLIDES[index].title.map((seg, i) => (
@@ -102,26 +149,24 @@ export default function OnboardingScreen() {
         </Text>
         <Text style={styles.sub}>{SLIDES[index].sub}</Text>
 
-        {/* Dots */}
+        {/* Dots animés */}
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
-            <TouchableOpacity key={i} onPress={() => goTo(i)}>
-              <View style={[styles.dot, i === index && styles.dotActive]} />
-            </TouchableOpacity>
+            <ProgressDot key={i} index={i} active={i === index} onPress={() => goTo(i)} />
           ))}
         </View>
 
-        {/* Boutons : pilule à gauche + lien à droite */}
+        {/* Boutons : pilule compacte + lien Skip */}
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.pill}
-            activeOpacity={0.9}
+            activeOpacity={0.85}
             onPress={() => {
               if (isLast) router.replace('/(auth)/register');
               else goTo(index + 1);
             }}
           >
-            <Text style={styles.pillText}>{isLast ? 'Commencer' : 'Suivant'}</Text>
+            <Text style={styles.pillText}>{isLast ? 'Commencer' : 'Next'}</Text>
             <Text style={styles.pillArrow}>→</Text>
           </TouchableOpacity>
 
@@ -132,7 +177,7 @@ export default function OnboardingScreen() {
             }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Text style={styles.skipText}>{isLast ? 'Se connecter' : 'Passer'}</Text>
+            <Text style={styles.skipText}>{isLast ? 'Se connecter' : 'Skip'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -140,38 +185,49 @@ export default function OnboardingScreen() {
   );
 }
 
+const CARD_H = 260;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: ACCENT_SOFT },
-  imageArea: { flex: 1, overflow: 'hidden' },
-  imageSlide: { alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
-  image: { width: width * 0.82, height: '88%' },
+  container: { flex: 1, backgroundColor: '#000' },
+
+  imageArea: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  imageFull: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
 
   card: {
     backgroundColor: CARD,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    paddingHorizontal: 28,
-    paddingTop: 30,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 36,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: -4 },
-    elevation: 12,
+    elevation: 16,
   },
   title: {
     fontWeight: '800',
-    fontSize: 26,
-    letterSpacing: -0.6,
+    fontSize: 24,
+    letterSpacing: -0.5,
     color: TITLE_DARK,
     textAlign: 'center',
-    lineHeight: 33,
+    lineHeight: 31,
   },
   titleAccent: { color: ACCENT },
   sub: {
-    marginTop: 12,
-    fontSize: 14.5,
-    lineHeight: 22,
+    marginTop: 10,
+    fontSize: 14,
+    lineHeight: 21,
     color: SUB_GRAY,
     textAlign: 'center',
     alignSelf: 'center',
@@ -182,34 +238,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
-    marginTop: 22,
+    gap: 8,
+    marginTop: 20,
     height: 20,
   },
   dot: {
-    width: 7,
-    height: 7,
+    height: DOT_SIZE,
     borderRadius: 99,
-    backgroundColor: 'rgba(13,13,13,0.15)',
+    backgroundColor: DOT_INACTIVE,
+    overflow: 'hidden',
   },
-  dotActive: { width: 22, backgroundColor: ACCENT },
+  dotFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: DOT_SIZE,
+    borderRadius: 99,
+    backgroundColor: ACCENT,
+  },
 
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 26,
+    marginTop: 22,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    height: 52,
-    paddingHorizontal: 28,
+    gap: 6,
+    height: 44,
+    paddingHorizontal: 22,
     borderRadius: 99,
     backgroundColor: ACCENT,
   },
-  pillText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15.5 },
-  pillArrow: { color: '#FFFFFF', fontWeight: '700', fontSize: 17 },
-  skipText: { color: SUB_GRAY, fontWeight: '600', fontSize: 15, paddingHorizontal: 8 },
+  pillText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14.5 },
+  pillArrow: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
+  skipText: { color: SUB_GRAY, fontWeight: '500', fontSize: 14.5 },
 });
