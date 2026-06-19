@@ -24,9 +24,11 @@ config.resolver.extraNodeModules = {
 // Block the root-level react-native (0.74.1) so Metro never resolves it.
 // Only the app's own copy (0.74.5) should be used.
 const rootRN = path.resolve(monorepoRoot, 'node_modules/react-native');
+// Anchor with a trailing path-separator so we ONLY block .../node_modules/react-native/...
+// and never sibling packages like react-native-url-polyfill.
 config.resolver.blockList = [
   ...(config.resolver.blockList ? [config.resolver.blockList] : []),
-  new RegExp(rootRN.replace(/[/\\]/g, '[/\\\\]')),
+  new RegExp(rootRN.replace(/[/\\]/g, '[/\\\\]') + '[/\\\\]'),
 ];
 
 module.exports = config;
