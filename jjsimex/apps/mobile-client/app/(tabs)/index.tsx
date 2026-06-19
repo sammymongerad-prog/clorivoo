@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Dimensions, RefreshControl,
+  FlatList, Dimensions, RefreshControl, Platform, StatusBar,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
@@ -88,7 +87,7 @@ export default function HomeScreen() {
   const loyalty = profile?.loyalty_level ?? 'bronze';
   const stepIdx = activePackage ? STATUS_STEPS.indexOf(activePackage.status) : -1;
 
-  const insets = useSafeAreaInsets();
+  const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
@@ -98,7 +97,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F97316" />}
       >
         {/* HEADER */}
-        <View style={[styles.header, { paddingTop: insets.top + 18 }]}>
+        <View style={[styles.header, { paddingTop: statusBarH + 18 }]}>
           <View style={styles.headerLeft}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{initials}</Text>
