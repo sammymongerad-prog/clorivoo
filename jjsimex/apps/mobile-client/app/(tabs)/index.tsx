@@ -1,24 +1,31 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Dimensions, RefreshControl, SafeAreaView,
+  FlatList, Dimensions, RefreshControl, Modal, Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import {
+  Tag, Plane, BookOpen, Newspaper, Gift, Bell, ChevronDown,
+  Package, ShoppingCart, Calculator, MapPin, Check, Share2,
+} from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
 import type { ExchangeRate } from '@jjsimex/supabase/shipping';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PackageCard } from '@/components/ui/PackageCard';
+import { CITIES_HT, CITIES_RD } from '@/lib/cities';
 
 const { width } = Dimensions.get('window');
+const ACCENT = '#F97316';
 
 const STORIES = [
-  { icon: '🏷️', label: 'Offres', unread: true },
-  { icon: '✈️', label: 'Départs', unread: true },
-  { icon: '📖', label: 'Guide', unread: true },
-  { icon: '📰', label: 'Nouvelles', unread: false },
-  { icon: '🎁', label: 'Parrainage', unread: false },
+  { Icon: Tag, label: 'Offres', unread: true },
+  { Icon: Plane, label: 'Départs', unread: true },
+  { Icon: BookOpen, label: 'Guide', unread: true },
+  { Icon: Newspaper, label: 'Nouvelles', unread: false },
+  { Icon: Gift, label: 'Parrainage', unread: false },
 ];
 
 const BANNERS = [
@@ -28,10 +35,10 @@ const BANNERS = [
 ];
 
 const QUICK_ACTIONS = [
-  { icon: '📦', label: 'Tracker\nun colis', route: '/(tabs)/colis' },
-  { icon: '🛒', label: 'Personal\nShopper', route: '/screens/personal-shopper' },
-  { icon: '🧮', label: 'Calculateur\ntarifs', route: '/screens/calculateur' },
-  { icon: '📍', label: 'Adresses\nUS', route: '/screens/adresses-us' },
+  { Icon: Package, label: 'Tracker\nun colis', route: '/(tabs)/colis' },
+  { Icon: ShoppingCart, label: 'Personal\nShopper', route: '/screens/personal-shopper' },
+  { Icon: Calculator, label: 'Calculateur\ntarifs', route: '/screens/calculateur' },
+  { Icon: MapPin, label: 'Adresses\nUS', route: '/screens/adresses-us' },
 ];
 
 const STATUS_STEPS = ['received_usa', 'in_transit', 'arrived', 'ready_pickup', 'delivered'];
@@ -49,8 +56,10 @@ type Pkg = any;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { session, profile } = useAuth();
+  const { session, profile, updateDestination } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [cityModal, setCityModal] = useState(false);
+  const [savingCity, setSavingCity] = useState(false);
   const [activePackage, setActivePackage] = useState<Pkg>(null);
   const [recentPackages, setRecentPackages] = useState<Pkg[]>([]);
   const [rates, setRates] = useState<ExchangeRate | null>(null);
@@ -87,8 +96,15 @@ export default function HomeScreen() {
   const loyalty = profile?.loyalty_level ?? 'bronze';
   const stepIdx = activePackage ? STATUS_STEPS.indexOf(activePackage.status) : -1;
 
+  async function selectCity(country: 'haiti' | 'dr', city: string) {
+    setSavingCity(true);
+    await updateDestination(country, city);
+    setSavingCity(false);
+    setCityModal(false);
+  }
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D' }} edges={['top']}>
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -102,11 +118,18 @@ export default function HomeScreen() {
             </View>
             <View>
               <Text style={styles.greeting}>Bonjour {firstName} 👋</Text>
-              <Text style={styles.location}>{profile?.destination_city ?? 'JJ\'s IMEX'}</Text>
+              <TouchableOpacity
+                onPress={() => setCityModal(true)}
+                style={styles.locationRow}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.location}>{profile?.destination_city ?? 'Choisir ma ville'}</Text>
+                <ChevronDown size={14} color="#9CA3AF" strokeWidth={2} />
+              </TouchableOpacity>
             </View>
           </View>
           <TouchableOpacity onPress={() => router.push('/(tabs)/notifications')} style={styles.bellBtn}>
-            <Text style={{ fontSize: 22 }}>🔔</Text>
+            <Bell size={22} color={ACCENT} strokeWidth={2} />
           </TouchableOpacity>
         </View>
 
@@ -115,7 +138,7 @@ export default function HomeScreen() {
           {STORIES.map((s, i) => (
             <TouchableOpacity key={i} style={styles.storyItem} activeOpacity={0.8}>
               <View style={[styles.storyCircle, s.unread && styles.storyCircleActive]}>
-                <Text style={{ fontSize: 22 }}>{s.icon}</Text>
+                <s.Icon size={24} color={ACCENT} strokeWidth={2} />
               </View>
               <Text style={styles.storyLabel}>{s.label}</Text>
             </TouchableOpacity>
@@ -153,7 +176,9 @@ export default function HomeScreen() {
           <View style={styles.quickGrid}>
             {QUICK_ACTIONS.map((a, i) => (
               <TouchableOpacity key={i} onPress={() => router.push(a.route as never)} style={styles.quickCard} activeOpacity={0.8}>
-                <Text style={{ fontSize: 28, marginBottom: 8 }}>{a.icon}</Text>
+                <View style={styles.quickIcon}>
+                  <a.Icon size={24} color={ACCENT} strokeWidth={2} />
+                </View>
                 <Text style={styles.quickLabel}>{a.label}</Text>
               </TouchableOpacity>
             ))}
@@ -263,31 +288,81 @@ export default function HomeScreen() {
                 <Text style={{ fontSize: 20, fontWeight: '800', color: '#F97316', letterSpacing: 3 }}>{profile.referral_code}</Text>
               </View>
               <TouchableOpacity style={{ backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <Text style={{ fontSize: 14 }}>📤</Text>
+                <Share2 size={16} color={ACCENT} strokeWidth={2} />
                 <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF' }}>Partager via WhatsApp</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
       </ScrollView>
+
+      {/* BOTTOM SHEET — sélection de ville */}
+      <Modal
+        visible={cityModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCityModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setCityModal(false)}>
+          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Votre ville de retrait</Text>
+            <Text style={styles.sheetSub}>Sélectionnez où vous récupérez vos colis</Text>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              <Text style={styles.sheetGroup}>🇭🇹 Haïti</Text>
+              {CITIES_HT.map((c) => {
+                const active = profile?.destination_city === c;
+                return (
+                  <TouchableOpacity key={c} style={styles.cityRow} onPress={() => selectCity('haiti', c)} disabled={savingCity}>
+                    <Text style={[styles.cityName, active && { color: ACCENT, fontWeight: '700' }]}>{c}</Text>
+                    {active && <Check size={18} color={ACCENT} strokeWidth={2.5} />}
+                  </TouchableOpacity>
+                );
+              })}
+
+              <Text style={[styles.sheetGroup, { marginTop: 8 }]}>🇩🇴 République Dominicaine</Text>
+              {CITIES_RD.map((c) => {
+                const active = profile?.destination_city === c;
+                return (
+                  <TouchableOpacity key={c} style={styles.cityRow} onPress={() => selectCity('dr', c)} disabled={savingCity}>
+                    <Text style={[styles.cityName, active && { color: ACCENT, fontWeight: '700' }]}>{c}</Text>
+                    {active && <Check size={18} color={ACCENT} strokeWidth={2.5} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 18, paddingBottom: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 20, paddingBottom: 12 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 16, fontWeight: '700', color: '#0D0D0D' },
   greeting: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  location: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  location: { fontSize: 12, color: '#9CA3AF' },
   bellBtn: { width: 40, height: 40, backgroundColor: '#1A1A1A', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A2A2A' },
-  storiesRow: { paddingHorizontal: 20, paddingVertical: 14, gap: 14 },
-  storyItem: { alignItems: 'center', gap: 6 },
-  storyCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#2A2A2A' },
+  storiesRow: { paddingHorizontal: 20, paddingVertical: 16, gap: 16 },
+  storyItem: { alignItems: 'center', gap: 8 },
+  storyCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#2A2A2A' },
   storyCircleActive: { borderColor: '#F97316' },
   storyLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
+  quickIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#161616', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 34 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#3A3A3A', alignSelf: 'center', marginBottom: 16 },
+  sheetTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  sheetSub: { fontSize: 13, color: '#9CA3AF', marginTop: 4, marginBottom: 12 },
+  sheetGroup: { fontSize: 13, fontWeight: '700', color: '#9CA3AF', marginVertical: 8 },
+  cityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#222' },
+  cityName: { fontSize: 15, color: '#FFFFFF' },
   banner: { borderRadius: 16, padding: 20, marginRight: 12 },
   bannerTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 6, lineHeight: 24 },
   bannerSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
