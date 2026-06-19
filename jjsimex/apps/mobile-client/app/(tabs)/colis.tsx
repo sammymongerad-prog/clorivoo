@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, RefreshControl, TextInput } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Package } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages, subscribeToPackages } from '@jjsimex/supabase/packages';
@@ -55,7 +57,7 @@ export default function ColisScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Mes colis</Text>
@@ -90,7 +92,7 @@ export default function ColisScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F97316" />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>📦</Text>
+            <Package size={48} color="#F97316" strokeWidth={2} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>{loading ? 'Chargement...' : 'Aucun colis'}</Text>
             <Text style={styles.emptyText}>Vos colis apparaîtront ici une fois créés</Text>
           </View>

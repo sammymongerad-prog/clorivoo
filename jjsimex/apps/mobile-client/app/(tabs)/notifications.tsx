@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, RefreshControl, Linking,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Package, CreditCard, Tag, Settings, Megaphone, Bell, LucideIcon } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -26,11 +28,11 @@ const FILTER_LABELS: { key: FilterType; label: string }[] = [
   { key: 'systeme', label: 'Système' },
 ];
 
-const TYPE_ICON: Record<string, { emoji: string; bg: string }> = {
-  colis:    { emoji: '📦', bg: '#F97316' },
-  paiement: { emoji: '💳', bg: '#2563EB' },
-  promo:    { emoji: '🏷️', bg: '#F97316' },
-  systeme:  { emoji: '⚙️', bg: '#6B7280' },
+const TYPE_ICON: Record<string, { Icon: LucideIcon; bg: string }> = {
+  colis:    { Icon: Package, bg: '#F97316' },
+  paiement: { Icon: CreditCard, bg: '#2563EB' },
+  promo:    { Icon: Tag, bg: '#F97316' },
+  systeme:  { Icon: Settings, bg: '#6B7280' },
 };
 
 function fmtTime(date: string): string {
@@ -122,7 +124,7 @@ export default function NotificationsScreen() {
   if (olderItems.length) grouped.push({ label: 'Cette semaine', items: olderItems });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* HEADER */}
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -170,7 +172,7 @@ export default function NotificationsScreen() {
         {!loading && filtered.length === 0 && (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
-              <Text style={{ fontSize: 32 }}>🔔</Text>
+              <Bell size={48} color="#F97316" strokeWidth={2} />
             </View>
             <Text style={styles.emptyTitle}>Aucune notification</Text>
             <Text style={styles.emptyText}>Vous êtes à jour ! On vous préviendra dès qu'un colis bougera.</Text>
@@ -181,7 +183,8 @@ export default function NotificationsScreen() {
           <View key={group.label}>
             <Text style={styles.groupLabel}>{group.label}</Text>
             {group.items.map(notif => {
-              const ico = TYPE_ICON[notif.type] ?? { emoji: '📢', bg: '#9CA3AF' };
+              const ico = TYPE_ICON[notif.type] ?? { Icon: Megaphone, bg: '#9CA3AF' };
+              const Ico = ico.Icon;
               return (
                 <TouchableOpacity
                   key={notif.id}
@@ -192,7 +195,7 @@ export default function NotificationsScreen() {
                   {!notif.is_read && <View style={styles.unreadDot} />}
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={[styles.iconCircle, { backgroundColor: ico.bg }]}>
-                      <Text style={{ fontSize: 18 }}>{ico.emoji}</Text>
+                      <Ico size={20} color="#FFFFFF" strokeWidth={2} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.cardTitle, notif.is_read && { color: '#9CA3AF' }]}>{notif.title}</Text>

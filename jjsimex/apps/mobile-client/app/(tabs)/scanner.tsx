@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { scanPackage } from '@jjsimex/supabase/packages';
@@ -28,7 +30,7 @@ export default function ScannerScreen() {
   const [manual, setManual] = useState('');
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Viewfinder */}
       <View style={styles.viewfinder}>
         <View style={styles.corner} />
@@ -57,7 +59,7 @@ export default function ScannerScreen() {
             style={styles.searchBtn}
             activeOpacity={0.85}
           >
-            <Text style={{ fontSize: 20 }}>🔍</Text>
+            <Search size={22} color="#FFFFFF" strokeWidth={2} />
           </TouchableOpacity>
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
