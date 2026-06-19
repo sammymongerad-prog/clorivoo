@@ -1,20 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Dimensions, GestureResponderEvent, Animated,
+  Dimensions, GestureResponderEvent, Image,
+  ImageSourcePropType, Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import Svg, {
-  Defs, LinearGradient, Stop, Rect, Circle, Path, G,
-  Ellipse, Line,
-} from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
 const ACCENT = '#F97316';
-const DARK = '#1F2937';
-const CARD = '#FFFFFF';
 const TITLE_DARK = '#111';
 const SUB_GRAY = '#6B7280';
 const DOT_INACTIVE = '#D1D5DB';
@@ -22,161 +17,31 @@ const DOT_SIZE = 8;
 const DOT_ACTIVE_W = 28;
 const DOT_FILL_MS = 5000;
 
-const VB_W = 300;
-const VB_H = 380;
-
-// Dégradé bas → blanc (transition douce vers la carte), commun à toutes les scènes
-function FadeToWhite() {
-  return (
-    <>
-      <Defs>
-        <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0.7" stopColor="#FFFFFF" stopOpacity="0" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y={VB_H * 0.6} width={VB_W} height={VB_H * 0.4} fill="url(#fade)" />
-    </>
-  );
-}
-
-// ── Scène 1 : Adresse US gratuite (entrepôt + pin) ──────────────────
-function Scene1() {
-  return (
-    <Svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="xMidYMid slice">
-      <Rect x="0" y="0" width={VB_W} height={VB_H} fill="#FFF3E9" />
-      {/* sol */}
-      <Ellipse cx="150" cy="285" rx="120" ry="22" fill="#FCE3CE" />
-      {/* entrepôt */}
-      <Rect x="80" y="170" width="140" height="100" rx="6" fill="#FFFFFF" stroke={DARK} strokeWidth="3" />
-      <Path d="M75 172 L150 130 L225 172 Z" fill={ACCENT} stroke={DARK} strokeWidth="3" strokeLinejoin="round" />
-      <Rect x="100" y="210" width="45" height="60" rx="3" fill="#FFEAD7" stroke={DARK} strokeWidth="2.5" />
-      <Rect x="160" y="210" width="40" height="34" rx="3" fill="#FFEAD7" stroke={DARK} strokeWidth="2.5" />
-      {/* colis */}
-      <Rect x="160" y="244" width="40" height="26" fill="#FDBA74" stroke={DARK} strokeWidth="2.5" />
-      <Line x1="180" y1="244" x2="180" y2="270" stroke={DARK} strokeWidth="2" />
-      {/* pin localisation */}
-      <G>
-        <Path d="M150 70 C128 70 112 86 112 108 C112 138 150 175 150 175 C150 175 188 138 188 108 C188 86 172 70 150 70 Z"
-          fill={ACCENT} stroke={DARK} strokeWidth="3" strokeLinejoin="round" />
-        <Circle cx="150" cy="108" r="16" fill="#FFFFFF" stroke={DARK} strokeWidth="3" />
-      </G>
-      <FadeToWhite />
-    </Svg>
-  );
-}
-
-// ── Scène 2 : Expédition avion / bateau ─────────────────────────────
-function Scene2() {
-  return (
-    <Svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="xMidYMid slice">
-      <Rect x="0" y="0" width={VB_W} height={VB_H} fill="#E0F2FE" />
-      {/* nuages */}
-      <Ellipse cx="70" cy="90" rx="34" ry="20" fill="#FFFFFF" />
-      <Ellipse cx="100" cy="95" rx="26" ry="16" fill="#FFFFFF" />
-      <Ellipse cx="235" cy="130" rx="30" ry="18" fill="#FFFFFF" />
-      {/* avion */}
-      <G>
-        <Path d="M90 150 L210 130 C222 128 230 138 222 146 L150 175 L120 170 L132 152 L108 156 L96 168 L86 166 L94 150 Z"
-          fill={ACCENT} stroke={DARK} strokeWidth="3" strokeLinejoin="round" />
-        <Path d="M150 138 L175 118 L182 120 L168 142 Z" fill="#FDBA74" stroke={DARK} strokeWidth="2.5" strokeLinejoin="round" />
-        <Circle cx="135" cy="150" r="3.5" fill="#FFFFFF" stroke={DARK} strokeWidth="1.5" />
-        <Circle cx="150" cy="148" r="3.5" fill="#FFFFFF" stroke={DARK} strokeWidth="1.5" />
-      </G>
-      {/* trajectoire pointillée */}
-      <Path d="M60 200 Q150 150 250 195" stroke={ACCENT} strokeWidth="3" strokeDasharray="2 9" strokeLinecap="round" fill="none" />
-      {/* mer + bateau */}
-      <Path d={`M0 250 Q75 238 150 250 T300 250 L300 ${VB_H} L0 ${VB_H} Z`} fill="#7DD3FC" />
-      <Path d={`M0 264 Q75 252 150 264 T300 264 L300 ${VB_H} L0 ${VB_H} Z`} fill="#38BDF8" opacity="0.6" />
-      <G>
-        <Path d="M118 250 L182 250 L172 272 L128 272 Z" fill="#FFFFFF" stroke={DARK} strokeWidth="3" strokeLinejoin="round" />
-        <Rect x="138" y="234" width="24" height="16" fill={ACCENT} stroke={DARK} strokeWidth="2.5" />
-        <Line x1="150" y1="216" x2="150" y2="234" stroke={DARK} strokeWidth="2.5" />
-      </G>
-      <FadeToWhite />
-    </Svg>
-  );
-}
-
-// ── Scène 3 : Suivi de colis (téléphone + itinéraire) ───────────────
-function Scene3() {
-  return (
-    <Svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="xMidYMid slice">
-      <Rect x="0" y="0" width={VB_W} height={VB_H} fill="#FFF7ED" />
-      <Ellipse cx="150" cy="300" rx="120" ry="20" fill="#FCE3CE" />
-      {/* téléphone */}
-      <Rect x="95" y="70" width="110" height="210" rx="20" fill="#FFFFFF" stroke={DARK} strokeWidth="3.5" />
-      <Rect x="105" y="92" width="90" height="120" rx="8" fill="#FFF3E9" />
-      {/* itinéraire dans l'écran */}
-      <Path d="M120 195 Q120 150 150 150 Q180 150 165 115" stroke={ACCENT} strokeWidth="3.5" strokeDasharray="2 7" strokeLinecap="round" fill="none" />
-      <Circle cx="120" cy="195" r="7" fill="#FDBA74" stroke={DARK} strokeWidth="2.5" />
-      {/* pin destination */}
-      <Path d="M165 95 C156 95 150 101 150 110 C150 122 165 135 165 135 C165 135 180 122 180 110 C180 101 174 95 165 95 Z"
-        fill={ACCENT} stroke={DARK} strokeWidth="2.5" strokeLinejoin="round" />
-      <Circle cx="165" cy="110" r="5" fill="#FFFFFF" />
-      {/* barre de progression + statut */}
-      <Rect x="108" y="228" width="84" height="8" rx="4" fill="#FDE3CC" />
-      <Rect x="108" y="228" width="48" height="8" rx="4" fill={ACCENT} />
-      <Circle cx="120" cy="255" r="5" fill={ACCENT} />
-      <Circle cx="150" cy="255" r="5" fill={ACCENT} />
-      <Circle cx="180" cy="255" r="5" fill="#E5E7EB" />
-      {/* colis flottant */}
-      <G>
-        <Rect x="200" y="150" width="46" height="40" rx="4" fill={ACCENT} stroke={DARK} strokeWidth="3" />
-        <Path d="M200 162 L246 162" stroke={DARK} strokeWidth="2.5" />
-        <Path d="M223 150 L223 190" stroke={DARK} strokeWidth="2.5" />
-      </G>
-      <FadeToWhite />
-    </Svg>
-  );
-}
-
-// ── Scène 4 : Points de retrait (carte + pins) ──────────────────────
-function Scene4() {
-  return (
-    <Svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="xMidYMid slice">
-      <Rect x="0" y="0" width={VB_W} height={VB_H} fill="#ECFDF5" />
-      {/* carte */}
-      <Rect x="55" y="80" width="190" height="180" rx="14" fill="#FFFFFF" stroke={DARK} strokeWidth="3" />
-      {/* routes */}
-      <Path d="M55 150 Q120 130 150 160 T245 150" stroke="#A7F3D0" strokeWidth="6" fill="none" />
-      <Path d="M110 80 L120 160 L100 260" stroke="#D1FAE5" strokeWidth="6" fill="none" />
-      <Path d="M55 210 Q140 200 245 220" stroke="#A7F3D0" strokeWidth="6" fill="none" />
-      {/* pins */}
-      <Pin x={105} y={120} />
-      <Pin x={180} y={150} />
-      <Pin x={140} y={205} />
-      <FadeToWhite />
-    </Svg>
-  );
-}
-function Pin({ x, y }: { x: number; y: number }) {
-  return (
-    <G>
-      <Path d={`M${x} ${y} C${x - 14} ${y} ${x - 24} ${y + 10} ${x - 24} ${y + 24} C${x - 24} ${y + 42} ${x} ${y + 64} ${x} ${y + 64} C${x} ${y + 64} ${x + 24} ${y + 42} ${x + 24} ${y + 24} C${x + 24} ${y + 10} ${x + 14} ${y} ${x} ${y} Z`}
-        fill={ACCENT} stroke={DARK} strokeWidth="3" strokeLinejoin="round" />
-      <Circle cx={x} cy={y + 24} r="9" fill="#FFFFFF" stroke={DARK} strokeWidth="2.5" />
-    </G>
-  );
-}
-
-const SCENES = [Scene1, Scene2, Scene3, Scene4];
-
 interface Segment { text: string; accent?: boolean }
-const SLIDE_TEXT: { title: Segment[]; sub: string }[] = [
+interface Slide {
+  image: ImageSourcePropType;
+  title: Segment[];
+  sub: string;
+}
+
+const SLIDES: Slide[] = [
   {
+    image: require('../assets/images/onboarding/onboarding1.jpg'),
     title: [{ text: 'Votre adresse US ' }, { text: 'gratuite', accent: true }],
-    sub: 'Recevez vos achats en ligne directement à notre entrepôt de Miami.',
+    sub: 'Recevez vos achats Amazon, Shein et Nike directement à notre entrepôt de Miami.',
   },
   {
+    image: require('../assets/images/onboarding/onboarding2.jpeg'),
     title: [{ text: 'On ' }, { text: 'expédie', accent: true }, { text: ' pour vous' }],
     sub: 'Par avion en 5 à 7 jours ou par bateau en 3 à 4 semaines. À vous de choisir.',
   },
   {
+    image: require('../assets/images/onboarding/onboarding3.jpg'),
     title: [{ text: 'Suivez vos ' }, { text: 'colis', accent: true }, { text: ' en direct' }],
     sub: 'Des notifications à chaque étape, de Miami jusqu\'à votre ville.',
   },
   {
+    image: require('../assets/images/onboarding/onboarding4.jpeg'),
     title: [{ text: 'Retirez ' }, { text: 'près de chez vous', accent: true }],
     sub: '23+ points de retrait en Haïti et en République Dominicaine.',
   },
@@ -210,7 +75,7 @@ export default function OnboardingScreen() {
   const fade = useRef(new Animated.Value(1)).current;
 
   function goTo(i: number) {
-    const next = Math.max(0, Math.min(SCENES.length - 1, i));
+    const next = Math.max(0, Math.min(SLIDES.length - 1, i));
     if (next === index) return;
     Animated.timing(fade, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
       setIndex(next);
@@ -225,34 +90,44 @@ export default function OnboardingScreen() {
     else if (dx > 45) goTo(index - 1);
   }
 
-  const isLast = index === SCENES.length - 1;
-  const Scene = SCENES[index];
-  const text = SLIDE_TEXT[index];
+  const isLast = index === SLIDES.length - 1;
+  const current = SLIDES[index];
 
   return (
     <View style={s.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Illustration full-bleed dès y=0 */}
-      <Animated.View
-        style={[s.imageArea, { opacity: fade }]}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        <Scene />
+      {/* Image full-bleed : position absolute, remplit tout l'écran derrière la carte */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
+        <Image source={current.image} style={s.image} resizeMode="cover" />
       </Animated.View>
 
-      {/* Carte blanche bas */}
+      {/* Spacer swipeable qui pousse la carte en bas */}
+      <View style={s.swipeZone} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {/* Gradient blanc en bas de l'image pour transition douce */}
+        <View style={s.gradientWrap} pointerEvents="none">
+          <View style={[s.gradientStep, { opacity: 0.05 }]} />
+          <View style={[s.gradientStep, { opacity: 0.12 }]} />
+          <View style={[s.gradientStep, { opacity: 0.25 }]} />
+          <View style={[s.gradientStep, { opacity: 0.4 }]} />
+          <View style={[s.gradientStep, { opacity: 0.6 }]} />
+          <View style={[s.gradientStep, { opacity: 0.78 }]} />
+          <View style={[s.gradientStep, { opacity: 0.92 }]} />
+          <View style={[s.gradientStep, { opacity: 1 }]} />
+        </View>
+      </View>
+
+      {/* Carte blanche */}
       <View style={s.card}>
         <Text style={s.title}>
-          {text.title.map((seg, i) => (
+          {current.title.map((seg, i) => (
             <Text key={i} style={seg.accent ? s.titleAccent : undefined}>{seg.text}</Text>
           ))}
         </Text>
-        <Text style={s.sub}>{text.sub}</Text>
+        <Text style={s.sub}>{current.sub}</Text>
 
         <View style={s.dots}>
-          {SCENES.map((_, i) => (
+          {SLIDES.map((_, i) => (
             <ProgressDot key={i} active={i === index} onPress={() => goTo(i)} />
           ))}
         </View>
@@ -285,14 +160,26 @@ export default function OnboardingScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CARD },
-  imageArea: { flex: 1, overflow: 'hidden' },
+  // Container blanc → coins arrondis de la carte ne montrent jamais du noir
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+
+  // Image absolue, couvre tout l'écran dès y=0
+  image: { width: '100%', height: '100%' },
+
+  gradientWrap: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: 120,
+  },
+  gradientStep: {
+    flex: 1, backgroundColor: '#FFFFFF',
+  },
+
+  // Zone swipeable invisible qui prend tout l'espace au-dessus de la carte
+  swipeZone: { flex: 1 },
 
   card: {
-    backgroundColor: CARD,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    marginTop: -28,
     paddingHorizontal: 26,
     paddingTop: 26,
     paddingBottom: 36,
