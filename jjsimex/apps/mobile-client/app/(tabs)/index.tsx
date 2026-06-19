@@ -5,7 +5,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bell, ChevronDown } from 'lucide-react-native';
+import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
@@ -16,11 +16,11 @@ import { PackageCard } from '@/components/ui/PackageCard';
 const { width } = Dimensions.get('window');
 
 const STORIES = [
-  { icon: '🏷️', label: 'Offres', unread: true },
-  { icon: '✈️', label: 'Départs', unread: true },
-  { icon: '📖', label: 'Guide', unread: true },
-  { icon: '📰', label: 'Nouvelles', unread: false },
-  { icon: '🎁', label: 'Parrainage', unread: false },
+  { Icon: Tag, label: 'Offres', unread: true },
+  { Icon: Plane, label: 'Départs', unread: true },
+  { Icon: BookOpen, label: 'Guide', unread: true },
+  { Icon: Newspaper, label: 'Nouvelles', unread: false },
+  { Icon: Gift, label: 'Parrainage', unread: false },
 ];
 
 const BANNERS = [
@@ -118,15 +118,17 @@ export default function HomeScreen() {
               <Text style={styles.avatarText}>{initials}</Text>
             </View>
             <View>
-              <Text style={styles.greeting}>Bonjour {firstName} 👋</Text>
-              <TouchableOpacity onPress={() => setCitySheetOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-                <Text style={styles.location}>{profile?.destination_city ?? 'JJ\'s IMEX'}</Text>
-                <ChevronDown size={14} color="#9CA3AF" strokeWidth={2} />
+              <Text style={styles.greeting}>Bonjour, {firstName} 👋</Text>
+              <TouchableOpacity onPress={() => setCitySheetOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }} activeOpacity={0.7}>
+                <MapPin size={13} color="#9CA3AF" strokeWidth={2} />
+                <Text style={styles.location}>{profile?.destination_city ?? 'Port-au-Prince'}, {profile?.destination_country === 'dr' ? 'Rép. Dom.' : 'Haïti'}</Text>
+                <ChevronDown size={13} color="#9CA3AF" strokeWidth={2} />
               </TouchableOpacity>
             </View>
           </View>
           <TouchableOpacity onPress={() => router.push('/(tabs)/notifications')} style={styles.bellBtn}>
-            <Bell size={20} color="#FFFFFF" strokeWidth={2} />
+            <Bell size={22} color="#FFFFFF" strokeWidth={1.8} />
+            <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>3</Text></View>
           </TouchableOpacity>
         </View>
 
@@ -135,7 +137,7 @@ export default function HomeScreen() {
           {STORIES.map((s, i) => (
             <TouchableOpacity key={i} style={styles.storyItem} activeOpacity={0.8}>
               <View style={[styles.storyCircle, s.unread && styles.storyCircleActive]}>
-                <Text style={{ fontSize: 22 }}>{s.icon}</Text>
+                <s.Icon size={26} color={s.unread ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
               </View>
               <Text style={styles.storyLabel}>{s.label}</Text>
             </TouchableOpacity>
@@ -341,16 +343,18 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 18, paddingBottom: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 16, fontWeight: '700', color: '#0D0D0D' },
-  greeting: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  location: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  bellBtn: { width: 40, height: 40, backgroundColor: '#1A1A1A', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A2A2A' },
-  storiesRow: { paddingHorizontal: 20, paddingVertical: 14, gap: 14 },
-  storyItem: { alignItems: 'center', gap: 6 },
-  storyCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#2A2A2A' },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 17, fontWeight: '700', color: '#0D0D0D' },
+  greeting: { fontSize: 19, fontWeight: '800', color: '#FFFFFF' },
+  location: { fontSize: 13, color: '#9CA3AF' },
+  bellBtn: { width: 44, height: 44, backgroundColor: '#1A1A1A', borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A2A2A' },
+  bellBadge: { position: 'absolute', top: -2, right: -2, backgroundColor: '#F97316', borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  bellBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
+  storiesRow: { paddingHorizontal: 20, paddingVertical: 14, gap: 18 },
+  storyItem: { alignItems: 'center', gap: 8 },
+  storyCircle: { width: 68, height: 68, borderRadius: 34, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#2A2A2A' },
   storyCircleActive: { borderColor: '#F97316' },
-  storyLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
+  storyLabel: { fontSize: 12, color: '#9CA3AF', fontWeight: '600' },
   banner: { borderRadius: 16, padding: 20, marginRight: 12 },
   bannerTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 6, lineHeight: 24 },
   bannerSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
