@@ -3,7 +3,6 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   ActivityIndicator, StyleSheet, Linking, SafeAreaView,
 } from 'react-native';
-import { Plane, Ship, Shield, MessageCircle, AlertTriangle } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPackageDetail } from '@jjsimex/supabase/packages';
@@ -89,9 +88,7 @@ export default function ColisDetailScreen() {
               <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginTop: 2 }}>Miami, FL</Text>
             </View>
             <View style={{ flex: 1, height: 1, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }} />
-            {pkg.transport_mode === 'air'
-              ? <Plane size={18} color="#FFFFFF" strokeWidth={2} />
-              : <Ship size={18} color="#FFFFFF" strokeWidth={2} />}
+            <Text style={{ fontSize: 18 }}>{pkg.transport_mode === 'air' ? '✈️' : '🚢'}</Text>
             <View style={{ flex: 1, height: 1, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }} />
             <View style={{ alignItems: 'center' }}>
               <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Destination</Text>
@@ -106,12 +103,7 @@ export default function ColisDetailScreen() {
               <Text style={styles.metaLabel}>Poids</Text>
             </View>
             <View style={styles.metaPill}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                {pkg.transport_mode === 'air'
-                  ? <Plane size={14} color="#FFFFFF" strokeWidth={2} />
-                  : <Ship size={14} color="#FFFFFF" strokeWidth={2} />}
-                <Text style={styles.metaValue}>{pkg.transport_mode === 'air' ? 'Avion' : 'Bateau'}</Text>
-              </View>
+              <Text style={styles.metaValue}>{pkg.transport_mode === 'air' ? '✈ Avion' : '🚢 Bateau'}</Text>
               <Text style={styles.metaLabel}>Mode</Text>
             </View>
             {pkg.estimated_delivery && (
@@ -176,7 +168,7 @@ export default function ColisDetailScreen() {
         {pkg.insurance_amount > 0 && (
           <View style={[styles.section]}>
             <View style={{ backgroundColor: 'rgba(34,197,94,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-              <Shield size={20} color="#F97316" strokeWidth={2} />
+              <Text style={{ fontSize: 20 }}>🛡️</Text>
               <Text style={{ fontSize: 14, color: '#22C55E', fontWeight: '600' }}>Colis assuré jusqu'à ${pkg.insurance_amount}</Text>
             </View>
           </View>
@@ -185,11 +177,11 @@ export default function ColisDetailScreen() {
         {/* ACTIONS */}
         <View style={{ paddingHorizontal: 20, gap: 12, marginTop: 8 }}>
           <TouchableOpacity onPress={() => Linking.openURL(whatsappUrl)} style={styles.btnWhatsApp} activeOpacity={0.85}>
-            <MessageCircle size={18} color="#052E14" strokeWidth={2} />
+            <Text style={{ fontSize: 18 }}>💬</Text>
             <Text style={styles.btnWhatsAppText}>Contacter via WhatsApp</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.btnGray} activeOpacity={0.8}>
-            <AlertTriangle size={16} color="#9CA3AF" strokeWidth={2} />
+            <Text style={{ fontSize: 16 }}>⚠️</Text>
             <Text style={styles.btnGrayText}>Signaler un problème</Text>
           </TouchableOpacity>
         </View>

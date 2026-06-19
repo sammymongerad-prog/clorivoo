@@ -1,7 +1,6 @@
 import { useEffect, useState, useContext } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, CreditCard, DollarSign, Package, Tag } from 'lucide-react-native';
 import { getMyPayments, subscribeToPayments, type Payment } from '@jjsimex/supabase/payments';
 import { AuthContext } from '@/contexts/AuthContext';
 
@@ -15,8 +14,7 @@ const S = StyleSheet.create({
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   cardTitle: { fontSize: 13, fontWeight: '700', color: '#F97316' },
   cardDate: { fontSize: 11, color: '#9CA3AF' },
-  cardInfo: { fontSize: 12, color: '#D1D5DB' },
-  cardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  cardInfo: { fontSize: 12, color: '#D1D5DB', marginBottom: 6 },
   status: { fontSize: 11, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 8, alignSelf: 'flex-start', fontWeight: '600' },
   statusPending: { backgroundColor: 'rgba(249,115,22,0.12)', color: '#F97316' },
   statusConfirmed: { backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E' },
@@ -95,10 +93,10 @@ export default function PaiementsScreen() {
   }
 
   return (
-    <SafeAreaView style={S.container}>
+    <View style={S.container}>
       <View style={S.header}>
         <TouchableOpacity style={S.backBtn} onPress={() => router.back()}>
-          <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />
+          <Text style={{ color: '#FFFFFF', fontSize: 20 }}>←</Text>
         </TouchableOpacity>
         <Text style={S.headerTitle}>Mes paiements</Text>
         <View style={{ width: 40 }} />
@@ -110,7 +108,7 @@ export default function PaiementsScreen() {
         </View>
       ) : payments.length === 0 ? (
         <View style={S.emptyState}>
-          <CreditCard size={48} color="#9CA3AF" strokeWidth={2} style={{ marginBottom: 12 }} />
+          <Text style={S.emptyIcon}>💳</Text>
           <Text style={S.emptyText}>Aucun paiement pour le moment</Text>
         </View>
       ) : (
@@ -123,25 +121,13 @@ export default function PaiementsScreen() {
                   <Text style={S.cardTitle}>{payment.transaction_number}</Text>
                   <Text style={S.cardDate}>{formatDate(payment.created_at)}</Text>
                 </View>
-                <View style={S.cardInfoRow}>
-                  <DollarSign size={16} color="#F97316" strokeWidth={2} />
-                  <Text style={S.cardInfo}>${payment.amount.toFixed(2)}</Text>
-                </View>
-                <View style={S.cardInfoRow}>
-                  <CreditCard size={16} color="#F97316" strokeWidth={2} />
-                  <Text style={S.cardInfo}>{getMethodLabel(payment.method)}</Text>
-                </View>
+                <Text style={S.cardInfo}>💰 ${payment.amount.toFixed(2)}</Text>
+                <Text style={S.cardInfo}>💳 {getMethodLabel(payment.method)}</Text>
                 {payment.package?.tracking_number && (
-                  <View style={S.cardInfoRow}>
-                    <Package size={16} color="#F97316" strokeWidth={2} />
-                    <Text style={S.cardInfo}>{payment.package.tracking_number}</Text>
-                  </View>
+                  <Text style={S.cardInfo}>📦 {payment.package.tracking_number}</Text>
                 )}
                 {payment.reference && (
-                  <View style={S.cardInfoRow}>
-                    <Tag size={16} color="#F97316" strokeWidth={2} />
-                    <Text style={S.cardInfo}>{payment.reference}</Text>
-                  </View>
+                  <Text style={S.cardInfo}>🔖 {payment.reference}</Text>
                 )}
                 <Text style={[S.status, { backgroundColor: statusStyle.backgroundColor, color: statusStyle.color }]}>
                   {getStatusLabel(payment.status)}
@@ -151,6 +137,6 @@ export default function PaiementsScreen() {
           })}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

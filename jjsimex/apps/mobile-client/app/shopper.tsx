@@ -1,10 +1,9 @@
 import { useState, useContext } from 'react';
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert, SafeAreaView,
+  StyleSheet, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Plane, Ship, Package } from 'lucide-react-native';
 import { createShopperRequest } from '@jjsimex/supabase/shopper';
 import { AuthContext } from '@/contexts/AuthContext';
 
@@ -77,12 +76,11 @@ export default function PersonalShopperScreen() {
   });
 
   return (
-    <SafeAreaView style={S.container}>
     <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity style={S.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />
+          <Text style={{ color: '#FFFFFF', fontSize: 20 }}>←</Text>
         </TouchableOpacity>
         <Text style={S.headerTitle}>Personal Shopper</Text>
         <View style={{ width: 40 }} />
@@ -155,15 +153,10 @@ export default function PersonalShopperScreen() {
         {/* Mode transport */}
         <Text style={S.label}>Mode de transport</Text>
         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 18 }}>
-          {([['avion', 'Avion', '5-7 jours'], ['bateau', 'Bateau', '3-4 semaines']] as [Mode, string, string][]).map(([m, label, sub]) => (
+          {([['avion', '✈️ Avion', '5-7 jours'], ['bateau', '🚢 Bateau', '3-4 semaines']] as [Mode, string, string][]).map(([m, label, sub]) => (
             <TouchableOpacity key={m} onPress={() => setMode(m)} activeOpacity={0.8}
               style={[{ flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14 }, mode === m ? { backgroundColor: 'rgba(249,115,22,0.12)', borderColor: '#F97316' } : { backgroundColor: '#1A1A1A', borderColor: '#2A2A2A' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {m === 'avion'
-                  ? <Plane size={16} color={mode === m ? '#F97316' : '#FFFFFF'} strokeWidth={2} />
-                  : <Ship size={16} color={mode === m ? '#F97316' : '#FFFFFF'} strokeWidth={2} />}
-                <Text style={{ fontWeight: '700', fontSize: 15, color: mode === m ? '#F97316' : '#FFFFFF' }}>{label}</Text>
-              </View>
+              <Text style={{ fontWeight: '700', fontSize: 15, color: mode === m ? '#F97316' : '#FFFFFF' }}>{label}</Text>
               <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 4, opacity: 0.8 }}>{sub}</Text>
             </TouchableOpacity>
           ))}
@@ -184,19 +177,11 @@ export default function PersonalShopperScreen() {
           <Text style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', marginTop: 4 }}>du prix du produit + expédition</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 10, padding: 10, alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                {mode === 'avion'
-                  ? <Plane size={16} color="#FFFFFF" strokeWidth={2} />
-                  : <Ship size={16} color="#FFFFFF" strokeWidth={2} />}
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>{mode === 'avion' ? '5-7 jours' : '3-4 semaines'}</Text>
-              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>✈️ {mode === 'avion' ? '5-7 jours' : '3-4 semaines'}</Text>
               <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Livraison estimée</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 10, padding: 10, alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Package size={16} color="#FFFFFF" strokeWidth={2} />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>{qty}x</Text>
-              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>📦 {qty}x</Text>
               <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Quantité</Text>
             </View>
           </View>
@@ -210,7 +195,6 @@ export default function PersonalShopperScreen() {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
-    </SafeAreaView>
   );
 }
 

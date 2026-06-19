@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { scanPackage } from '@jjsimex/supabase/packages';
@@ -58,7 +57,7 @@ export default function ScannerScreen() {
             style={styles.searchBtn}
             activeOpacity={0.85}
           >
-            <Search size={22} color="#FFFFFF" strokeWidth={2} />
+            <Text style={{ fontSize: 20 }}>🔍</Text>
           </TouchableOpacity>
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}

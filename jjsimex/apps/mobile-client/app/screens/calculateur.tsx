@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, SafeAreaView,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Animated,
 } from 'react-native';
-import { Plane, Ship, Calendar } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { calculateShipping, getShippingRates } from '@jjsimex/supabase/shipping';
@@ -90,23 +89,17 @@ export default function CalculateurScreen() {
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Mode de transport</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-            {([['air', 'Avion', '5-7 jours'], ['sea', 'Bateau', '3-4 semaines']] as const).map(([mode, label, sub]) => {
-              const Icon = mode === 'air' ? Plane : Ship;
-              return (
-                <TouchableOpacity
-                  key={mode}
-                  onPress={() => setTransport(mode)}
-                  style={[styles.modeBtn, transport === mode && styles.modeBtnActive]}
-                  activeOpacity={0.8}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Icon size={16} color={transport === mode ? '#0D0D0D' : '#9CA3AF'} strokeWidth={2} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: transport === mode ? '#0D0D0D' : '#FFFFFF' }}>{label}</Text>
-                  </View>
-                  <Text style={{ fontSize: 11, color: transport === mode ? 'rgba(0,0,0,0.6)' : '#9CA3AF', marginTop: 2 }}>{sub}</Text>
-                </TouchableOpacity>
-              );
-            })}
+            {([['air', '✈️ Avion', '5-7 jours'], ['sea', '🚢 Bateau', '3-4 semaines']] as const).map(([mode, label, sub]) => (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => setTransport(mode)}
+                style={[styles.modeBtn, transport === mode && styles.modeBtnActive]}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: transport === mode ? '#0D0D0D' : '#FFFFFF' }}>{label}</Text>
+                <Text style={{ fontSize: 11, color: transport === mode ? 'rgba(0,0,0,0.6)' : '#9CA3AF', marginTop: 2 }}>{sub}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -197,17 +190,9 @@ export default function CalculateurScreen() {
 
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
               <View style={styles.pill}><Text style={styles.pillText}>{weight} lbs</Text></View>
-              <View style={[styles.pill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
-                {transport === 'air'
-                  ? <Plane size={14} color="#9CA3AF" strokeWidth={2} />
-                  : <Ship size={14} color="#9CA3AF" strokeWidth={2} />}
-                <Text style={styles.pillText}>{transport === 'air' ? 'Avion' : 'Bateau'}</Text>
-              </View>
+              <View style={styles.pill}><Text style={styles.pillText}>{transport === 'air' ? '✈️' : '🚢'} {transport === 'air' ? 'Avion' : 'Bateau'}</Text></View>
               <View style={styles.pill}><Text style={styles.pillText}>{selectedCity || selectedCountry}</Text></View>
-              <View style={[styles.pill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
-                <Calendar size={14} color="#9CA3AF" strokeWidth={2} />
-                <Text style={styles.pillText}>{estimatedDays}</Text>
-              </View>
+              <View style={styles.pill}><Text style={styles.pillText}>📅 {estimatedDays}</Text></View>
             </View>
 
             {!session && (

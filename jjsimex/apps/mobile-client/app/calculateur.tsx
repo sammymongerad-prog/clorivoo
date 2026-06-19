@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent, ActivityIndicator, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Plane, Ship, Calendar, Shield, Check, AlertTriangle, ArrowRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { calculateShipping, getDestinationCities } from '@jjsimex/supabase/shipping';
 import type { TransportMode, DestinationCountry, ShippingResult } from '@jjsimex/supabase/shipping';
@@ -139,10 +138,10 @@ export default function CalculateurScreen() {
     : `${Math.round((result?.estimated_days_min ?? 21) / 7)}-${Math.round((result?.estimated_days_max ?? 28) / 7)} semaines`;
 
   return (
-    <SafeAreaView style={S.container}>
+    <View style={S.container}>
       <View style={S.header}>
         <TouchableOpacity style={S.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />
+          <Text style={{ color: '#FFFFFF', fontSize: 20 }}>←</Text>
         </TouchableOpacity>
         <Text style={S.headerTitle}>Calculateur de tarif</Text>
         <View style={{ width: 40 }} />
@@ -152,15 +151,10 @@ export default function CalculateurScreen() {
 
         {/* Mode transport */}
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          {([['air', 'Avion', '5-7 jours'], ['sea', 'Bateau', '3-4 semaines']] as [TransportMode, string, string][]).map(([m, label, sub]) => (
+          {([['air', '✈️ Avion', '5-7 jours'], ['sea', '🚢 Bateau', '3-4 semaines']] as [TransportMode, string, string][]).map(([m, label, sub]) => (
             <TouchableOpacity key={m} onPress={() => handleModeChange(m)} activeOpacity={0.8}
               style={[S.modeBtn, mode === m && S.modeBtnActive]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {m === 'air'
-                  ? <Plane size={16} color={mode === m ? '#F97316' : '#FFFFFF'} strokeWidth={2} />
-                  : <Ship size={16} color={mode === m ? '#F97316' : '#FFFFFF'} strokeWidth={2} />}
-                <Text style={{ fontWeight: '700', fontSize: 15, color: mode === m ? '#F97316' : '#FFFFFF' }}>{label}</Text>
-              </View>
+              <Text style={{ fontWeight: '700', fontSize: 15, color: mode === m ? '#F97316' : '#FFFFFF' }}>{label}</Text>
               <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{sub}</Text>
             </TouchableOpacity>
           ))}
@@ -267,11 +261,8 @@ export default function CalculateurScreen() {
             <View style={{ backgroundColor: '#2A2A2A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
               <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>{weight.toFixed(1)} lbs facturés</Text>
             </View>
-            <View style={{ backgroundColor: '#C2600A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              {mode === 'air'
-                ? <Plane size={14} color="#FFFFFF" strokeWidth={2} />
-                : <Ship size={14} color="#FFFFFF" strokeWidth={2} />}
-              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>{mode === 'air' ? 'Avion' : 'Bateau'}</Text>
+            <View style={{ backgroundColor: '#C2600A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>{mode === 'air' ? '✈️ Avion' : '🚢 Bateau'}</Text>
             </View>
             <View style={{ backgroundColor: '#2A2A2A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
               <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>{city}</Text>
@@ -281,7 +272,7 @@ export default function CalculateurScreen() {
           <View style={{ height: 1, backgroundColor: '#2A2A2A', marginVertical: 20 }} />
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-            <Calendar size={16} color="#F97316" strokeWidth={2} />
+            <Text style={{ color: '#F97316', fontSize: 16 }}>📅</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Livraison ~ {deliveryText}</Text>
           </View>
 
@@ -312,12 +303,9 @@ export default function CalculateurScreen() {
         {/* Assurance dynamique */}
         {hasInsurance ? (
           <View style={{ backgroundColor: 'rgba(34,197,94,0.12)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
-            <Shield size={22} color="#22C55E" strokeWidth={2} />
+            <Text style={{ fontSize: 22 }}>🛡️</Text>
             <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Check size={16} color="#22C55E" strokeWidth={2} />
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#22C55E' }}>Votre colis est couvert à 100%</Text>
-              </View>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#22C55E' }}>✅ Votre colis est couvert à 100%</Text>
               <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Assurance gratuite jusqu'à $100</Text>
             </View>
             <View style={{ backgroundColor: 'rgba(34,197,94,0.2)', borderRadius: 99, paddingHorizontal: 8, paddingVertical: 4 }}>
@@ -326,14 +314,10 @@ export default function CalculateurScreen() {
           </View>
         ) : (
           <View style={{ backgroundColor: 'rgba(249,115,22,0.10)', borderWidth: 1, borderColor: 'rgba(249,115,22,0.25)', borderRadius: 12, padding: 14, marginTop: 14 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <AlertTriangle size={16} color="#F97316" strokeWidth={2} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316' }}>Valeur dépasse $100</Text>
-            </View>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316' }}>⚠️ Valeur dépasse $100</Text>
             <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Assurance supplémentaire recommandée pour ${value - 100} de couverture additionnelle.</Text>
-            <TouchableOpacity activeOpacity={0.8} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontSize: 12, color: '#F97316', fontWeight: '600', textDecorationLine: 'underline' }}>Ajouter une couverture</Text>
-              <ArrowRight size={14} color="#F97316" strokeWidth={2} />
+            <TouchableOpacity activeOpacity={0.8} style={{ marginTop: 10 }}>
+              <Text style={{ fontSize: 12, color: '#F97316', fontWeight: '600', textDecorationLine: 'underline' }}>Ajouter une couverture →</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -367,7 +351,7 @@ export default function CalculateurScreen() {
           <Text style={{ color: '#0D0D0D', fontWeight: '700', fontSize: 16 }}>Commander maintenant</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

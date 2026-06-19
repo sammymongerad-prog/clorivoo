@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Clipboard, Linking, Alert, SafeAreaView,
+  SafeAreaView, Clipboard, Linking, Alert,
 } from 'react-native';
-import {
-  MapPin, Copy, Check, MessageCircle, ShoppingBag, Package, Smartphone, Truck, AlertTriangle,
-} from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { BackButton } from '@/components/layout/BackButton';
 import { useToast } from '@/components/ui/Toast';
@@ -40,10 +37,10 @@ export default function AdressesUSScreen() {
   ];
 
   const STEPS = [
-    { Icon: ShoppingBag, text: 'Faites vos achats en ligne sur Amazon, Nike, Shein, etc.' },
-    { Icon: Package, text: 'Utilisez l\'adresse Miami comme adresse de livraison.' },
-    { Icon: Smartphone, text: 'Vous recevrez une notification dès que votre colis arrive.' },
-    { Icon: Truck, text: 'On expédie vers votre ville en Haïti ou en Rép. Dom.' },
+    { icon: '🛍️', text: 'Faites vos achats en ligne sur Amazon, Nike, Shein, etc.' },
+    { icon: '📦', text: 'Utilisez l\'adresse Miami comme adresse de livraison.' },
+    { icon: '📲', text: 'Vous recevrez une notification dès que votre colis arrive.' },
+    { icon: '🚚', text: 'On expédie vers votre ville en Haïti ou en Rép. Dom.' },
   ];
 
   function copyField(key: string, value: string) {
@@ -81,7 +78,7 @@ export default function AdressesUSScreen() {
         {/* MIAMI */}
         <View style={styles.section}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <MapPin size={22} color="#F97316" strokeWidth={2} />
+            <Text style={{ fontSize: 22 }}>🌴</Text>
             <View>
               <Text style={styles.sectionTitle}>Adresse Miami</Text>
               <Text style={styles.sectionSub}>Principale — tout type de colis</Text>
@@ -100,9 +97,7 @@ export default function AdressesUSScreen() {
                   <Text style={[styles.rowValue, row.label === 'Suite / Apt' && { color: '#F97316' }]}>{row.value}</Text>
                 </View>
                 <View style={[styles.copyIcon, copiedKey === row.label && styles.copyIconDone]}>
-                  {copiedKey === row.label
-                    ? <Check size={16} color="#22C55E" strokeWidth={2} />
-                    : <Copy size={16} color="#9CA3AF" strokeWidth={2} />}
+                  <Text style={{ fontSize: 13 }}>{copiedKey === row.label ? '✓' : '📋'}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -110,11 +105,11 @@ export default function AdressesUSScreen() {
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
             <TouchableOpacity onPress={copyAll} style={[styles.btn, { flex: 1 }]} activeOpacity={0.85}>
-              <Copy size={16} color="#FFFFFF" strokeWidth={2} />
+              <Text style={{ fontSize: 15 }}>📋</Text>
               <Text style={styles.btnText}>Tout copier</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={shareWhatsApp} style={[styles.btnGreen, { flex: 1 }]} activeOpacity={0.85}>
-              <MessageCircle size={16} color="#052E14" strokeWidth={2} />
+              <Text style={{ fontSize: 15 }}>💬</Text>
               <Text style={styles.btnGreenText}>WhatsApp</Text>
             </TouchableOpacity>
           </View>
@@ -123,7 +118,7 @@ export default function AdressesUSScreen() {
         {/* BOSTON */}
         <View style={styles.section}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <MapPin size={22} color="#F97316" strokeWidth={2} />
+            <Text style={{ fontSize: 22 }}>🏙️</Text>
             <View>
               <Text style={styles.sectionTitle}>Adresse Boston</Text>
               <Text style={styles.sectionSub}>Alternative — Nord-Est USA</Text>
@@ -142,9 +137,7 @@ export default function AdressesUSScreen() {
                   <Text style={styles.rowValue}>{row.value}</Text>
                 </View>
                 <View style={[styles.copyIcon, copiedKey === `boston_${row.label}` && styles.copyIconDone]}>
-                  {copiedKey === `boston_${row.label}`
-                    ? <Check size={16} color="#22C55E" strokeWidth={2} />
-                    : <Copy size={16} color="#9CA3AF" strokeWidth={2} />}
+                  <Text style={{ fontSize: 13 }}>{copiedKey === `boston_${row.label}` ? '✓' : '📋'}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -158,7 +151,7 @@ export default function AdressesUSScreen() {
             {STEPS.map((step, i) => (
               <View key={i} style={{ flexDirection: 'row', gap: 12, paddingVertical: 10, borderBottomWidth: i < STEPS.length - 1 ? 1 : 0, borderBottomColor: '#1F1F1F' }}>
                 <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                  <step.Icon size={18} color="#F97316" strokeWidth={2} />
+                  <Text style={{ fontSize: 18 }}>{step.icon}</Text>
                 </View>
                 <View style={{ flex: 1, justifyContent: 'center' }}>
                   <Text style={{ fontSize: 13, color: '#E5E7EB', lineHeight: 19 }}>{step.text}</Text>
@@ -171,7 +164,7 @@ export default function AdressesUSScreen() {
         {/* WARNING */}
         <View style={[styles.section, { marginBottom: 40 }]}>
           <View style={{ backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', flexDirection: 'row', gap: 10 }}>
-            <AlertTriangle size={18} color="#F97316" strokeWidth={2} />
+            <Text style={{ fontSize: 18 }}>⚠️</Text>
             <Text style={{ flex: 1, fontSize: 13, color: '#FCA5A5', lineHeight: 19 }}>
               N'oubliez pas d'inclure votre numéro de suite unique (<Text style={{ color: '#F97316', fontWeight: '700' }}>{suiteId}</Text>) dans l'adresse de livraison pour que nous puissions identifier votre colis.
             </Text>

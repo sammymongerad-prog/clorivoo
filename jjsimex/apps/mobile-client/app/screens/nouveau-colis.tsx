@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, ActivityIndicator, SafeAreaView,
+  StyleSheet, SafeAreaView, ActivityIndicator,
 } from 'react-native';
-import { Plane, Ship, Package } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { BackButton } from '@/components/layout/BackButton';
@@ -80,23 +79,17 @@ export default function NouveauColisScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Mode de transport souhaité</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            {([['air', 'Avion', '5-7 jours'], ['sea', 'Bateau', '3-4 semaines']] as const).map(([mode, label, sub]) => {
-              const Icon = mode === 'air' ? Plane : Ship;
-              return (
-                <TouchableOpacity
-                  key={mode}
-                  onPress={() => setTransport(mode)}
-                  style={[styles.modeBtn, transport === mode && styles.modeBtnActive]}
-                  activeOpacity={0.8}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Icon size={16} color={transport === mode ? '#0D0D0D' : '#9CA3AF'} strokeWidth={2} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: transport === mode ? '#0D0D0D' : '#FFFFFF' }}>{label}</Text>
-                  </View>
-                  <Text style={{ fontSize: 11, color: transport === mode ? 'rgba(0,0,0,0.6)' : '#9CA3AF', marginTop: 2 }}>{sub}</Text>
-                </TouchableOpacity>
-              );
-            })}
+            {([['air', '✈️ Avion', '5-7 jours'], ['sea', '🚢 Bateau', '3-4 semaines']] as const).map(([mode, label, sub]) => (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => setTransport(mode)}
+                style={[styles.modeBtn, transport === mode && styles.modeBtnActive]}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: transport === mode ? '#0D0D0D' : '#FFFFFF' }}>{label}</Text>
+                <Text style={{ fontSize: 11, color: transport === mode ? 'rgba(0,0,0,0.6)' : '#9CA3AF', marginTop: 2 }}>{sub}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -108,7 +101,7 @@ export default function NouveauColisScreen() {
         <TouchableOpacity onPress={handleSubmit} disabled={submitting} style={[styles.btnSubmit, submitting && { opacity: 0.6 }]} activeOpacity={0.85}>
           {submitting ? <ActivityIndicator color="#0D0D0D" /> : (
             <>
-              <Package size={18} color="#0D0D0D" strokeWidth={2} />
+              <Text style={{ fontSize: 18 }}>📦</Text>
               <Text style={styles.btnSubmitText}>Enregistrer le colis</Text>
             </>
           )}

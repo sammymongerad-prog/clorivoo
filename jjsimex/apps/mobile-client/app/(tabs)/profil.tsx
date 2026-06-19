@@ -1,9 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
-import {
-  Pencil, Check, User, Package, ShoppingCart, MapPin, CreditCard, Calculator,
-  Globe, MessageCircle, Mail, Moon, HelpCircle, Star, Megaphone, Heart, LucideIcon,
-} from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -18,14 +14,14 @@ function Toggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
   );
 }
 
-function MenuItem({ icon: Icon, iconColor = '#F97316', label, sub, onPress, iconBg = 'rgba(249,115,22,0.12)' }: {
-  icon: LucideIcon; iconColor?: string; label: string; sub?: string; onPress?: () => void; iconBg?: string;
+function MenuItem({ icon, label, sub, onPress, iconBg = 'rgba(249,115,22,0.12)' }: {
+  icon: string; label: string; sub?: string; onPress?: () => void; iconBg?: string;
 }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14 }}>
       <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={18} color={iconColor} strokeWidth={2} />
+        <Text style={{ fontSize: 18 }}>{icon}</Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF' }}>{label}</Text>
@@ -58,12 +54,12 @@ export default function ProfilScreen() {
   }
 
   return (
-    <SafeAreaView style={S.container}>
+    <View style={S.container}>
       {/* Header */}
       <View style={S.header}>
         <Text style={S.headerTitle}>Mon Profil</Text>
         <TouchableOpacity style={S.editBtn} activeOpacity={0.8}>
-          <Pencil size={18} color="#FFFFFF" strokeWidth={2} />
+          <Text style={{ color: '#FFFFFF', fontSize: 16 }}>✎</Text>
         </TouchableOpacity>
       </View>
 
@@ -76,9 +72,8 @@ export default function ProfilScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>{firstName} {lastName}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#14532D', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', marginTop: 6 }}>
-                <Check size={12} color="#22C55E" strokeWidth={2} />
-                <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '600' }}>Client vérifié</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#14532D', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', marginTop: 6 }}>
+                <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '600' }}>✓ Client vérifié</Text>
               </View>
               <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 8 }}>{profile?.email ?? 'jean.paul@gmail.com'}</Text>
               <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>{profile?.phone_whatsapp ?? '+509 34 12 34 56'}</Text>
@@ -100,12 +95,12 @@ export default function ProfilScreen() {
         {/* Mon compte */}
         <Text style={S.sectionTitle}>Mon compte</Text>
         <View style={S.section}>
-          <MenuItem icon={User} label="Mes informations personnelles" sub="Nom, email, téléphone" />
-          <Sep /><MenuItem icon={Package} label="Historique des colis" sub="Toutes mes expéditions" onPress={() => router.push('/(tabs)/colis')} />
-          <Sep /><MenuItem icon={ShoppingCart} label="Personal Shopper" sub="Commandes en cours" onPress={() => router.push('/screens/personal-shopper')} />
-          <Sep /><MenuItem icon={MapPin} label="Mes adresses US" sub="Miami + Boston" onPress={() => router.push('/screens/adresses-us')} />
-          <Sep /><MenuItem icon={CreditCard} label="Mes paiements" sub="MonCash, Zelle configurés" onPress={() => router.push('/paiements')} />
-          <Sep /><MenuItem icon={Calculator} label="Calculateur de tarifs" sub="Estimez vos frais" onPress={() => router.push('/screens/calculateur')} />
+          <MenuItem icon="👤" label="Mes informations personnelles" sub="Nom, email, téléphone" />
+          <Sep /><MenuItem icon="📦" label="Historique des colis" sub="Toutes mes expéditions" onPress={() => router.push('/(tabs)/colis')} />
+          <Sep /><MenuItem icon="🛒" label="Personal Shopper" sub="Commandes en cours" onPress={() => router.push('/screens/personal-shopper')} />
+          <Sep /><MenuItem icon="📍" label="Mes adresses US" sub="Miami + Boston" onPress={() => router.push('/screens/adresses-us')} />
+          <Sep /><MenuItem icon="💳" label="Mes paiements" sub="MonCash, Zelle configurés" onPress={() => router.push('/paiements')} />
+          <Sep /><MenuItem icon="🧮" label="Calculateur de tarifs" sub="Estimez vos frais" onPress={() => router.push('/screens/calculateur')} />
         </View>
 
         {/* Préférences */}
@@ -113,7 +108,7 @@ export default function ProfilScreen() {
         <View style={S.section}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14 }}>
             <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-              <Globe size={18} color="#F97316" strokeWidth={2} />
+              <Text style={{ fontSize: 18 }}>🌐</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF' }}>Langue</Text>
@@ -126,14 +121,14 @@ export default function ProfilScreen() {
           </View>
           <Sep />
           {([
-            ['whatsapp', MessageCircle, 'Notifications WhatsApp'],
-            ['email', Mail, 'Notifications email'],
-            ['theme', Moon, 'Thème'],
-          ] as [ToggleKey, LucideIcon, string][]).map(([key, Icon, label]) => (
+            ['whatsapp', '💬', 'Notifications WhatsApp'],
+            ['email', '✉️', 'Notifications email'],
+            ['theme', '🌙', 'Thème'],
+          ] as [ToggleKey, string, string][]).map(([key, icon, label]) => (
             <>
               <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14 }}>
                 <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon size={18} color="#F97316" strokeWidth={2} />
+                  <Text style={{ fontSize: 18 }}>{icon}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF' }}>{label}</Text>
@@ -149,10 +144,10 @@ export default function ProfilScreen() {
         {/* Support */}
         <Text style={S.sectionTitle}>Support</Text>
         <View style={S.section}>
-          <MenuItem icon={Heart} iconColor="#22C55E" label="Contacter via WhatsApp" sub="+1 (305) 600-9364" iconBg="rgba(34,197,94,0.12)" />
-          <Sep /><MenuItem icon={HelpCircle} label="Centre d'aide & FAQ" sub="Réponses à vos questions" />
-          <Sep /><MenuItem icon={Star} label="Noter l'application" sub="Donnez-nous votre avis" />
-          <Sep /><MenuItem icon={Megaphone} label="Parrainage" sub="Invitez vos amis, gagnez des points" />
+          <MenuItem icon="💚" label="Contacter via WhatsApp" sub="+1 (305) 600-9364" iconBg="rgba(34,197,94,0.12)" />
+          <Sep /><MenuItem icon="❓" label="Centre d'aide & FAQ" sub="Réponses à vos questions" />
+          <Sep /><MenuItem icon="⭐" label="Noter l'application" sub="Donnez-nous votre avis" />
+          <Sep /><MenuItem icon="📢" label="Parrainage" sub="Invitez vos amis, gagnez des points" />
         </View>
 
         {/* Déconnexion */}
@@ -163,7 +158,7 @@ export default function ProfilScreen() {
 
         <Text style={{ textAlign: 'center', fontSize: 11, color: '#4B5563', marginTop: 16 }}>JJ's IMEX v1.0.0</Text>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

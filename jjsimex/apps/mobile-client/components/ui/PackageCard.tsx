@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Plane, Ship } from 'lucide-react-native';
 import { StatusBadge } from './StatusBadge';
 
 interface Package {
@@ -29,9 +28,7 @@ export function PackageCard({ pkg, onPress, variant = 'default' }: Props) {
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1F1F1F' }}
       >
         <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-          {pkg.transport_mode === 'air'
-            ? <Plane size={18} color="#F97316" strokeWidth={2} />
-            : <Ship size={18} color="#F97316" strokeWidth={2} />}
+          <Text style={{ fontSize: 18 }}>{pkg.transport_mode === 'air' ? '✈️' : '🚢'}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316' }}>{pkg.tracking_number}</Text>
@@ -62,12 +59,7 @@ export function PackageCard({ pkg, onPress, variant = 'default' }: Props) {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 11, color: '#9CA3AF' }}>Mode</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            {pkg.transport_mode === 'air'
-              ? <Plane size={13} color="#FFFFFF" strokeWidth={2} />
-              : <Ship size={13} color="#FFFFFF" strokeWidth={2} />}
-            <Text style={{ fontSize: 13, color: '#FFFFFF', fontWeight: '600' }}>{pkg.transport_mode === 'air' ? 'Avion' : 'Bateau'}</Text>
-          </View>
+          <Text style={{ fontSize: 13, color: '#FFFFFF', fontWeight: '600', marginTop: 2 }}>{pkg.transport_mode === 'air' ? '✈️ Avion' : '🚢 Bateau'}</Text>
         </View>
         {pkg.weight_billed ? (
           <View style={{ flex: 1 }}>

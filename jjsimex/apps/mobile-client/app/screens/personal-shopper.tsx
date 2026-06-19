@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, ActivityIndicator, Linking, SafeAreaView,
+  StyleSheet, SafeAreaView, ActivityIndicator, Linking,
 } from 'react-native';
-import { Plane, Ship, ShoppingCart } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { createShopperRequest, getMyShopperRequests } from '@jjsimex/supabase/shopper';
@@ -142,23 +141,17 @@ export default function PersonalShopperScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Mode de transport</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              {([['air', 'Avion', '5-7 jours'], ['sea', 'Bateau', '3-4 semaines']] as const).map(([mode, label, sub]) => {
-                const Icon = mode === 'air' ? Plane : Ship;
-                return (
-                  <TouchableOpacity
-                    key={mode}
-                    onPress={() => setTransport(mode)}
-                    style={[styles.transportBtn, transport === mode && styles.transportBtnActive]}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Icon size={16} color={transport === mode ? '#0D0D0D' : '#9CA3AF'} strokeWidth={2} />
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: transport === mode ? '#0D0D0D' : '#FFFFFF' }}>{label}</Text>
-                    </View>
-                    <Text style={{ fontSize: 11, color: transport === mode ? 'rgba(0,0,0,0.6)' : '#9CA3AF', marginTop: 2 }}>{sub}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {([['air', '✈️ Avion', '5-7 jours'], ['sea', '🚢 Bateau', '3-4 semaines']] as const).map(([mode, label, sub]) => (
+                <TouchableOpacity
+                  key={mode}
+                  onPress={() => setTransport(mode)}
+                  style={[styles.transportBtn, transport === mode && styles.transportBtnActive]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: transport === mode ? '#0D0D0D' : '#FFFFFF' }}>{label}</Text>
+                  <Text style={{ fontSize: 11, color: transport === mode ? 'rgba(0,0,0,0.6)' : '#9CA3AF', marginTop: 2 }}>{sub}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
@@ -178,7 +171,7 @@ export default function PersonalShopperScreen() {
           <TouchableOpacity onPress={handleSubmit} disabled={submitting} style={[styles.btnSubmit, submitting && { opacity: 0.6 }]} activeOpacity={0.85}>
             {submitting ? <ActivityIndicator color="#0D0D0D" /> : (
               <>
-                <ShoppingCart size={18} color="#0D0D0D" strokeWidth={2} />
+                <Text style={{ fontSize: 18 }}>🛒</Text>
                 <Text style={styles.btnSubmitText}>Envoyer ma demande</Text>
               </>
             )}
@@ -191,7 +184,7 @@ export default function PersonalShopperScreen() {
           {loadingReqs && <ActivityIndicator color="#F97316" style={{ marginTop: 40 }} />}
           {!loadingReqs && (tab === 'En cours' ? activeReqs : doneReqs).length === 0 && (
             <View style={{ alignItems: 'center', paddingTop: 60, gap: 12 }}>
-              <ShoppingCart size={36} color="#F97316" strokeWidth={2} />
+              <Text style={{ fontSize: 36 }}>🛒</Text>
               <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF' }}>Aucune demande</Text>
               <TouchableOpacity onPress={() => setTab('Nouvelle demande')}>
                 <Text style={{ color: '#F97316', fontWeight: '600', fontSize: 14 }}>Faire une demande →</Text>
@@ -209,12 +202,7 @@ export default function PersonalShopperScreen() {
               </View>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <Text style={{ fontSize: 12, color: '#9CA3AF' }}>Qté: {req.quantity}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  {req.transport_mode === 'air'
-                    ? <Plane size={14} color="#9CA3AF" strokeWidth={2} />
-                    : <Ship size={14} color="#9CA3AF" strokeWidth={2} />}
-                  <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{req.transport_mode === 'air' ? 'Avion' : 'Bateau'}</Text>
-                </View>
+                <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{req.transport_mode === 'air' ? '✈️ Avion' : '🚢 Bateau'}</Text>
                 {req.total_price && <Text style={{ fontSize: 12, color: '#F97316', fontWeight: '600' }}>${req.total_price}</Text>}
               </View>
               {req.status === 'quoted' && (

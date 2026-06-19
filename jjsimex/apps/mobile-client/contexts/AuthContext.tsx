@@ -24,8 +24,6 @@ interface AuthContextType {
   signUp: (data: SignUpData) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
-  refreshProfile: () => Promise<void>;
-  updateDestination: (country: string, city: string) => Promise<{ error: string | null }>;
 }
 
 interface SignUpData {
@@ -122,21 +120,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
-  async function refreshProfile() {
-    if (user?.id) await fetchProfile(user.id);
-  }
-
-  async function updateDestination(country: string, city: string) {
-    if (!user?.id) return { error: 'Non connecté.' };
-    const { error } = await supabase
-      .from('users')
-      .update({ destination_country: country, destination_city: city })
-      .eq('id', user.id);
-    if (error) return { error: 'Erreur lors de la mise à jour.' };
-    setProfile(prev => prev ? { ...prev, destination_country: country, destination_city: city } : prev);
-    return { error: null };
-  }
-
   async function signOut() {
     await supabase.auth.signOut();
   }
@@ -148,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, resetPassword, refreshProfile, updateDestination }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginScreen() {
@@ -76,7 +75,7 @@ export default function LoginScreen() {
                 autoComplete="password"
               />
               <TouchableOpacity onPress={() => setShowPw(s => !s)} style={styles.eyeBtn}>
-                {showPw ? <EyeOff size={18} color="#9CA3AF" strokeWidth={2} /> : <Eye size={18} color="#9CA3AF" strokeWidth={2} />}
+                <Text style={{ fontSize: 18 }}>{showPw ? '🙈' : '👁️'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -93,7 +92,7 @@ export default function LoginScreen() {
 
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <TouchableOpacity style={[styles.btnSocial, { flex: 1 }]} activeOpacity={0.8}>
-              <Text style={styles.btnSocialText}>Google</Text>
+              <Text style={styles.btnSocialText}>🇬 Google</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.btnSocial, { flex: 1 }]} activeOpacity={0.8}>
               <Text style={styles.btnSocialText}> Apple</Text>
