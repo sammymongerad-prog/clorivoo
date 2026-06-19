@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Clipboard, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ArrowLeft, Home, MapPin, Copy, Check, AlertTriangle } from 'lucide-react-native';
 
 const MIAMI_ROWS = [
   { label: 'Nom complet', value: 'JJ\'s IMEX / Votre Nom' },
@@ -43,11 +45,11 @@ export default function AdressesUSScreen() {
   }
 
   return (
-    <View style={S.container}>
+    <SafeAreaView style={S.container} edges={['top']}>
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity style={S.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Text style={{ color: '#FFFFFF', fontSize: 20 }}>←</Text>
+          <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Mes adresses US</Text>
         <View style={{ width: 40 }} />
@@ -65,11 +67,12 @@ export default function AdressesUSScreen() {
 
         {/* Carte Miami — principale */}
         <View style={S.cardMain}>
-          <View style={S.badgePrincipal}>
-            <Text style={{ color: '#0D0D0D', fontSize: 12, fontWeight: '700' }}>🏠 Principal</Text>
+          <View style={[S.badgePrincipal, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+            <Home size={14} color="#0D0D0D" strokeWidth={2} />
+            <Text style={{ color: '#0D0D0D', fontSize: 12, fontWeight: '700' }}>Principal</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
-            <Text style={{ color: '#F97316', fontSize: 18 }}>📍</Text>
+            <MapPin size={18} color="#F97316" strokeWidth={2} />
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }}>Miami, Floride</Text>
           </View>
 
@@ -82,8 +85,11 @@ export default function AdressesUSScreen() {
                 </View>
                 <TouchableOpacity onPress={() => copyField(`miami_${row.label}`, row.value)} activeOpacity={0.7}>
                   {copied[`miami_${row.label}`]
-                    ? <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: '600' }}>✓ Copié</Text>
-                    : <Text style={{ color: '#9CA3AF', fontSize: 18 }}>⎘</Text>
+                    ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Check size={14} color="#22C55E" strokeWidth={2} />
+                        <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: '600' }}>Copié</Text>
+                      </View>
+                    : <Copy size={18} color="#9CA3AF" strokeWidth={2} />
                   }
                 </TouchableOpacity>
               </View>
@@ -92,9 +98,10 @@ export default function AdressesUSScreen() {
 
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
             <TouchableOpacity onPress={copyAllMiami} activeOpacity={0.8}
-              style={{ flex: 1, height: 46, backgroundColor: '#2A2A2A', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              style={{ flex: 1, height: 46, backgroundColor: '#2A2A2A', borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              {copiedAll ? <Check size={16} color="#22C55E" strokeWidth={2} /> : <Copy size={16} color="#FFFFFF" strokeWidth={2} />}
               <Text style={{ color: copiedAll ? '#22C55E' : '#FFFFFF', fontSize: 13, fontWeight: '600' }}>
-                {copiedAll ? '✓ Copié !' : '⎘ Tout copier'}
+                {copiedAll ? 'Copié !' : 'Tout copier'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={openWhatsApp} activeOpacity={0.9}
@@ -106,8 +113,9 @@ export default function AdressesUSScreen() {
 
         {/* Carte Boston */}
         <View style={S.cardSecondary}>
-          <View style={S.badgeSecondary}>
-            <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>📍 Boston, MA</Text>
+          <View style={[S.badgeSecondary, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+            <MapPin size={14} color="#C9CDD3" strokeWidth={2} />
+            <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>Boston, MA</Text>
           </View>
           <View style={S.fieldsContainer}>
             {BOSTON_ROWS.map((row) => (
@@ -118,8 +126,11 @@ export default function AdressesUSScreen() {
                 </View>
                 <TouchableOpacity onPress={() => copyField(`boston_${row.label}`, row.value)} activeOpacity={0.7}>
                   {copied[`boston_${row.label}`]
-                    ? <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: '600' }}>✓ Copié</Text>
-                    : <Text style={{ color: '#9CA3AF', fontSize: 18 }}>⎘</Text>
+                    ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Check size={14} color="#22C55E" strokeWidth={2} />
+                        <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: '600' }}>Copié</Text>
+                      </View>
+                    : <Copy size={18} color="#9CA3AF" strokeWidth={2} />
                   }
                 </TouchableOpacity>
               </View>
@@ -133,7 +144,10 @@ export default function AdressesUSScreen() {
 
         {/* Info importante */}
         <View style={{ backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 12, padding: 16, marginTop: 4 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316', marginBottom: 8 }}>⚠️ Important</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <AlertTriangle size={16} color="#F97316" strokeWidth={2} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316' }}>Important</Text>
+          </View>
           <Text style={{ fontSize: 13, lineHeight: 20, color: '#9CA3AF' }}>
             Ajoutez <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>votre ID client</Text> dans la ligne 2 pour que vos colis vous soient correctement attribués.
           </Text>
@@ -142,7 +156,7 @@ export default function AdressesUSScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

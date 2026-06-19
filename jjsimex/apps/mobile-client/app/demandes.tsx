@@ -1,6 +1,8 @@
 import { useEffect, useState, useContext } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ArrowLeft, ShoppingCart, MapPin, ShoppingBag, DollarSign } from 'lucide-react-native';
 import { getMyShopperRequests, subscribeToRequests, type ShopperRequest } from '@jjsimex/supabase/shopper';
 import { AuthContext } from '@/contexts/AuthContext';
 
@@ -14,7 +16,8 @@ const S = StyleSheet.create({
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   cardTitle: { fontSize: 13, fontWeight: '700', color: '#F97316' },
   cardDate: { fontSize: 11, color: '#9CA3AF' },
-  cardInfo: { fontSize: 12, color: '#D1D5DB', marginBottom: 8 },
+  cardInfo: { fontSize: 12, color: '#D1D5DB' },
+  cardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   status: { fontSize: 11, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 8, alignSelf: 'flex-start' },
   statusPending: { backgroundColor: 'rgba(249,115,22,0.12)', color: '#F97316' },
   statusQuoted: { backgroundColor: 'rgba(59,130,246,0.12)', color: '#3B82F6' },
@@ -86,10 +89,10 @@ export default function DemandesScreen() {
   }
 
   return (
-    <View style={S.container}>
+    <SafeAreaView style={S.container} edges={['top']}>
       <View style={S.header}>
         <TouchableOpacity style={S.backBtn} onPress={() => router.back()}>
-          <Text style={{ color: '#FFFFFF', fontSize: 20 }}>←</Text>
+          <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Mes demandes</Text>
         <View style={{ width: 40 }} />
@@ -101,7 +104,7 @@ export default function DemandesScreen() {
         </View>
       ) : requests.length === 0 ? (
         <View style={S.emptyState}>
-          <Text style={S.emptyIcon}>🛒</Text>
+          <ShoppingCart size={48} color="#9CA3AF" strokeWidth={2} style={{ marginBottom: 12 }} />
           <Text style={S.emptyText}>Aucune demande pour le moment</Text>
         </View>
       ) : (
@@ -114,10 +117,19 @@ export default function DemandesScreen() {
                   <Text style={S.cardTitle}>{req.request_number}</Text>
                   <Text style={S.cardDate}>{formatDate(req.created_at)}</Text>
                 </View>
-                <Text style={S.cardInfo}>📍 {req.destination_city}</Text>
-                <Text style={S.cardInfo}>🛍️ {req.merchant} (Qté: {req.quantity})</Text>
+                <View style={S.cardInfoRow}>
+                  <MapPin size={16} color="#F97316" strokeWidth={2} />
+                  <Text style={S.cardInfo}>{req.destination_city}</Text>
+                </View>
+                <View style={S.cardInfoRow}>
+                  <ShoppingBag size={16} color="#F97316" strokeWidth={2} />
+                  <Text style={S.cardInfo}>{req.merchant} (Qté: {req.quantity})</Text>
+                </View>
                 {req.final_price && (
-                  <Text style={S.cardInfo}>💰 ${req.final_price.toFixed(2)}</Text>
+                  <View style={S.cardInfoRow}>
+                    <DollarSign size={16} color="#F97316" strokeWidth={2} />
+                    <Text style={S.cardInfo}>${req.final_price.toFixed(2)}</Text>
+                  </View>
                 )}
                 {req.total_price && (
                   <Text style={[S.cardInfo, { color: '#F97316', fontWeight: '600' }]}>
@@ -132,6 +144,6 @@ export default function DemandesScreen() {
           })}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
