@@ -3,7 +3,12 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   ActivityIndicator, StyleSheet, Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  ArrowLeft, MoreVertical, ArrowRight, Check, Shield, MessageCircle,
+  Home, Package, ScanLine, Bell, User,
+} from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPackageDetail } from '@jjsimex/supabase/packages';
 import type { PackageStatus } from '@jjsimex/supabase/packages';
@@ -61,8 +66,9 @@ export default function ColisDetailScreen() {
         <Text style={{ color: '#EF4444', textAlign: 'center', marginBottom: 16 }}>
           {error || 'Colis introuvable.'}
         </Text>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={{ color: '#F97316' }}>← Retour</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <ArrowLeft size={16} color="#F97316" strokeWidth={2} />
+          <Text style={{ color: '#F97316' }}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
@@ -71,15 +77,15 @@ export default function ColisDetailScreen() {
   const currentIndex = STATUS_ORDER.indexOf(pkg.status);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={{ color: '#FFFFFF', fontSize: 18 }}>←</Text>
+          <ArrowLeft size={22} color="#FFFFFF" strokeWidth={2} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Détails du colis</Text>
         <TouchableOpacity style={styles.backBtn}>
-          <Text style={{ color: '#FFFFFF', fontSize: 18 }}>⋮</Text>
+          <MoreVertical size={22} color="#FFFFFF" strokeWidth={2} />
         </TouchableOpacity>
       </View>
 
@@ -112,7 +118,7 @@ export default function ColisDetailScreen() {
               <Text style={styles.heroRouteLabel}>Départ</Text>
               <Text style={styles.heroRouteVal} numberOfLines={1}>Miami Warehouse</Text>
             </View>
-            <Text style={{ color: '#1A0D02', fontWeight: '700', fontSize: 18 }}>→</Text>
+            <ArrowRight size={20} color="#1A0D02" strokeWidth={2} />
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <Text style={styles.heroRouteLabel}>Destination</Text>
               <Text style={styles.heroRouteVal} numberOfLines={1}>{pkg.destination_city}</Text>
@@ -151,7 +157,7 @@ export default function ColisDetailScreen() {
                     isCurrent && styles.timelineDotCurrent,
                     !done && styles.timelineDotPending,
                   ]}>
-                    {done && <Text style={{ color: '#0D0D0D', fontSize: 9, fontWeight: '900' }}>✓</Text>}
+                    {done && <Check size={11} color="#0D0D0D" strokeWidth={3} />}
                   </View>
                   {!isLast && (
                     <View style={[styles.timelineLine, { backgroundColor: done && !isCurrent ? '#F97316' : '#2E2E2E' }]} />
@@ -199,7 +205,7 @@ export default function ColisDetailScreen() {
         <View style={styles.insuranceCard}>
           <View style={styles.insuranceRow}>
             <View style={styles.insuranceLeft}>
-              <View style={styles.insuranceIcon}><Text style={{ fontSize: 20 }}>🛡️</Text></View>
+              <View style={styles.insuranceIcon}><Shield size={20} color="#22C55E" strokeWidth={2} /></View>
               <Text style={styles.insuranceTitleText}>Colis assuré jusqu'à $100</Text>
             </View>
             <View style={styles.insuranceBadge}><Text style={styles.insuranceBadgeText}>Couverture active</Text></View>
@@ -215,7 +221,7 @@ export default function ColisDetailScreen() {
           onPress={() => Linking.openURL('https://wa.me/13056009364')}
           activeOpacity={0.9}
         >
-          <Text style={{ fontSize: 20 }}>💬</Text>
+          <MessageCircle size={20} color="#0D0D0D" strokeWidth={2} />
           <Text style={styles.whatsappBtnText}>Contacter via WhatsApp</Text>
         </TouchableOpacity>
 
@@ -227,26 +233,26 @@ export default function ColisDetailScreen() {
       {/* BOTTOM NAVIGATION */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs)/home')}>
-          <Text style={styles.navIcon}>🏠</Text>
+          <Home size={22} color="#666666" strokeWidth={2} />
           <Text style={styles.navLabel}>Accueil</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs)/colis')}>
-          <Text style={{ fontSize: 22 }}>📦</Text>
+          <Package size={22} color="#F97316" strokeWidth={2} />
           <Text style={[styles.navLabel, { color: '#F97316' }]}>Mes colis</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navBtnCenter}>
-          <View style={styles.navFAB}><Text style={{ fontSize: 22 }}>⬛</Text></View>
+          <View style={styles.navFAB}><ScanLine size={22} color="#0D0D0D" strokeWidth={2} /></View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs)/colis')}>
-          <Text style={styles.navIcon}>🔔</Text>
+          <Bell size={22} color="#666666" strokeWidth={2} />
           <Text style={styles.navLabel}>Notifs</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs)/profil')}>
-          <Text style={styles.navIcon}>👤</Text>
+          <User size={22} color="#666666" strokeWidth={2} />
           <Text style={styles.navLabel}>Profil</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -258,7 +264,7 @@ const styles = StyleSheet.create({
   header: {
     height: 60, backgroundColor: '#0D0D0D', borderBottomWidth: 1, borderBottomColor: '#1A1A1A',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, paddingTop: 16,
+    paddingHorizontal: 18,
   },
   backBtn: {
     width: 40, height: 40, borderRadius: 10, backgroundColor: '#1A1A1A',
