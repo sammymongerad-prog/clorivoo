@@ -2,10 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   FlatList, Dimensions, RefreshControl, Platform, StatusBar,
-  Modal, TextInput, KeyboardAvoidingView,
+  Modal, TextInput, KeyboardAvoidingView, Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin } from 'lucide-react-native';
+import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
@@ -30,10 +30,10 @@ const BANNERS = [
 ];
 
 const QUICK_ACTIONS = [
-  { icon: '📦', label: 'Tracker\nun colis', route: '/(tabs)/colis' },
-  { icon: '🛒', label: 'Personal\nShopper', route: '/screens/personal-shopper' },
-  { icon: '🧮', label: 'Calculateur\ntarifs', route: '/screens/calculateur' },
-  { icon: '📍', label: 'Adresses\nUS', route: '/screens/adresses-us' },
+  { Icon: Package, label: 'Tracker un colis', route: '/(tabs)/colis' },
+  { Icon: ShoppingCart, label: 'Personal Shopper', route: '/screens/personal-shopper' },
+  { Icon: Calculator, label: 'Calculateur', route: '/screens/calculateur' },
+  { Icon: MapPinned, label: 'Mes adresses US', route: '/screens/adresses-us' },
 ];
 
 const CITY_SECTIONS = [
@@ -64,6 +64,24 @@ export default function HomeScreen() {
   const [recentPackages, setRecentPackages] = useState<Pkg[]>([]);
   const [rates, setRates] = useState<ExchangeRate | null>(null);
   const [bannerDot, setBannerDot] = useState(0);
+  const [rateTabOpen, setRateTabOpen] = useState(false);
+  const rateSlide = useRef(new Animated.Value(0)).current;
+  const rateScroll = useRef(new Animated.Value(0)).current;
+
+  function toggleRateTab() {
+    const toValue = rateTabOpen ? 0 : 1;
+    setRateTabOpen(!rateTabOpen);
+    Animated.spring(rateSlide, { toValue, useNativeDriver: true, tension: 80, friction: 12 }).start();
+  }
+
+  useEffect(() => {
+    if (!rateTabOpen || !rates) return;
+    const loop = Animated.loop(
+      Animated.timing(rateScroll, { toValue: 1, duration: 8000, useNativeDriver: true })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [rateTabOpen, rates]);
 
   async function loadData() {
     if (!session?.user.id) return;
@@ -175,31 +193,14 @@ export default function HomeScreen() {
           <View style={styles.quickGrid}>
             {QUICK_ACTIONS.map((a, i) => (
               <TouchableOpacity key={i} onPress={() => router.push(a.route as never)} style={styles.quickCard} activeOpacity={0.8}>
-                <Text style={{ fontSize: 28, marginBottom: 8 }}>{a.icon}</Text>
+                <View style={styles.quickIconWrap}>
+                  <a.Icon size={22} color="#F97316" strokeWidth={1.8} />
+                </View>
                 <Text style={styles.quickLabel}>{a.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-
-        {/* TAUX DE CHANGE */}
-        {rates && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Taux de change</Text>
-            <View style={[styles.card, { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 16 }]}>
-              {[
-                { label: '1 USD', value: `${rates.usd_to_htg?.toFixed(0)} HTG` },
-                { label: '1 USD', value: `${rates.usd_to_dop?.toFixed(1)} DOP` },
-                { label: '1 EUR', value: `${rates.eur_to_htg?.toFixed(0)} HTG` },
-              ].map((r, i) => (
-                <View key={i} style={{ alignItems: 'center' }}>
-                  <Text style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 4 }}>{r.label}</Text>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#F97316' }}>{r.value}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
 
         {/* COLIS ACTIF */}
         {activePackage && (
@@ -335,6 +336,41 @@ export default function HomeScreen() {
           </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
+
+      {/* FLOATING EXCHANGE RATE TAB */}
+      {rates && (
+        <View style={styles.floatingWrap} pointerEvents="box-none">
+          <Animated.View style={[styles.floatingContainer, {
+            transform: [{ translateX: rateSlide.interpolate({ inputRange: [0, 1], outputRange: [0, -280] }) }],
+          }]}>
+            {/* Panel */}
+            <View style={styles.floatingPanel}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 12, gap: 0 }}>
+                {[
+                  { currency: 'USD', value: rates.usd_to_htg?.toFixed(1), unit: 'HTG', up: true },
+                  { currency: 'CAD', value: rates.cad_to_htg?.toFixed(1) ?? '—', unit: 'HTG', up: true },
+                  { currency: 'EUR', value: rates.eur_to_htg?.toFixed(1), unit: 'HTG', up: true },
+                  { currency: 'USD', value: rates.usd_to_dop?.toFixed(1), unit: 'DOP', up: false },
+                ].map((r, i, arr) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ alignItems: 'center', paddingHorizontal: 14 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#9CA3AF' }}>{r.currency}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginVertical: 1 }}>{r.value}</Text>
+                      <Text style={{ fontSize: 10, fontWeight: '600', color: '#F97316' }}>{r.unit} {r.up ? '▲' : '▼'}</Text>
+                    </View>
+                    {i < arr.length - 1 && <View style={{ width: 1, height: 36, backgroundColor: '#2A2A2A' }} />}
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+            {/* Tab handle */}
+            <TouchableOpacity onPress={toggleRateTab} style={styles.floatingTab} activeOpacity={0.85}>
+              <ArrowLeftRight size={16} color="#F97316" strokeWidth={2} />
+              <Text style={styles.floatingTabText}>USD</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      )}
     </View>
   );
 }
@@ -368,9 +404,10 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 12 },
   seeAll: { fontSize: 13, color: '#F97316', fontWeight: '600' },
   card: { backgroundColor: '#1A1A1A', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: '#242424' },
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  quickCard: { width: (width - 40 - 12) / 2, backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, alignItems: 'flex-start', borderWidth: 1, borderColor: '#242424' },
-  quickLabel: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', lineHeight: 19 },
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  quickCard: { width: (width - 40 - 10) / 2, backgroundColor: '#1A1A1A', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 14, alignItems: 'flex-start', borderWidth: 1, borderColor: '#242424' },
+  quickIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  quickLabel: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
   sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheetContainer: { backgroundColor: '#141414', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#3A3A3A', alignSelf: 'center', marginBottom: 16 },
@@ -382,4 +419,9 @@ const styles = StyleSheet.create({
   sheetCityText: { fontSize: 15, color: '#E5E7EB' },
   sheetConfirmBtn: { backgroundColor: '#F97316', borderRadius: 14, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   sheetConfirmText: { fontSize: 15, fontWeight: '700', color: '#0D0D0D' },
+  floatingWrap: { position: 'absolute', right: 0, top: '45%', zIndex: 100 },
+  floatingContainer: { flexDirection: 'row', alignItems: 'center', position: 'absolute', right: 0 },
+  floatingTab: { width: 32, height: 80, backgroundColor: '#1A1A1A', borderLeftWidth: 2, borderLeftColor: '#F97316', borderTopLeftRadius: 12, borderBottomLeftRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  floatingTabText: { fontSize: 10, fontWeight: '800', color: '#F97316', transform: [{ rotate: '-90deg' }] },
+  floatingPanel: { width: 280, height: 80, backgroundColor: '#111827', borderTopLeftRadius: 16, borderBottomLeftRadius: 16, justifyContent: 'center', marginRight: -1 },
 });
