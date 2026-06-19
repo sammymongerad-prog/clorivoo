@@ -7,7 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-const { width, height: SCREEN_H } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const ACCENT = '#F97316';
 const CARD = '#FFFFFF';
@@ -48,7 +48,7 @@ const SLIDES: Slide[] = [
   },
 ];
 
-function ProgressDot({ active, index, onPress }: { active: boolean; index: number; onPress: () => void }) {
+function ProgressDot({ active, onPress }: { active: boolean; onPress: () => void }) {
   const fillAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -65,7 +65,6 @@ function ProgressDot({ active, index, onPress }: { active: boolean; index: numbe
     }
   }, [active]);
 
-  const dotWidth = active ? DOT_ACTIVE_W : DOT_SIZE;
   const fillWidth = fillAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, DOT_ACTIVE_W],
@@ -73,12 +72,8 @@ function ProgressDot({ active, index, onPress }: { active: boolean; index: numbe
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.dot, { width: dotWidth }]}>
-        {active && (
-          <Animated.View
-            style={[styles.dotFill, { width: fillWidth }]}
-          />
-        )}
+      <View style={[styles.dot, { width: active ? DOT_ACTIVE_W : DOT_SIZE }]}>
+        {active && <Animated.View style={[styles.dotFill, { width: fillWidth }]} />}
       </View>
     </TouchableOpacity>
   );
@@ -88,29 +83,20 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const touchX = useRef(0);
-  const imageAnim = useRef(new Animated.Value(1)).current;
+  const fade = useRef(new Animated.Value(1)).current;
 
   function goTo(i: number) {
     const next = Math.max(0, Math.min(SLIDES.length - 1, i));
     if (next === index) return;
-    Animated.timing(imageAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.timing(fade, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
       setIndex(next);
-      Animated.timing(imageAnim, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(fade, { toValue: 1, duration: 280, useNativeDriver: true }).start();
     });
   }
 
   function onTouchStart(e: GestureResponderEvent) {
     touchX.current = e.nativeEvent.pageX;
   }
-
   function onTouchEnd(e: GestureResponderEvent) {
     const dx = e.nativeEvent.pageX - touchX.current;
     if (dx < -45) goTo(index + 1);
@@ -118,45 +104,48 @@ export default function OnboardingScreen() {
   }
 
   const isLast = index === SLIDES.length - 1;
+  const current = SLIDES[index];
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Image full-bleed */}
-      <View
-        style={styles.imageArea}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        <Animated.View style={[styles.imageFull, { opacity: imageAnim }]}>
-          <Image
-            source={SLIDES[index].image}
-            style={styles.image}
-            resizeMode="cover"
-          />
-        </Animated.View>
+      {/* Fond flou plein écran (derrière tout) — comble les coins arrondis */}
+      <Animated.Image
+        source={current.image}
+        style={[StyleSheet.absoluteFill, { opacity: fade }]}
+        resizeMode="cover"
+        blurRadius={28}
+      />
+      {/* Voile sombre léger pour homogénéiser */}
+      <View style={styles.scrim} pointerEvents="none" />
+
+      {/* Image nette (contain → rien coupé) */}
+      <View style={styles.imageArea} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <Animated.Image
+          source={current.image}
+          style={[styles.imageSharp, { opacity: fade }]}
+          resizeMode="contain"
+        />
       </View>
 
-      {/* Carte blanche bas */}
+      {/* Carte blanche bas (au-dessus du fond) */}
       <View style={styles.card}>
         <Text style={styles.title}>
-          {SLIDES[index].title.map((seg, i) => (
+          {current.title.map((seg, i) => (
             <Text key={i} style={seg.accent ? styles.titleAccent : undefined}>
               {seg.text}
             </Text>
           ))}
         </Text>
-        <Text style={styles.sub}>{SLIDES[index].sub}</Text>
+        <Text style={styles.sub}>{current.sub}</Text>
 
-        {/* Dots animés */}
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
-            <ProgressDot key={i} index={i} active={i === index} onPress={() => goTo(i)} />
+            <ProgressDot key={i} active={i === index} onPress={() => goTo(i)} />
           ))}
         </View>
 
-        {/* Boutons : pilule compacte + lien Skip */}
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.pill}
@@ -185,32 +174,27 @@ export default function OnboardingScreen() {
   );
 }
 
-const CARD_H = 260;
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
 
-  imageArea: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  imageFull: {
+  scrim: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.18)',
   },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
+
+  imageArea: { flex: 1, overflow: 'hidden' },
+  imageSharp: { width: '100%', height: '100%' },
 
   card: {
     backgroundColor: CARD,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
+    marginTop: -24,
     paddingHorizontal: 24,
     paddingTop: 28,
     paddingBottom: 36,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: -4 },
     elevation: 16,
