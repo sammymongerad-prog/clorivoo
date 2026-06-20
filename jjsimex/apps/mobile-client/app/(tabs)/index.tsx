@@ -216,7 +216,6 @@ export default function HomeScreen() {
 
         {/* QUICK ACTIONS */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Actions rapides</Text>
           <View style={styles.quickGrid}>
             {QUICK_ACTIONS.map((a, i) => (
               <TouchableOpacity key={i} onPress={() => router.push(a.route as never)} style={styles.quickCard} activeOpacity={0.8}>
@@ -230,65 +229,64 @@ export default function HomeScreen() {
         </View>
 
         {/* ─── SECTION 1: PROCHAIN DÉPART ─── */}
-        {(airDeparture || seaDeparture) && (
-          <View style={styles.section}>
-            <View style={styles.sectionRow}>
-              <Text style={styles.sectionTitle}>Prochain départ</Text>
-              <TouchableOpacity><Text style={styles.seeAll}>Voir calendrier →</Text></TouchableOpacity>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              {airDeparture && (() => {
-                const remaining = airDeparture.capacity_lbs - airDeparture.current_weight;
-                const pct = (airDeparture.current_weight / airDeparture.capacity_lbs) * 100;
-                const almostFull = pct > 80;
-                const d = new Date(airDeparture.departure_date);
-                const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][d.getDay()];
-                const monthName = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][d.getMonth()];
-                return (
-                  <View style={[styles.card, { flex: 1, gap: 8 }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Plane size={16} color="#F97316" strokeWidth={2} />
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Avion</Text>
-                    </View>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{dayName} {d.getDate()} {monthName}</Text>
-                    <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
-                      <View style={{ width: `${Math.min(pct, 100)}%`, height: '100%', backgroundColor: almostFull ? '#F97316' : '#22C55E', borderRadius: 3 }} />
-                    </View>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: almostFull ? '#F97316' : '#22C55E' }}>{remaining.toFixed(0)} lbs restantes</Text>
-                    {almostFull && (
-                      <View style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#EF4444' }}>Bientôt complet !</Text>
-                      </View>
-                    )}
+        {(() => {
+          const formatDep = (dep: Departure | null, fallbackDays: number, fallbackCap: number) => {
+            const d = dep ? new Date(dep.departure_date) : new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
+            const capacity = dep?.capacity_lbs ?? fallbackCap;
+            const used = dep?.current_weight ?? 0;
+            const remaining = capacity - used;
+            const pct = (used / capacity) * 100;
+            const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][d.getDay()];
+            const monthName = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][d.getMonth()];
+            return { dateStr: `${dayName} ${d.getDate()} ${monthName}`, remaining, pct };
+          };
+          const air = formatDep(airDeparture, 7, 500);
+          const sea = formatDep(seaDeparture, 14, 8000);
+          return (
+            <View style={styles.section}>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Prochain départ</Text>
+                <TouchableOpacity><Text style={styles.seeAll}>Voir calendrier →</Text></TouchableOpacity>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={[styles.card, { flex: 1, gap: 8 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Plane size={16} color="#F97316" strokeWidth={2} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Avion</Text>
                   </View>
-                );
-              })()}
-              {seaDeparture && (() => {
-                const remaining = seaDeparture.capacity_lbs - seaDeparture.current_weight;
-                const pct = (seaDeparture.current_weight / seaDeparture.capacity_lbs) * 100;
-                const d = new Date(seaDeparture.departure_date);
-                const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][d.getDay()];
-                const monthName = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][d.getMonth()];
-                return (
-                  <View style={[styles.card, { flex: 1, gap: 8 }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ship size={16} color="#22C55E" strokeWidth={2} />
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Bateau</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{air.dateStr}</Text>
+                  <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.min(air.pct, 100)}%`, height: '100%', backgroundColor: air.pct > 80 ? '#F97316' : '#22C55E', borderRadius: 3 }} />
+                  </View>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: air.pct > 80 ? '#F97316' : '#22C55E' }}>{air.remaining.toFixed(0)} lbs restantes</Text>
+                  {air.pct > 80 ? (
+                    <View style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#EF4444' }}>Bientôt complet !</Text>
                     </View>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{dayName} {d.getDate()} {monthName}</Text>
-                    <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
-                      <View style={{ width: `${Math.min(pct, 100)}%`, height: '100%', backgroundColor: pct > 80 ? '#F97316' : '#22C55E', borderRadius: 3 }} />
-                    </View>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#22C55E' }}>{remaining.toFixed(0)} lbs restantes</Text>
+                  ) : (
                     <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
                       <Text style={{ fontSize: 10, fontWeight: '700', color: '#22C55E' }}>Places disponibles</Text>
                     </View>
+                  )}
+                </View>
+                <View style={[styles.card, { flex: 1, gap: 8 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ship size={16} color="#22C55E" strokeWidth={2} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Bateau</Text>
                   </View>
-                );
-              })()}
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{sea.dateStr}</Text>
+                  <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.min(sea.pct, 100)}%`, height: '100%', backgroundColor: sea.pct > 80 ? '#F97316' : '#22C55E', borderRadius: 3 }} />
+                  </View>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#22C55E' }}>{sea.remaining.toFixed(0)} lbs restantes</Text>
+                  <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#22C55E' }}>Places disponibles</Text>
+                  </View>
+                </View>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        })()}
 
         {/* ─── SECTION 2: COLIS EN COURS ─── */}
         {activePackage && (() => {
@@ -403,27 +401,31 @@ export default function HomeScreen() {
                 const open = isBranchOpen(b);
                 const closeTime = getClosingTime(b);
                 return (
-                  <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#1F1F1F', gap: 12 }}>
-                    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: i === 0 ? 'rgba(249,115,22,0.12)' : '#2A2A2A', alignItems: 'center', justifyContent: 'center' }}>
-                      <MapPin size={18} color={i === 0 ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{b.name}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                        <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.2)', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-                          <Text style={{ fontSize: 9, fontWeight: '700', color: open ? '#22C55E' : '#9CA3AF' }}>{open ? 'Ouvert' : 'Fermé'}</Text>
-                        </View>
-                        {closeTime && open ? <Text style={{ fontSize: 11, color: '#6B7280' }}>Ferme à {closeTime}</Text> : null}
+                  <View key={b.id} style={{ paddingVertical: 14, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#1F1F1F' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: i === 0 ? 'rgba(249,115,22,0.12)' : '#2A2A2A', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+                        <MapPin size={20} color={i === 0 ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
                       </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>{b.name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                          <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.2)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: open ? '#22C55E' : '#9CA3AF' }}>{open ? 'Ouvert maintenant' : 'Fermé'}</Text>
+                          </View>
+                          <Text style={{ fontSize: 11, color: '#6B7280' }}>
+                            {closeTime && open ? `Ferme à ${closeTime}` : ''}{b.distance ? ` · ${b.distance}` : ''}
+                          </Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (b.latitude && b.longitude) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`);
+                          else if (b.address) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`);
+                        }}
+                        style={{ backgroundColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginTop: 2 }} activeOpacity={0.7}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFFFFF' }}>Itinéraire</Text>
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (b.latitude && b.longitude) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`);
-                        else if (b.address) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`);
-                      }}
-                      style={{ backgroundColor: '#2A2A2A', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }} activeOpacity={0.7}>
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF' }}>Itinéraire</Text>
-                    </TouchableOpacity>
                   </View>
                 );
               })}
