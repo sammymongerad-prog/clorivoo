@@ -10,9 +10,9 @@ const { width, height } = Dimensions.get('window');
 const ACCENT = '#F97316';
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
-const IMAGE_W = width * 0.82;
-const IMAGE_H = IMAGE_W * 1.85;
-const CIRCLE_SIZE = width * 1.1;
+const IMAGE_W = width * 0.65;
+const IMAGE_H = IMAGE_W * 2;
+const CIRCLE_SIZE = width * 1.4;
 
 function ArrowLeft() {
   return <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><Line x1="19" y1="12" x2="5" y2="12" /><Polyline points="12 19 5 12 12 5" /></Svg>;
@@ -72,15 +72,13 @@ export default function OnboardingScreen() {
         <Text style={s.skipText}>Skip</Text>
       </TouchableOpacity>
 
-      {/* Top section with circle + image */}
-      <View style={s.topSection}>
-        {/* Orange half-circle behind image */}
-        <View style={s.halfCircle} />
-        {/* Screenshot image */}
-        <Animated.View style={[s.imageWrap, { opacity: fade }]}>
-          <Image source={current.image} style={s.image} resizeMode="contain" />
-        </Animated.View>
-      </View>
+      {/* Orange half-circle background */}
+      <View style={s.halfCircle} />
+
+      {/* Screenshot image — overlaps circle and dark area */}
+      <Animated.View style={[s.imageWrap, { opacity: fade }]}>
+        <Image source={current.image} style={s.image} resizeMode="contain" />
+      </Animated.View>
 
       {/* Text */}
       <Animated.View style={[s.textWrap, { opacity: fade }]}>
@@ -122,35 +120,32 @@ export default function OnboardingScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0D0D0D', paddingTop: statusBarH },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   skipBtn: { position: 'absolute', top: statusBarH + 10, right: 24, zIndex: 10 },
   skipText: { fontSize: 15, fontWeight: '500', color: '#9CA3AF' },
 
-  topSection: {
-    height: height * 0.55,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
   halfCircle: {
     position: 'absolute',
-    top: -CIRCLE_SIZE * 0.35,
+    top: -(CIRCLE_SIZE * 0.5),
+    left: (width - CIRCLE_SIZE) / 2,
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: 'rgba(249,115,22,0.12)',
+    backgroundColor: ACCENT,
   },
+
   imageWrap: {
     alignItems: 'center',
-    paddingBottom: 10,
+    marginTop: statusBarH + 30,
+    zIndex: 2,
   },
   image: {
     width: IMAGE_W,
     height: IMAGE_H,
-    borderRadius: 24,
+    borderRadius: 20,
   },
 
-  textWrap: { paddingHorizontal: 30, alignItems: 'center', marginTop: 24 },
+  textWrap: { paddingHorizontal: 30, alignItems: 'center', marginTop: 20 },
   title: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 30, marginBottom: 10 },
   titleAccent: { color: ACCENT },
   desc: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 21, maxWidth: 300 },
