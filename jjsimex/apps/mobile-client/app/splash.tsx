@@ -1,135 +1,82 @@
 import { useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Animated, Dimensions, Image, Easing,
+  View, Text, StyleSheet, Animated, Easing,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
-const { width } = Dimensions.get('window');
 const ACCENT = '#F97316';
-const LOGO_SIZE = 200;
-
-const PARTICLES = Array.from({ length: 8 }, (_, i) => ({
-  x: Math.random() * width,
-  y: Math.random() * 800 + 100,
-  size: Math.random() * 4 + 2,
-  delay: Math.random() * 1500,
-  duration: Math.random() * 2000 + 2000,
-}));
 
 export default function SplashScreen() {
   const router = useRouter();
-  const fadeIn = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.9)).current;
-  const glowPulse = useRef(new Animated.Value(0.4)).current;
-  const floatY = useRef(new Animated.Value(0)).current;
-  const tagFade = useRef(new Animated.Value(0)).current;
-  const exitScale = useRef(new Animated.Value(1)).current;
-  const exitFade = useRef(new Animated.Value(1)).current;
-  const loadWidth = useRef(new Animated.Value(0)).current;
-  const particleFades = useRef(PARTICLES.map(() => new Animated.Value(0))).current;
+  const logoFade = useRef(new Animated.Value(0)).current;
+  const logoY = useRef(new Animated.Value(8)).current;
+  const glowScale = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0.55)).current;
+  const loadX = useRef(new Animated.Value(-0.38)).current;
 
   useEffect(() => {
-    // Fade in + scale logo
+    // Logo fade in + slide up
     Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+      Animated.timing(logoFade, { toValue: 1, duration: 1000, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+      Animated.timing(logoY, { toValue: 0, duration: 1000, easing: Easing.out(Easing.ease), useNativeDriver: true }),
     ]).start();
 
-    // Glow pulse
+    // Glow pulse loop
     Animated.loop(
       Animated.sequence([
-        Animated.timing(glowPulse, { toValue: 0.7, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(glowPulse, { toValue: 0.4, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.parallel([
+          Animated.timing(glowScale, { toValue: 1.08, duration: 2250, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0.85, duration: 2250, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(glowScale, { toValue: 1, duration: 2250, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0.55, duration: 2250, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ]),
       ])
     ).start();
 
-    // Float animation
+    // Loading bar slide loop
     Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatY, { toValue: -6, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(floatY, { toValue: 6, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
+      Animated.timing(loadX, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
     ).start();
 
-    // Tagline fade in
-    setTimeout(() => {
-      Animated.timing(tagFade, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-    }, 400);
-
-    // Loading bar
-    Animated.timing(loadWidth, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.ease), useNativeDriver: false }).start();
-
-    // Particles
-    particleFades.forEach((pf, i) => {
-      setTimeout(() => {
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(pf, { toValue: 0.6, duration: 800, useNativeDriver: true }),
-            Animated.timing(pf, { toValue: 0, duration: 800, useNativeDriver: true }),
-          ])
-        ).start();
-      }, PARTICLES[i].delay);
-    });
-
-    // Exit transition
-    const exitTimer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(exitScale, { toValue: 1.15, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(exitFade, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]).start(() => {
-        router.replace('/onboarding');
-      });
-    }, 2200);
-
-    return () => clearTimeout(exitTimer);
+    // Navigate to onboarding after 2.5s
+    const timer = setTimeout(() => router.replace('/onboarding'), 2500);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
     <View style={s.container}>
-      {/* Particles */}
-      {PARTICLES.map((p, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            position: 'absolute',
-            left: p.x,
-            top: p.y,
-            width: p.size,
-            height: p.size,
-            borderRadius: p.size / 2,
-            backgroundColor: ACCENT,
-            opacity: particleFades[i],
-          }}
-        />
-      ))}
+      {/* Orange radial glow */}
+      <Animated.View style={[s.glow, {
+        opacity: glowOpacity,
+        transform: [{ scale: glowScale }],
+      }]} />
 
-      {/* Glow */}
-      <Animated.View style={[s.glow, { opacity: glowPulse }]} />
-
-      {/* Logo + tagline */}
-      <Animated.View style={[s.center, {
-        opacity: Animated.multiply(fadeIn, exitFade),
-        transform: [
-          { scale: Animated.multiply(scale, exitScale) },
-          { translateY: floatY },
-        ],
+      {/* Logo text */}
+      <Animated.View style={[s.logoBlock, {
+        opacity: logoFade,
+        transform: [{ translateY: logoY }],
       }]}>
-        <Image
-          source={require('../assets/images/splash/658637088_18072809270317234_4254461405920692302_n.jpg')}
-          style={s.logo}
-          resizeMode="contain"
-        />
-        <Animated.Text style={[s.tagline, { opacity: Animated.multiply(tagFade, exitFade) }]}>
-          Expédiez partout, simplement.
-        </Animated.Text>
+        <View style={s.logoRow}>
+          <Text style={s.logoWhite}>JJ</Text>
+          <Text style={s.logoOrange}>'s</Text>
+          <Text style={[s.logoWhite, { marginLeft: 10 }]}> IMEX</Text>
+        </View>
+        <Text style={s.tagline}>Beyond Just Shipping</Text>
       </Animated.View>
 
       {/* Loading bar */}
-      <Animated.View style={[s.loadBar, { opacity: exitFade }]}>
+      <View style={s.loadBar}>
         <Animated.View style={[s.loadFill, {
-          width: loadWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+          transform: [{
+            translateX: loadX.interpolate({
+              inputRange: [-0.38, 1],
+              outputRange: [-46, 120],
+            }),
+          }],
         }]} />
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -143,24 +90,39 @@ const s = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(249,115,22,0.15)',
+    width: 460,
+    height: 460,
+    borderRadius: 230,
+    backgroundColor: 'rgba(249,115,22,0.38)',
   },
-  center: {
+  logoBlock: {
     alignItems: 'center',
   },
-  logo: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  logoWhite: {
+    color: '#FFFFFF',
+    fontSize: 52,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    lineHeight: 56,
+  },
+  logoOrange: {
+    color: ACCENT,
+    fontSize: 52,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    lineHeight: 56,
   },
   tagline: {
-    marginTop: 24,
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#9CA3AF',
-    letterSpacing: 0.5,
+    marginTop: 18,
+    fontWeight: '600',
+    fontSize: 15,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: ACCENT,
   },
   loadBar: {
     position: 'absolute',
@@ -172,9 +134,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   loadFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+    width: '38%',
     height: '100%',
     borderRadius: 99,
     backgroundColor: ACCENT,
