@@ -384,51 +384,51 @@ export default function HomeScreen() {
         )}
 
         {/* ─── SECTION 4: NOS SUCCURSALES ─── */}
-        {branches.length > 0 && (
-          <View style={[styles.section, { marginBottom: 30 }]}>
-            <View style={styles.sectionRow}>
-              <Text style={styles.sectionTitle}>Nos succursales</Text>
-              <TouchableOpacity><Text style={styles.seeAll}>Voir la carte →</Text></TouchableOpacity>
-            </View>
-            <View style={styles.card}>
-              {branches.slice(0, 2).map((b, i) => {
-                const open = isBranchOpen(b);
-                const closeTime = getClosingTime(b);
-                const isFirst = i === 0;
-                return (
-                  <View key={b.id} style={{ paddingVertical: 16, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#1F1F1F' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                      <View style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: isFirst ? '#F97316' : '#4B5563', backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                        <MapPin size={20} color={isFirst ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
-                      </View>
-                      <View style={{ flex: 1, gap: 6 }}>
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{b.name}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.2)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
-                            <Text style={{ fontSize: 10, fontWeight: '700', color: open ? '#22C55E' : '#9CA3AF' }}>{open ? 'Ouvert maintenant' : 'Fermé'}</Text>
-                          </View>
-                          {(closeTime && open) || (b as any).distance ? (
-                            <Text style={{ fontSize: 11, color: '#6B7280' }}>
-                              {closeTime && open ? `Ferme à ${closeTime}` : ''}{(b as any).distance ? ` · ${(b as any).distance}` : ''}
-                            </Text>
-                          ) : null}
+        <View style={[styles.section, { marginBottom: 30 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF' }}>Nos succursales</Text>
+            <TouchableOpacity><Text style={{ fontSize: 13, fontWeight: '600', color: '#F97316' }}>Voir la carte →</Text></TouchableOpacity>
+          </View>
+          <View style={{ gap: 10 }}>
+            {branches.slice(0, 2).map((b, i) => {
+              const open = isBranchOpen(b);
+              const closeTime = getClosingTime(b);
+              const isFirst = i === 0;
+              const timeDistText = [
+                closeTime && open ? `Ferme à ${closeTime}` : null,
+                (b as any).distance ? `${(b as any).distance}` : null,
+              ].filter(Boolean).join(' · ');
+              return (
+                <View key={b.id} style={{ backgroundColor: '#1A1A1A', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: isFirst ? 'rgba(249,115,22,0.15)' : '#2A2A2A', alignItems: 'center', justifyContent: 'center' }}>
+                      <MapPin size={20} color={isFirst ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF', marginBottom: 6 }}>{b.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '600', color: open ? '#22C55E' : '#9CA3AF' }}>{open ? 'Ouvert maintenant' : 'Fermé'}</Text>
                         </View>
+                        {timeDistText ? (
+                          <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF' }}>{timeDistText}</Text>
+                        ) : null}
                       </View>
-                      <TouchableOpacity
-                        onPress={() => {
-                          if (b.latitude && b.longitude) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`);
-                          else if (b.address) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`);
-                        }}
-                        style={{ backgroundColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 }} activeOpacity={0.7}>
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFFFFF' }}>Itinéraire</Text>
-                      </TouchableOpacity>
                     </View>
                   </View>
-                );
-              })}
-            </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (b.latitude && b.longitude) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`);
+                      else if (b.address) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`);
+                    }}
+                    style={{ backgroundColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, marginLeft: 10 }} activeOpacity={0.7}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>Itinéraire</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
-        )}
+        </View>
       </ScrollView>
 
       {/* CITY PICKER BOTTOM SHEET */}
