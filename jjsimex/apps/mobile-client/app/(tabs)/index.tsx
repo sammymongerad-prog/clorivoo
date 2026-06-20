@@ -236,57 +236,51 @@ export default function HomeScreen() {
             const used = dep?.current_weight ?? 0;
             const remaining = capacity - used;
             const pct = (used / capacity) * 100;
+            const urgent = pct > 80;
             const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][d.getDay()];
             const monthName = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][d.getMonth()];
-            return { dateStr: `${dayName} ${d.getDate()} ${monthName}`, remaining, pct };
+            return { dateStr: `${dayName} ${d.getDate()} ${monthName}`, remaining, pct, urgent };
           };
           const air = formatDep(airDeparture, 7, 500);
           const sea = formatDep(seaDeparture, 14, 8000);
-          const airAlmostFull = air.pct > 80;
+
+          const renderCard = (mode: 'air' | 'sea', data: typeof air) => {
+            const label = mode === 'air' ? 'Avion' : 'Bateau';
+            const IconComp = mode === 'air' ? Plane : Ship;
+            return (
+              <View style={{
+                flex: 1, backgroundColor: '#1A1A1A', borderRadius: 16, padding: 14,
+                borderWidth: data.urgent ? 1.5 : 1, borderColor: data.urgent ? '#F97316' : '#2A2A2A',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                  <IconComp size={16} color={data.urgent ? '#F97316' : '#9CA3AF'} strokeWidth={2} />
+                  <Text style={{ fontSize: 13, fontWeight: '500', color: '#9CA3AF' }}>{label}</Text>
+                </View>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 10 }}>{data.dateStr}</Text>
+                <View style={{ height: 5, backgroundColor: '#2A2A2A', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
+                  <View style={{ width: `${Math.max(Math.min(data.pct, 100), 3)}%`, height: '100%', backgroundColor: data.urgent ? '#F97316' : '#22C55E', borderRadius: 99 }} />
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: data.urgent ? '#F97316' : '#22C55E', marginBottom: 10 }}>{data.remaining.toFixed(0)} lbs restantes</Text>
+                <View style={{ backgroundColor: data.urgent ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, alignSelf: 'flex-start' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: data.urgent ? '#EF4444' : '#22C55E' }}>{data.urgent ? 'Bientôt complet !' : 'Places disponibles'}</Text>
+                </View>
+              </View>
+            );
+          };
+
           return (
             <View style={styles.section}>
-              <View style={styles.sectionRow}>
-                <Text style={styles.sectionTitle}>Prochain départ</Text>
-                <TouchableOpacity><Text style={styles.seeAll}>Voir calendrier →</Text></TouchableOpacity>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF' }}>Prochain départ</Text>
+                <TouchableOpacity><Text style={{ fontSize: 13, fontWeight: '600', color: '#F97316' }}>Voir calendrier →</Text></TouchableOpacity>
               </View>
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                {/* AVION */}
-                <View style={[styles.card, { flex: 1, gap: 10, borderColor: airAlmostFull ? 'rgba(239,68,68,0.3)' : '#242424' }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: '#F97316', alignItems: 'center', justifyContent: 'center' }}>
-                      <Plane size={14} color="#F97316" strokeWidth={2} />
-                    </View>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Avion</Text>
-                  </View>
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>{air.dateStr}</Text>
-                  <View style={{ height: 4, backgroundColor: '#2A2A2A', borderRadius: 2, overflow: 'hidden' }}>
-                    <View style={{ width: `${Math.min(air.pct, 100)}%`, height: '100%', backgroundColor: airAlmostFull ? '#EF4444' : '#F97316', borderRadius: 2 }} />
-                  </View>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#F97316' }}>{air.remaining.toFixed(0)} lbs restantes</Text>
-                  <View style={{ backgroundColor: airAlmostFull ? 'rgba(239,68,68,0.12)' : 'rgba(249,115,22,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: airAlmostFull ? '#EF4444' : '#F97316' }}>{airAlmostFull ? 'Bientôt complet !' : 'Places disponibles'}</Text>
-                  </View>
-                </View>
-                {/* BATEAU */}
-                <View style={[styles.card, { flex: 1, gap: 10 }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: '#6B7280', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ship size={14} color="#9CA3AF" strokeWidth={2} />
-                    </View>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Bateau</Text>
-                  </View>
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>{sea.dateStr}</Text>
-                  <View style={{ height: 4, backgroundColor: '#2A2A2A', borderRadius: 2, overflow: 'hidden' }}>
-                    <View style={{ width: `${Math.min(sea.pct, 100)}%`, height: '100%', backgroundColor: '#22C55E', borderRadius: 2 }} />
-                  </View>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#22C55E' }}>{sea.remaining.toFixed(0)} lbs restantes</Text>
-                  <View style={{ backgroundColor: 'rgba(34,197,94,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#22C55E' }}>Places disponibles</Text>
-                  </View>
-                </View>
+                {renderCard('air', air)}
+                {renderCard('sea', sea)}
               </View>
             </View>
           );
+        })()}
         })()}
 
         {/* ─── SECTION 2: COLIS EN COURS ─── */}
