@@ -41,17 +41,12 @@ export default function SplashScreen() {
     ).start();
 
     // Navigate to onboarding after 2.5s
-    const timer = setTimeout(() => router.replace('/onboarding'), 2500);
+    const timer = setTimeout(() => router.replace('/onboarding'), 8000);
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <View style={s.container}>
-      {/* Orange radial glow */}
-      <Animated.View style={[s.glow, {
-        opacity: glowOpacity,
-        transform: [{ scale: glowScale }],
-      }]} />
 
       {/* Logo text */}
       <Animated.View style={[s.logoBlock, {
