@@ -12,13 +12,12 @@ const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) :
 
 const IMAGE_W = width * 0.65;
 const IMAGE_H = IMAGE_W * 2;
-const CIRCLE_SIZE = width * 1.4;
 
 function ArrowLeft() {
-  return <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><Line x1="19" y1="12" x2="5" y2="12" /><Polyline points="12 19 5 12 12 5" /></Svg>;
+  return <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><Line x1="19" y1="12" x2="5" y2="12" /><Polyline points="12 19 5 12 12 5" /></Svg>;
 }
 function ArrowRight({ color = '#FFFFFF' }: { color?: string }) {
-  return <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><Line x1="5" y1="12" x2="19" y2="12" /><Polyline points="12 5 19 12 12 19" /></Svg>;
+  return <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><Line x1="5" y1="12" x2="19" y2="12" /><Polyline points="12 5 19 12 12 19" /></Svg>;
 }
 
 const SLIDES = [
@@ -72,10 +71,7 @@ export default function OnboardingScreen() {
         <Text style={s.skipText}>Skip</Text>
       </TouchableOpacity>
 
-      {/* Orange half-circle background */}
-      <View style={s.halfCircle} />
-
-      {/* Screenshot image — overlaps circle and dark area */}
+      {/* Image */}
       <Animated.View style={[s.imageWrap, { opacity: fade }]}>
         <Image source={current.image} style={s.image} resizeMode="contain" />
       </Animated.View>
@@ -90,13 +86,13 @@ export default function OnboardingScreen() {
         <Text style={s.desc}>{current.desc}</Text>
       </Animated.View>
 
-      {/* Bottom: arrows + dots */}
+      {/* Bottom nav */}
       <View style={s.bottom}>
         {index > 0 ? (
           <TouchableOpacity onPress={() => goTo(index - 1)} style={s.arrowBtnGray} activeOpacity={0.7}>
             <ArrowLeft />
           </TouchableOpacity>
-        ) : <View style={{ width: 48 }} />}
+        ) : <View style={{ width: 72 }} />}
 
         <View style={s.dots}>
           {SLIDES.map((_, i) => (
@@ -109,7 +105,6 @@ export default function OnboardingScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Last slide: full-width CTA */}
       {isLast && (
         <TouchableOpacity onPress={skip} style={s.cta} activeOpacity={0.9}>
           <Text style={s.ctaText}>Commencer</Text>
@@ -124,20 +119,11 @@ const s = StyleSheet.create({
   skipBtn: { position: 'absolute', top: statusBarH + 10, right: 24, zIndex: 10 },
   skipText: { fontSize: 15, fontWeight: '500', color: '#9CA3AF' },
 
-  halfCircle: {
-    position: 'absolute',
-    top: -(CIRCLE_SIZE * 0.5),
-    left: (width - CIRCLE_SIZE) / 2,
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: ACCENT,
-  },
-
   imageWrap: {
     alignItems: 'center',
-    marginTop: statusBarH + 30,
-    zIndex: 2,
+    marginTop: statusBarH + 35,
+    height: height * 0.4,
+    justifyContent: 'center',
   },
   image: {
     width: IMAGE_W,
@@ -145,18 +131,18 @@ const s = StyleSheet.create({
     borderRadius: 20,
   },
 
-  textWrap: { paddingHorizontal: 30, alignItems: 'center', marginTop: 20 },
-  title: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 30, marginBottom: 10 },
+  textWrap: { paddingHorizontal: width * 0.075, alignItems: 'center', marginTop: 30 },
+  title: { fontSize: 38, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 46, marginBottom: 22 },
   titleAccent: { color: ACCENT },
-  desc: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 21, maxWidth: 300 },
+  desc: { fontSize: 18, color: '#9CA3AF', textAlign: 'center', lineHeight: 26, maxWidth: width * 0.85 },
 
-  bottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 30, marginTop: 'auto', marginBottom: 16 },
+  bottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 30, marginTop: 'auto', marginBottom: 36 },
   dots: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2A2A2A' },
-  dotActive: { width: 24, backgroundColor: ACCENT },
-  arrowBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center' },
-  arrowBtnGray: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A2A2A' },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#2A2A2A' },
+  dotActive: { width: 30, height: 10, borderRadius: 5, backgroundColor: ACCENT },
+  arrowBtn: { width: 72, height: 72, borderRadius: 36, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center' },
+  arrowBtnGray: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A2A2A' },
 
-  cta: { marginHorizontal: 24, height: 52, borderRadius: 14, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
-  ctaText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  cta: { marginHorizontal: 24, height: 56, borderRadius: 16, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
+  ctaText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
 });
