@@ -24,17 +24,17 @@ function ArrowRight({ color = '#FFFFFF' }: { color?: string }) {
 
 const SLIDES = [
   {
-    image: require('../assets/images/onboarding/onboarding1.jpg'),
+    image: require('../assets/images/onboarding/onboarding1.png'),
     titleParts: [{ text: 'Tout gérer depuis un ' }, { text: 'seul endroit', accent: true }],
     desc: 'Suivez vos colis, calculez vos tarifs et gérez vos envois en quelques taps.',
   },
   {
-    image: require('../assets/images/onboarding/onboarding2.jpeg'),
+    image: require('../assets/images/onboarding/onboarding2.png'),
     titleParts: [{ text: 'Connaissez votre ' }, { text: 'prix', accent: true }, { text: ' à l\'avance' }],
     desc: 'Calculez le coût exact de votre envoi selon le poids et la destination, instantanément.',
   },
   {
-    image: require('../assets/images/onboarding/onboarding3.jpg'),
+    image: require('../assets/images/onboarding/onboarding3.png'),
     titleParts: [{ text: 'On achète ' }, { text: 'pour vous', accent: true }],
     desc: 'Pas de carte internationale ? Envoyez-nous le lien, on achète et on livre à votre porte.',
   },
