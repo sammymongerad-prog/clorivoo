@@ -242,6 +242,7 @@ export default function HomeScreen() {
           };
           const air = formatDep(airDeparture, 7, 500);
           const sea = formatDep(seaDeparture, 14, 8000);
+          const airAlmostFull = air.pct > 80;
           return (
             <View style={styles.section}>
               <View style={styles.sectionRow}>
@@ -249,38 +250,38 @@ export default function HomeScreen() {
                 <TouchableOpacity><Text style={styles.seeAll}>Voir calendrier →</Text></TouchableOpacity>
               </View>
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={[styles.card, { flex: 1, gap: 8 }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Plane size={16} color="#F97316" strokeWidth={2} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Avion</Text>
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{air.dateStr}</Text>
-                  <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
-                    <View style={{ width: `${Math.min(air.pct, 100)}%`, height: '100%', backgroundColor: air.pct > 80 ? '#F97316' : '#22C55E', borderRadius: 3 }} />
-                  </View>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: air.pct > 80 ? '#F97316' : '#22C55E' }}>{air.remaining.toFixed(0)} lbs restantes</Text>
-                  {air.pct > 80 ? (
-                    <View style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#EF4444' }}>Bientôt complet !</Text>
+                {/* AVION */}
+                <View style={[styles.card, { flex: 1, gap: 10, borderColor: airAlmostFull ? 'rgba(239,68,68,0.3)' : '#242424' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: '#F97316', alignItems: 'center', justifyContent: 'center' }}>
+                      <Plane size={14} color="#F97316" strokeWidth={2} />
                     </View>
-                  ) : (
-                    <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#22C55E' }}>Places disponibles</Text>
-                    </View>
-                  )}
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Avion</Text>
+                  </View>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>{air.dateStr}</Text>
+                  <View style={{ height: 4, backgroundColor: '#2A2A2A', borderRadius: 2, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.min(air.pct, 100)}%`, height: '100%', backgroundColor: airAlmostFull ? '#EF4444' : '#F97316', borderRadius: 2 }} />
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#F97316' }}>{air.remaining.toFixed(0)} lbs restantes</Text>
+                  <View style={{ backgroundColor: airAlmostFull ? 'rgba(239,68,68,0.12)' : 'rgba(249,115,22,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: airAlmostFull ? '#EF4444' : '#F97316' }}>{airAlmostFull ? 'Bientôt complet !' : 'Places disponibles'}</Text>
+                  </View>
                 </View>
-                <View style={[styles.card, { flex: 1, gap: 8 }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ship size={16} color="#22C55E" strokeWidth={2} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Bateau</Text>
+                {/* BATEAU */}
+                <View style={[styles.card, { flex: 1, gap: 10 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: '#6B7280', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ship size={14} color="#9CA3AF" strokeWidth={2} />
+                    </View>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Bateau</Text>
                   </View>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{sea.dateStr}</Text>
-                  <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
-                    <View style={{ width: `${Math.min(sea.pct, 100)}%`, height: '100%', backgroundColor: sea.pct > 80 ? '#F97316' : '#22C55E', borderRadius: 3 }} />
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>{sea.dateStr}</Text>
+                  <View style={{ height: 4, backgroundColor: '#2A2A2A', borderRadius: 2, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.min(sea.pct, 100)}%`, height: '100%', backgroundColor: '#22C55E', borderRadius: 2 }} />
                   </View>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#22C55E' }}>{sea.remaining.toFixed(0)} lbs restantes</Text>
-                  <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#22C55E' }}>Places disponibles</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#22C55E' }}>{sea.remaining.toFixed(0)} lbs restantes</Text>
+                  <View style={{ backgroundColor: 'rgba(34,197,94,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#22C55E' }}>Places disponibles</Text>
                   </View>
                 </View>
               </View>
@@ -400,20 +401,21 @@ export default function HomeScreen() {
               {branches.slice(0, 2).map((b, i) => {
                 const open = isBranchOpen(b);
                 const closeTime = getClosingTime(b);
+                const isFirst = i === 0;
                 return (
-                  <View key={b.id} style={{ paddingVertical: 14, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#1F1F1F' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: i === 0 ? 'rgba(249,115,22,0.12)' : '#2A2A2A', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
-                        <MapPin size={20} color={i === 0 ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
+                  <View key={b.id} style={{ paddingVertical: 16, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#1F1F1F' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                      <View style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: isFirst ? '#F97316' : '#4B5563', backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                        <MapPin size={20} color={isFirst ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>{b.name}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                      <View style={{ flex: 1, gap: 6 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{b.name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                           <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.2)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
                             <Text style={{ fontSize: 10, fontWeight: '700', color: open ? '#22C55E' : '#9CA3AF' }}>{open ? 'Ouvert maintenant' : 'Fermé'}</Text>
                           </View>
                           <Text style={{ fontSize: 11, color: '#6B7280' }}>
-                            {closeTime && open ? `Ferme à ${closeTime}` : ''}{b.distance ? ` · ${b.distance}` : ''}
+                            {closeTime && open ? `Ferme à ${closeTime}` : ''}{(b as any).distance ? ` · ${(b as any).distance}` : ''}
                           </Text>
                         </View>
                       </View>
@@ -422,7 +424,7 @@ export default function HomeScreen() {
                           if (b.latitude && b.longitude) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`);
                           else if (b.address) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`);
                         }}
-                        style={{ backgroundColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginTop: 2 }} activeOpacity={0.7}>
+                        style={{ backgroundColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 }} activeOpacity={0.7}>
                         <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFFFFF' }}>Itinéraire</Text>
                       </TouchableOpacity>
                     </View>
