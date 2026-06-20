@@ -281,7 +281,6 @@ export default function HomeScreen() {
             </View>
           );
         })()}
-        })()}
 
         {/* ─── SECTION 2: COLIS EN COURS ─── */}
         {activePackage && (() => {
