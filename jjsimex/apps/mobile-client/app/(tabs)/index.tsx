@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   FlatList, Dimensions, RefreshControl, Platform, StatusBar,
-  Modal, TextInput, KeyboardAvoidingView, Animated,
+  Modal, TextInput, KeyboardAvoidingView, Animated, PanResponder,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight } from 'lucide-react-native';
@@ -66,22 +66,33 @@ export default function HomeScreen() {
   const [bannerDot, setBannerDot] = useState(0);
   const [rateTabOpen, setRateTabOpen] = useState(false);
   const rateSlide = useRef(new Animated.Value(0)).current;
-  const rateScroll = useRef(new Animated.Value(0)).current;
+  const dragPos = useRef(new Animated.ValueXY({ x: width - 32, y: 300 })).current;
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const wasDragged = useRef(false);
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5,
+    onPanResponderGrant: () => {
+      wasDragged.current = false;
+      dragStartRef.current = { x: (dragPos.x as any)._value, y: (dragPos.y as any)._value };
+    },
+    onPanResponderMove: (_, g) => {
+      if (Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5) wasDragged.current = true;
+      dragPos.setValue({ x: dragStartRef.current.x + g.dx, y: dragStartRef.current.y + g.dy });
+    },
+    onPanResponderRelease: () => {
+      if (!wasDragged.current) {
+        toggleRateTab();
+      }
+    },
+  })).current;
 
   function toggleRateTab() {
     const toValue = rateTabOpen ? 0 : 1;
     setRateTabOpen(!rateTabOpen);
     Animated.spring(rateSlide, { toValue, useNativeDriver: true, tension: 80, friction: 12 }).start();
   }
-
-  useEffect(() => {
-    if (!rateTabOpen || !rates) return;
-    const loop = Animated.loop(
-      Animated.timing(rateScroll, { toValue: 1, duration: 8000, useNativeDriver: true })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [rateTabOpen, rates]);
 
   async function loadData() {
     if (!session?.user.id) return;
@@ -337,15 +348,17 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* FLOATING EXCHANGE RATE TAB */}
+      {/* FLOATING EXCHANGE RATE TAB — draggable */}
       {rates && (
-        <View style={styles.floatingWrap} pointerEvents="box-none">
-          <Animated.View style={[styles.floatingContainer, {
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={[styles.floatingWrap, { transform: dragPos.getTranslateTransform() }]}
+        >
+          <Animated.View style={[styles.floatingRow, {
             transform: [{ translateX: rateSlide.interpolate({ inputRange: [0, 1], outputRange: [0, -280] }) }],
           }]}>
-            {/* Panel */}
             <View style={styles.floatingPanel}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 12, gap: 0 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 12 }}>
                 {[
                   { currency: 'USD', value: rates.usd_to_htg?.toFixed(1), unit: 'HTG', up: true },
                   { currency: 'CAD', value: rates.cad_to_htg?.toFixed(1) ?? '—', unit: 'HTG', up: true },
@@ -363,13 +376,12 @@ export default function HomeScreen() {
                 ))}
               </ScrollView>
             </View>
-            {/* Tab handle */}
-            <TouchableOpacity onPress={toggleRateTab} style={styles.floatingTab} activeOpacity={0.85}>
+            <View style={styles.floatingTab}>
               <ArrowLeftRight size={16} color="#F97316" strokeWidth={2} />
               <Text style={styles.floatingTabText}>USD</Text>
-            </TouchableOpacity>
+            </View>
           </Animated.View>
-        </View>
+        </Animated.View>
       )}
     </View>
   );
@@ -419,8 +431,8 @@ const styles = StyleSheet.create({
   sheetCityText: { fontSize: 15, color: '#E5E7EB' },
   sheetConfirmBtn: { backgroundColor: '#F97316', borderRadius: 14, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   sheetConfirmText: { fontSize: 15, fontWeight: '700', color: '#0D0D0D' },
-  floatingWrap: { position: 'absolute', right: 0, top: '45%', zIndex: 100 },
-  floatingContainer: { flexDirection: 'row', alignItems: 'center', position: 'absolute', right: 0 },
+  floatingWrap: { position: 'absolute', left: 0, top: 0, zIndex: 100 },
+  floatingRow: { flexDirection: 'row', alignItems: 'center' },
   floatingTab: { width: 32, height: 80, backgroundColor: '#1A1A1A', borderLeftWidth: 2, borderLeftColor: '#F97316', borderTopLeftRadius: 12, borderBottomLeftRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 6 },
   floatingTabText: { fontSize: 10, fontWeight: '800', color: '#F97316', transform: [{ rotate: '-90deg' }] },
   floatingPanel: { width: 280, height: 80, backgroundColor: '#111827', borderTopLeftRadius: 16, borderBottomLeftRadius: 16, justifyContent: 'center', marginRight: -1 },
