@@ -19,6 +19,8 @@
     "./admin": "./admin.ts",
     "./shipping": "./shipping.ts",
     "./shopper": "./shopper.ts",
-    "./payments": "./payments.ts"
+    "./payments": "./payments.ts",
+    "./departures": "./departures.ts",
+    "./branches": "./branches.ts"
   }
 }

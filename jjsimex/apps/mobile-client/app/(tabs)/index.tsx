@@ -2,16 +2,19 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   FlatList, Dimensions, RefreshControl, Platform, StatusBar,
-  Modal, TextInput, KeyboardAvoidingView, Animated, PanResponder,
+  Modal, TextInput, KeyboardAvoidingView, Animated, PanResponder, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight } from 'lucide-react-native';
+import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
+import { getNextDepartures, ensureUpcomingDepartures } from '@jjsimex/supabase/departures';
+import { getActiveBranches, isBranchOpen, getClosingTime } from '@jjsimex/supabase/branches';
 import type { ExchangeRate } from '@jjsimex/supabase/shipping';
+import type { Departure } from '@jjsimex/supabase/departures';
+import type { Branch } from '@jjsimex/supabase/branches';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { PackageCard } from '@/components/ui/PackageCard';
 
 const { width } = Dimensions.get('window');
 
@@ -63,6 +66,9 @@ export default function HomeScreen() {
   const [activePackage, setActivePackage] = useState<Pkg>(null);
   const [recentPackages, setRecentPackages] = useState<Pkg[]>([]);
   const [rates, setRates] = useState<ExchangeRate | null>(null);
+  const [airDeparture, setAirDeparture] = useState<Departure | null>(null);
+  const [seaDeparture, setSeaDeparture] = useState<Departure | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [bannerDot, setBannerDot] = useState(0);
   const [rateTabOpen, setRateTabOpen] = useState(false);
   const rateSlide = useRef(new Animated.Value(0)).current;
@@ -102,6 +108,16 @@ export default function HomeScreen() {
       const active = pkgs.find((p: Pkg) => ['in_transit', 'arrived', 'ready_pickup', 'received_usa'].includes(p.status));
       setActivePackage(active ?? null);
       setRecentPackages(pkgs.slice(0, 3));
+    } catch {}
+    try {
+      await ensureUpcomingDepartures();
+      const { air, sea } = await getNextDepartures();
+      setAirDeparture(air);
+      setSeaDeparture(sea);
+    } catch {}
+    try {
+      const b = await getActiveBranches();
+      setBranches(b);
     } catch {}
   }
 
@@ -213,93 +229,204 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* COLIS ACTIF */}
-        {activePackage && (
+        {/* ─── SECTION 1: PROCHAIN DÉPART ─── */}
+        {(airDeparture || seaDeparture) && (
           <View style={styles.section}>
             <View style={styles.sectionRow}>
-              <Text style={styles.sectionTitle}>Colis en cours</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
+              <Text style={styles.sectionTitle}>Prochain départ</Text>
+              <TouchableOpacity><Text style={styles.seeAll}>Voir calendrier →</Text></TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() => router.push(`/colis/${activePackage.id}`)}
-              style={[styles.card, { borderColor: 'rgba(249,115,22,0.3)', borderWidth: 1 }]}
-              activeOpacity={0.85}
-            >
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 }}>
-                <View>
-                  <Text style={{ fontSize: 11, color: '#9CA3AF', letterSpacing: 0.5, textTransform: 'uppercase' }}>Tracking</Text>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#F97316', marginTop: 2 }}>{activePackage.tracking_number}</Text>
-                </View>
-                <StatusBadge status={activePackage.status} size="md" />
-              </View>
-              {/* Progress bar */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-                {STATUS_STEPS.map((step, i) => (
-                  <React.Fragment key={step}>
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: i <= stepIdx ? '#F97316' : '#2A2A2A' }} />
-                    {i < STATUS_STEPS.length - 1 && <View style={{ flex: 1, height: 2, backgroundColor: i < stepIdx ? '#F97316' : '#2A2A2A' }} />}
-                  </React.Fragment>
-                ))}
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                {STATUS_STEPS.map((step, i) => (
-                  <Text key={step} style={{ fontSize: 9, color: i <= stepIdx ? '#F97316' : '#6B7280', fontWeight: i === stepIdx ? '700' : '400', flex: 1, textAlign: i === 0 ? 'left' : i === STATUS_STEPS.length - 1 ? 'right' : 'center' }}>
-                    {STATUS_LABELS[step]}
-                  </Text>
-                ))}
-              </View>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {airDeparture && (() => {
+                const remaining = airDeparture.capacity_lbs - airDeparture.current_weight;
+                const pct = (airDeparture.current_weight / airDeparture.capacity_lbs) * 100;
+                const almostFull = pct > 80;
+                const d = new Date(airDeparture.departure_date);
+                const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][d.getDay()];
+                const monthName = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][d.getMonth()];
+                return (
+                  <View style={[styles.card, { flex: 1, gap: 8 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Plane size={16} color="#F97316" strokeWidth={2} />
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Avion</Text>
+                    </View>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{dayName} {d.getDate()} {monthName}</Text>
+                    <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
+                      <View style={{ width: `${Math.min(pct, 100)}%`, height: '100%', backgroundColor: almostFull ? '#F97316' : '#22C55E', borderRadius: 3 }} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: almostFull ? '#F97316' : '#22C55E' }}>{remaining.toFixed(0)} lbs restantes</Text>
+                    {almostFull && (
+                      <View style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#EF4444' }}>Bientôt complet !</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
+              {seaDeparture && (() => {
+                const remaining = seaDeparture.capacity_lbs - seaDeparture.current_weight;
+                const pct = (seaDeparture.current_weight / seaDeparture.capacity_lbs) * 100;
+                const d = new Date(seaDeparture.departure_date);
+                const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][d.getDay()];
+                const monthName = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][d.getMonth()];
+                return (
+                  <View style={[styles.card, { flex: 1, gap: 8 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ship size={16} color="#22C55E" strokeWidth={2} />
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Bateau</Text>
+                    </View>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{dayName} {d.getDate()} {monthName}</Text>
+                    <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
+                      <View style={{ width: `${Math.min(pct, 100)}%`, height: '100%', backgroundColor: pct > 80 ? '#F97316' : '#22C55E', borderRadius: 3 }} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#22C55E' }}>{remaining.toFixed(0)} lbs restantes</Text>
+                    <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#22C55E' }}>Places disponibles</Text>
+                    </View>
+                  </View>
+                );
+              })()}
+            </View>
           </View>
         )}
 
-        {/* RECENT PACKAGES */}
+        {/* ─── SECTION 2: COLIS EN COURS ─── */}
+        {activePackage && (() => {
+          const origin = activePackage.origin ?? 'Miami';
+          const dest = activePackage.destination_city ?? profile?.destination_city ?? '—';
+          const mode = activePackage.transport_mode === 'sea' ? '🚢 Bateau' : '✈️ Avion';
+          const weight = activePackage.weight_billed ?? activePackage.weight_real ?? '—';
+          const estimated = activePackage.estimated_delivery ?? null;
+          return (
+            <View style={styles.section}>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Colis en cours</Text>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
+              </View>
+              <View style={{ backgroundColor: '#F97316', borderRadius: 16, padding: 18, gap: 14 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Numéro de suivi</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>{activePackage.tracking_number}</Text>
+                  </View>
+                  <View style={{ backgroundColor: '#C2600A', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>{STATUS_LABELS[activePackage.status] ?? activePackage.status}</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>{origin}</Text>
+                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>→</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>{dest}</Text>
+                </View>
+                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{weight} lbs · {mode}</Text>
+                {/* Timeline */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+                  {STATUS_STEPS.slice(0, 4).map((step, i) => {
+                    const done = i <= stepIdx;
+                    const labels = ['Reçu', 'Transit', 'Arrivé', 'Livré'];
+                    return (
+                      <React.Fragment key={step}>
+                        <View style={{ alignItems: 'center', flex: 1 }}>
+                          <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: done ? '#FFFFFF' : 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' }}>
+                            {done && <Check size={12} color="#F97316" strokeWidth={3} />}
+                          </View>
+                          <Text style={{ fontSize: 9, color: done ? '#FFFFFF' : 'rgba(255,255,255,0.5)', marginTop: 4, fontWeight: done ? '700' : '400' }}>{labels[i]}</Text>
+                        </View>
+                        {i < 3 && <View style={{ flex: 1, height: 2, backgroundColor: i < stepIdx ? '#FFFFFF' : 'rgba(255,255,255,0.25)', marginBottom: 16 }} />}
+                      </React.Fragment>
+                    );
+                  })}
+                </View>
+                {estimated && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Calendar size={14} color="rgba(255,255,255,0.7)" strokeWidth={2} />
+                    <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Livraison estimée : {new Date(estimated).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+                  </View>
+                )}
+                <TouchableOpacity onPress={() => router.push(`/colis/${activePackage.id}`)} style={{ backgroundColor: '#FFFFFF', borderRadius: 12, height: 44, alignItems: 'center', justifyContent: 'center' }} activeOpacity={0.85}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#F97316' }}>Suivre en détail →</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })()}
+
+        {/* ─── SECTION 3: RÉCENTS ─── */}
         {recentPackages.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionRow}>
-              <Text style={styles.sectionTitle}>Expéditions récentes</Text>
+              <Text style={styles.sectionTitle}>Récents</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
             </View>
             <View style={styles.card}>
-              {recentPackages.map((pkg: Pkg) => (
-                <PackageCard
-                  key={pkg.id}
-                  pkg={pkg}
-                  variant="compact"
-                  onPress={() => router.push(`/colis/${pkg.id}`)}
-                />
-              ))}
+              {recentPackages.map((pkg: Pkg, i: number) => {
+                const statusColors: Record<string, { bg: string; text: string }> = {
+                  received_usa: { bg: 'rgba(156,163,175,0.2)', text: '#9CA3AF' },
+                  in_transit: { bg: 'rgba(249,115,22,0.15)', text: '#F97316' },
+                  arrived: { bg: 'rgba(59,130,246,0.15)', text: '#3B82F6' },
+                  ready_pickup: { bg: 'rgba(249,115,22,0.15)', text: '#F97316' },
+                  delivered: { bg: 'rgba(34,197,94,0.15)', text: '#22C55E' },
+                };
+                const sc = statusColors[pkg.status] ?? statusColors.received_usa;
+                const desc = pkg.description ?? pkg.destination_city ?? '';
+                return (
+                  <TouchableOpacity key={pkg.id} onPress={() => router.push(`/colis/${pkg.id}`)} activeOpacity={0.7}
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#1F1F1F', gap: 12 }}>
+                    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }}>
+                      <Package size={18} color="#9CA3AF" strokeWidth={1.8} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{pkg.tracking_number}</Text>
+                      {desc ? <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }} numberOfLines={1}>{desc}</Text> : null}
+                    </View>
+                    <View style={{ backgroundColor: sc.bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: sc.text }}>
+                        {pkg.status === 'delivered' ? 'Livré ✓' : STATUS_LABELS[pkg.status] ?? pkg.status}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         )}
 
-        {/* FIDÉLITÉ */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Niveau fidélité</Text>
-          <View style={styles.card}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>{LOYALTY_LABELS[loyalty] ?? loyalty}</Text>
-              <Text style={{ fontSize: 13, color: '#F97316', fontWeight: '600' }}>{LOYALTY_PCT[loyalty] ?? 0}%</Text>
-            </View>
-            <View style={{ height: 8, backgroundColor: '#2A2A2A', borderRadius: 4, overflow: 'hidden' }}>
-              <View style={{ width: `${LOYALTY_PCT[loyalty] ?? 0}%`, height: '100%', backgroundColor: '#F97316', borderRadius: 4 }} />
-            </View>
-            <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 8 }}>Continuez à expédier pour passer au niveau suivant</Text>
-          </View>
-        </View>
-
-        {/* PARRAINAGE */}
-        {profile?.referral_code && (
+        {/* ─── SECTION 4: NOS SUCCURSALES ─── */}
+        {branches.length > 0 && (
           <View style={[styles.section, { marginBottom: 30 }]}>
-            <Text style={styles.sectionTitle}>Référer un ami</Text>
-            <View style={[styles.card, { alignItems: 'center', gap: 12 }]}>
-              <Text style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center' }}>Partagez votre code et gagnez des réductions</Text>
-              <View style={{ backgroundColor: '#0D0D0D', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12, borderWidth: 1, borderColor: '#2A2A2A' }}>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: '#F97316', letterSpacing: 3 }}>{profile.referral_code}</Text>
-              </View>
-              <TouchableOpacity style={{ backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <Text style={{ fontSize: 14 }}>📤</Text>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF' }}>Partager via WhatsApp</Text>
-              </TouchableOpacity>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>Nos succursales</Text>
+              <TouchableOpacity><Text style={styles.seeAll}>Voir la carte →</Text></TouchableOpacity>
+            </View>
+            <View style={styles.card}>
+              {branches.slice(0, 2).map((b, i) => {
+                const open = isBranchOpen(b);
+                const closeTime = getClosingTime(b);
+                return (
+                  <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#1F1F1F', gap: 12 }}>
+                    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: i === 0 ? 'rgba(249,115,22,0.12)' : '#2A2A2A', alignItems: 'center', justifyContent: 'center' }}>
+                      <MapPin size={18} color={i === 0 ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{b.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                        <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.2)', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 9, fontWeight: '700', color: open ? '#22C55E' : '#9CA3AF' }}>{open ? 'Ouvert' : 'Fermé'}</Text>
+                        </View>
+                        {closeTime && open ? <Text style={{ fontSize: 11, color: '#6B7280' }}>Ferme à {closeTime}</Text> : null}
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (b.latitude && b.longitude) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`);
+                        else if (b.address) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`);
+                      }}
+                      style={{ backgroundColor: '#2A2A2A', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }} activeOpacity={0.7}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF' }}>Itinéraire</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
