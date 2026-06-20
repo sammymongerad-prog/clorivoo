@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const { mergeConfig } = require('metro-config');
 const path = require('path');
 
 const projectRoot = __dirname;
@@ -12,26 +13,31 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
-// Force a SINGLE copy of react-native and react to avoid duplicate-module
-// crashes (e.g. "RCTScrollView must be a function (received undefined)").
-// The monorepo root has react-native 0.74.1 but Expo SDK 51 needs 0.74.5
-// which lives in the app's own node_modules.
 config.resolver.extraNodeModules = {
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
   'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context'),
   react: path.resolve(monorepoRoot, 'node_modules/react'),
 };
 
-// Block the root-level react-native (0.74.1) so Metro never resolves it.
-// Only the app's own copy (0.74.5) should be used.
+function escapeForRegex(p) {
+  return p.replace(/[/\\]/g, '[/\\\\]');
+}
+
 const rootRN = path.resolve(monorepoRoot, 'node_modules/react-native');
 const rootSAC = path.resolve(monorepoRoot, 'node_modules/react-native-safe-area-context');
-// Anchor with a trailing path-separator so we ONLY block .../node_modules/react-native/...
-// and never sibling packages like react-native-url-polyfill.
-config.resolver.blockList = [
-  ...(config.resolver.blockList ? [config.resolver.blockList] : []),
-  new RegExp(rootRN.replace(/[/\\]/g, '[/\\\\]') + '[/\\\\]'),
-  new RegExp(rootSAC.replace(/[/\\]/g, '[/\\\\]') + '[/\\\\]'),
+
+const blockPatterns = [
+  new RegExp(escapeForRegex(rootRN) + '[/\\\\].*'),
+  new RegExp(escapeForRegex(rootSAC) + '[/\\\\].*'),
 ];
+
+const existingBlockList = config.resolver.blockList;
+if (existingBlockList instanceof RegExp) {
+  blockPatterns.unshift(existingBlockList);
+} else if (Array.isArray(existingBlockList)) {
+  blockPatterns.unshift(...existingBlockList);
+}
+
+config.resolver.blockList = blockPatterns;
 
 module.exports = config;
