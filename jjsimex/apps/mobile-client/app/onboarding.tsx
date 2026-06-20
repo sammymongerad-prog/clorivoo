@@ -11,7 +11,7 @@ const ACCENT = '#F97316';
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
 const IMAGE_W = width * 0.75;
-const IMAGE_H = height * 0.45;
+const IMAGE_H = height * 0.44;
 
 function ArrowLeft() {
   return <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><Line x1="19" y1="12" x2="5" y2="12" /><Polyline points="12 19 5 12 12 5" /></Svg>;
@@ -121,7 +121,7 @@ const s = StyleSheet.create({
 
   imageWrap: {
     alignItems: 'center',
-    marginTop: statusBarH + 50,
+    marginTop: statusBarH + 6,
   },
   image: {
     width: IMAGE_W,
@@ -129,10 +129,10 @@ const s = StyleSheet.create({
     borderRadius: 20,
   },
 
-  textWrap: { paddingHorizontal: width * 0.075, alignItems: 'center', marginTop: 24 },
-  title: { fontSize: 38, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 46, marginBottom: 22 },
+  textWrap: { paddingHorizontal: width * 0.075, alignItems: 'center', marginTop: 20 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 36, marginBottom: 14 },
   titleAccent: { color: ACCENT },
-  desc: { fontSize: 18, color: '#9CA3AF', textAlign: 'center', lineHeight: 26, maxWidth: width * 0.85 },
+  desc: { fontSize: 15, color: '#9CA3AF', textAlign: 'center', lineHeight: 22, maxWidth: width * 0.85 },
 
   bottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 30, marginTop: 'auto', marginBottom: 36 },
   dots: { flexDirection: 'row', alignItems: 'center', gap: 8 },
