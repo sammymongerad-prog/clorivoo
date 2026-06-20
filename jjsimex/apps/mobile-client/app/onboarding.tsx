@@ -10,10 +10,8 @@ const { width, height } = Dimensions.get('window');
 const ACCENT = '#F97316';
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
-const PHONE_W = width * 0.62;
-const PHONE_H = PHONE_W * 1.95;
-const BEZEL = 8;
-const SCREEN_RADIUS = 28;
+const MOCKUP_W = width * 0.72;
+const MOCKUP_H = MOCKUP_W * 1.8;
 
 function ArrowLeft() {
   return <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><Line x1="19" y1="12" x2="5" y2="12" /><Polyline points="12 19 5 12 12 5" /></Svg>;
@@ -73,14 +71,9 @@ export default function OnboardingScreen() {
         <Text style={s.skipText}>Skip</Text>
       </TouchableOpacity>
 
-      {/* Phone mockup */}
-      <Animated.View style={[s.phoneOuter, { opacity: fade }]}>
-        {/* Notch */}
-        <View style={s.notch} />
-        {/* Screen */}
-        <View style={s.phoneScreen}>
-          <Image source={current.image} style={s.screenImage} resizeMode="cover" />
-        </View>
+      {/* Mockup image */}
+      <Animated.View style={[s.mockupWrap, { opacity: fade }]}>
+        <Image source={current.image} style={s.mockupImage} resizeMode="contain" />
       </Animated.View>
 
       {/* Text */}
@@ -127,39 +120,15 @@ const s = StyleSheet.create({
   skipBtn: { position: 'absolute', top: statusBarH + 10, right: 24, zIndex: 10 },
   skipText: { fontSize: 15, fontWeight: '500', color: '#9CA3AF' },
 
-  phoneOuter: {
-    width: PHONE_W + BEZEL * 2,
-    height: PHONE_H + BEZEL * 2,
-    backgroundColor: '#1A1A1A',
-    borderRadius: SCREEN_RADIUS + BEZEL,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    padding: BEZEL,
+  mockupWrap: {
     alignSelf: 'center',
-    marginTop: statusBarH + 20,
-    overflow: 'hidden',
-  },
-  notch: {
-    position: 'absolute',
-    top: BEZEL,
-    alignSelf: 'center',
-    left: (PHONE_W + BEZEL * 2 - 80) / 2,
-    width: 80,
-    height: 22,
-    backgroundColor: '#1A1A1A',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    zIndex: 5,
-  },
-  phoneScreen: {
+    marginTop: 20,
     flex: 1,
-    borderRadius: SCREEN_RADIUS,
-    overflow: 'hidden',
-    backgroundColor: '#0D0D0D',
   },
-  screenImage: {
-    width: '100%',
-    height: '100%',
+  mockupImage: {
+    width: MOCKUP_W,
+    height: MOCKUP_H,
+    borderRadius: 20,
   },
 
   textWrap: { paddingHorizontal: 30, alignItems: 'center', marginTop: 32 },
