@@ -18,17 +18,20 @@ config.resolver.nodeModulesPaths = [
 // which lives in the app's own node_modules.
 config.resolver.extraNodeModules = {
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+  'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context'),
   react: path.resolve(monorepoRoot, 'node_modules/react'),
 };
 
 // Block the root-level react-native (0.74.1) so Metro never resolves it.
 // Only the app's own copy (0.74.5) should be used.
 const rootRN = path.resolve(monorepoRoot, 'node_modules/react-native');
+const rootSAC = path.resolve(monorepoRoot, 'node_modules/react-native-safe-area-context');
 // Anchor with a trailing path-separator so we ONLY block .../node_modules/react-native/...
 // and never sibling packages like react-native-url-polyfill.
 config.resolver.blockList = [
   ...(config.resolver.blockList ? [config.resolver.blockList] : []),
   new RegExp(rootRN.replace(/[/\\]/g, '[/\\\\]') + '[/\\\\]'),
+  new RegExp(rootSAC.replace(/[/\\]/g, '[/\\\\]') + '[/\\\\]'),
 ];
 
 module.exports = config;
