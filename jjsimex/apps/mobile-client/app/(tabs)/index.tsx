@@ -408,9 +408,11 @@ export default function HomeScreen() {
                           <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.2)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
                             <Text style={{ fontSize: 10, fontWeight: '700', color: open ? '#22C55E' : '#9CA3AF' }}>{open ? 'Ouvert maintenant' : 'Fermé'}</Text>
                           </View>
-                          <Text style={{ fontSize: 11, color: '#6B7280' }}>
-                            {closeTime && open ? `Ferme à ${closeTime}` : ''}{(b as any).distance ? ` · ${(b as any).distance}` : ''}
-                          </Text>
+                          {(closeTime && open) || (b as any).distance ? (
+                            <Text style={{ fontSize: 11, color: '#6B7280' }}>
+                              {closeTime && open ? `Ferme à ${closeTime}` : ''}{(b as any).distance ? ` · ${(b as any).distance}` : ''}
+                            </Text>
+                          ) : null}
                         </View>
                       </View>
                       <TouchableOpacity
