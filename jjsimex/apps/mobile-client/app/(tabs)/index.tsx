@@ -26,10 +26,12 @@ const STORIES = [
   { Icon: Gift, label: 'Parrainage', unread: false },
 ];
 
+const BANNER_W = width * 0.88;
+const BANNER_GAP = 12;
 const BANNERS = [
-  { bg: '#1E1B4B', title: '15% de réduction\nsur le mode bateau', sub: 'Offre limitée — expire bientôt', cta: 'En profiter', ctaBg: '#FFFFFF', ctaColor: '#1E1B4B' },
-  { bg: '#14532D', title: 'Nouvelle destination\nPunta Cana', sub: 'Livraisons disponibles dès maintenant', cta: 'Découvrir', ctaBg: '#FFFFFF', ctaColor: '#14532D' },
-  { bg: '#7C2D12', title: 'Personal Shopper\ngratuit ce weekend', sub: 'Frais offerts pour toute commande +$50', cta: 'Commander', ctaBg: '#FFFFFF', ctaColor: '#7C2D12' },
+  require('../../assets/images/banner/banner1.png'),
+  require('../../assets/images/banner/banner2.png'),
+  require('../../assets/images/banner/banner3.png'),
 ];
 
 const QUICK_ACTIONS = [
@@ -193,18 +195,15 @@ export default function HomeScreen() {
         <FlatList
           data={BANNERS}
           horizontal
-          pagingEnabled
           showsHorizontalScrollIndicator={false}
           keyExtractor={(_, i) => String(i)}
-          onMomentumScrollEnd={e => setBannerDot(Math.round(e.nativeEvent.contentOffset.x / (width - 48)))}
-          style={{ marginHorizontal: 20 }}
+          snapToInterval={BANNER_W + BANNER_GAP}
+          decelerationRate="fast"
+          onMomentumScrollEnd={e => setBannerDot(Math.round(e.nativeEvent.contentOffset.x / (BANNER_W + BANNER_GAP)))}
+          contentContainerStyle={{ paddingHorizontal: 20 }}
           renderItem={({ item }) => (
-            <View style={[styles.banner, { backgroundColor: item.bg, width: width - 48 }]}>
-              <Text style={styles.bannerTitle}>{item.title}</Text>
-              <Text style={styles.bannerSub}>{item.sub}</Text>
-              <TouchableOpacity style={[styles.bannerBtn, { backgroundColor: item.ctaBg }]} activeOpacity={0.85}>
-                <Text style={[styles.bannerBtnText, { color: item.ctaColor }]}>{item.cta}</Text>
-              </TouchableOpacity>
+            <View style={{ width: BANNER_W, height: 140, borderRadius: 16, overflow: 'hidden', marginRight: BANNER_GAP }}>
+              <Image source={item} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
             </View>
           )}
         />
@@ -566,11 +565,6 @@ const styles = StyleSheet.create({
   storyCircle: { width: 68, height: 68, borderRadius: 34, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#2A2A2A' },
   storyCircleActive: { borderColor: '#F97316' },
   storyLabel: { fontSize: 12, color: '#9CA3AF', fontWeight: '600' },
-  banner: { borderRadius: 16, padding: 20, marginRight: 12 },
-  bannerTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 6, lineHeight: 24 },
-  bannerSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
-  bannerBtn: { alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 99 },
-  bannerBtnText: { fontSize: 13, fontWeight: '700' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2A2A2A' },
   dotActive: { width: 18, backgroundColor: '#F97316' },
