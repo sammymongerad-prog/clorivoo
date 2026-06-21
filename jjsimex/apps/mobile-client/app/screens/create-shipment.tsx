@@ -13,7 +13,6 @@ import {
   Smartphone, Laptop, Shirt, Footprints, Cpu, Home, Sparkles, MoreHorizontal,
   Plane, Ship, CheckCircle, Copy, ChevronDown, Camera, AlertTriangle, X,
 } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
 import { getClient } from '@jjsimex/supabase/client';
 
@@ -101,13 +100,18 @@ export default function CreateShipmentScreen() {
   const total = selectedPrice + insurance;
 
   async function pickPhoto(setter: (uri: string | null) => void) {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-      allowsEditing: true,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setter(result.assets[0].uri);
+    try {
+      const ImagePicker = require('expo-image-picker');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+        allowsEditing: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setter(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert('Non disponible', 'La sélection de photos nécessite un development build. Les photos pourront être ajoutées ultérieurement.');
     }
   }
 
