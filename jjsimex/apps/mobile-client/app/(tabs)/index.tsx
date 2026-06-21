@@ -2,10 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   FlatList, Dimensions, RefreshControl, Platform, StatusBar,
-  Modal, TextInput, KeyboardAvoidingView, Animated, PanResponder, Linking,
+  Modal, TextInput, KeyboardAvoidingView, Animated, PanResponder, Linking, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight } from 'lucide-react-native';
+import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight, Truck, Sparkles } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
@@ -226,6 +226,59 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+
+        {/* ─── NOUVEAUTÉS ─── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Nouveautés</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+            {/* Card 1: Nouveaux Services */}
+            <View style={{ width: 200, height: 220, borderRadius: 16, backgroundColor: '#F97316', overflow: 'hidden', justifyContent: 'flex-end' }}>
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                <Sparkles size={48} color="rgba(255,255,255,0.3)" strokeWidth={1.5} />
+              </View>
+              <View style={{ padding: 16 }}>
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#FFFFFF' }}>NOUVEAU</Text>
+                </View>
+                <Text style={{ fontSize: 17, fontWeight: '800', color: '#FFFFFF', lineHeight: 22 }}>Nouveaux Services{'\n'}Disponibles</Text>
+              </View>
+            </View>
+
+            {/* Card 2: Pickup */}
+            <View style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }}>
+              <View style={{ height: 160, position: 'relative' }}>
+                <Image source={require('../../assets/images/options/pickup.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                <View style={{ position: 'absolute', bottom: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ backgroundColor: '#F97316', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Truck size={12} color="#FFFFFF" strokeWidth={2.5} />
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFFFFF' }}>PICKUP</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={{ padding: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF', marginBottom: 4 }}>Service</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Pickup à domicile</Text>
+              </View>
+            </View>
+
+            {/* Card 3: Drop-off */}
+            <View style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }}>
+              <View style={{ height: 160, position: 'relative' }}>
+                <Image source={require('../../assets/images/options/dropoff.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                <View style={{ position: 'absolute', bottom: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ backgroundColor: '#F97316', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MapPinned size={12} color="#FFFFFF" strokeWidth={2.5} />
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFFFFF' }}>DROP-OFF</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={{ padding: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF', marginBottom: 4 }}>Service</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Points de dépôt</Text>
+              </View>
+            </View>
+          </ScrollView>
         </View>
 
         {/* ─── SECTION 1: PROCHAIN DÉPART ─── */}
