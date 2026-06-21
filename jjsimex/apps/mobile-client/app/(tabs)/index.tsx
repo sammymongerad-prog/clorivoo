@@ -5,7 +5,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Animated, PanResponder, Linking, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight, Truck } from 'lucide-react-native';
+import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
@@ -243,9 +243,8 @@ export default function HomeScreen() {
 
             {/* Card 2: Pickup */}
             <View style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }}>
-              <View style={{ height: 160, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#C2600A', opacity: 0.3 }} />
-                <Truck size={48} color="#FFFFFF" strokeWidth={1.8} />
+              <View style={{ height: 160 }}>
+                <Image source={require('../../assets/images/options/pickup.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               </View>
               <View style={{ padding: 12 }}>
                 <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF', marginBottom: 4 }}>Service</Text>
@@ -255,9 +254,8 @@ export default function HomeScreen() {
 
             {/* Card 3: Drop-off */}
             <View style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }}>
-              <View style={{ height: 160, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#C2600A', opacity: 0.3 }} />
-                <MapPinned size={48} color="#FFFFFF" strokeWidth={1.8} />
+              <View style={{ height: 160 }}>
+                <Image source={require('../../assets/images/options/dropoff.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               </View>
               <View style={{ padding: 12 }}>
                 <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF', marginBottom: 4 }}>Service</Text>
