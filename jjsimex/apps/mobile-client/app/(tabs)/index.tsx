@@ -35,10 +35,10 @@ const BANNERS = [
 ];
 
 const QUICK_ACTIONS = [
-  { Icon: Package, label: 'Tracker un colis', route: '/(tabs)/colis' },
+  { Icon: Package, label: 'Tracker un colis', route: '/(tabs)/colis', darkIcon: true },
   { Icon: ShoppingCart, label: 'Personal Shopper', route: '/screens/personal-shopper' },
   { Icon: Calculator, label: 'Calculateur', route: '/screens/calculateur' },
-  { Icon: MapPinned, label: 'Mes adresses US', route: '/screens/adresses-us' },
+  { Icon: MapPinned, label: 'Mes adresses US', route: '/screens/adresses-us', darkIcon: true },
 ];
 
 const CITY_SECTIONS = [
@@ -218,7 +218,7 @@ export default function HomeScreen() {
           <View style={styles.quickGrid}>
             {QUICK_ACTIONS.map((a, i) => (
               <TouchableOpacity key={i} onPress={() => router.push(a.route as never)} style={styles.quickCard} activeOpacity={0.8}>
-                <View style={styles.quickIconWrap}>
+                <View style={[styles.quickIconWrap, a.darkIcon && { backgroundColor: '#1A1A1A' }]}>
                   <a.Icon size={22} color="#F97316" strokeWidth={1.8} />
                 </View>
                 <Text style={styles.quickLabel}>{a.label}</Text>
