@@ -2,6 +2,7 @@
 export * from './shipping';
 export * from './shopper';
 export * from './packages';
+export * from './pickup';
 export * from './payments';
 export * from './push';
 export * from './emails';

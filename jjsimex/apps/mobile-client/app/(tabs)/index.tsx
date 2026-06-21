@@ -241,7 +241,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Card 2: Pickup */}
-            <View style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }}>
+            <TouchableOpacity onPress={() => router.push('/screens/pickup')} style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }} activeOpacity={0.85}>
               <View style={{ height: 160 }}>
                 <Image source={require('../../assets/images/options/pickup.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               </View>
@@ -249,7 +249,7 @@ export default function HomeScreen() {
                 <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF', marginBottom: 4 }}>Service</Text>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Pickup à domicile</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Card 3: Drop-off */}
             <View style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }}>
