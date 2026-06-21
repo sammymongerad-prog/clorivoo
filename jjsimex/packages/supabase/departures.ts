@@ -2,13 +2,13 @@ import { getClient } from './client';
 
 export interface Departure {
   id: string;
-  transport_mode: 'air' | 'sea';
+  type: 'air' | 'sea';
   departure_date: string;
   origin: string;
-  destination_country: string;
-  status: 'open' | 'full' | 'departed' | 'arrived';
+  destinations: string[];
+  status: 'open' | 'closed' | 'departed' | 'arrived';
   capacity_lbs: number;
-  current_weight: number;
+  used_capacity_lbs: number;
   created_at: string;
 }
 
@@ -23,8 +23,8 @@ export async function getNextDepartures(): Promise<{ air: Departure | null; sea:
     .order('departure_date', { ascending: true });
 
   const departures = (data ?? []) as Departure[];
-  const air = departures.find(d => d.transport_mode === 'air') ?? null;
-  const sea = departures.find(d => d.transport_mode === 'sea') ?? null;
+  const air = departures.find(d => d.type === 'air') ?? null;
+  const sea = departures.find(d => d.type === 'sea') ?? null;
 
   return { air, sea };
 }
@@ -43,32 +43,32 @@ export async function ensureUpcomingDepartures(): Promise<void> {
     .lte('departure_date', futureDate);
 
   const existing = data ?? [];
-  const hasAir = existing.some((d: any) => d.transport_mode === 'air');
-  const hasSea = existing.some((d: any) => d.transport_mode === 'sea');
+  const hasAir = existing.some((d: any) => d.type === 'air');
+  const hasSea = existing.some((d: any) => d.type === 'sea');
 
   const inserts: any[] = [];
 
   if (!hasAir) {
     inserts.push({
-      transport_mode: 'air',
+      type: 'air',
       departure_date: futureDate,
       origin: 'Miami, FL',
-      destination_country: 'haiti',
+      destinations: ['Port-au-Prince', 'Cap-Haïtien'],
       status: 'open',
       capacity_lbs: 500,
-      current_weight: 0,
+      used_capacity_lbs: 0,
     });
   }
 
   if (!hasSea) {
     inserts.push({
-      transport_mode: 'sea',
+      type: 'sea',
       departure_date: futureDate,
       origin: 'Miami, FL',
-      destination_country: 'haiti',
+      destinations: ['Port-au-Prince', 'Cap-Haïtien'],
       status: 'open',
       capacity_lbs: 8000,
-      current_weight: 0,
+      used_capacity_lbs: 0,
     });
   }
 

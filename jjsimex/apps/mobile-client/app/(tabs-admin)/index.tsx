@@ -210,14 +210,14 @@ export default function AdminDashboard() {
               <View style={s.alertRow}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={s.alertTitle}>Vol presque complet</Text>
-                  <Text style={s.alertSub}>{air.current_weight} / {air.capacity_lbs} lbs restantes</Text>
+                  <Text style={s.alertSub}>{(air.used_capacity_lbs ?? air.current_weight ?? 0)} / {air.capacity_lbs} lbs restantes</Text>
                 </View>
                 <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85}>
                   <Text style={s.alertBtnOrangeText}>Gérer →</Text>
                 </TouchableOpacity>
               </View>
               <View style={s.progressBg}>
-                <View style={[s.progressFill, { width: `${Math.min((air.current_weight / air.capacity_lbs) * 100, 100)}%`, backgroundColor: ACCENT }]} />
+                <View style={[s.progressFill, { width: `${Math.min(((air.used_capacity_lbs ?? air.current_weight ?? 0) / air.capacity_lbs) * 100, 100)}%`, backgroundColor: ACCENT }]} />
               </View>
             </View>
           )}
@@ -267,12 +267,12 @@ export default function AdminDashboard() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
                     <Text style={s.colisMeta}>{pkg.weight ? pkg.weight + ' lbs' : '—'}</Text>
                     <Text style={s.colisMeta}>—</Text>
-                    {pkg.transport_mode === 'air' ? (
+                    {(pkg.transport_mode ?? pkg.type) === 'air' ? (
                       <Plane size={11} color="#9CA3AF" strokeWidth={1.8} />
                     ) : (
                       <Ship size={11} color="#9CA3AF" strokeWidth={1.8} />
                     )}
-                    <Text style={s.colisMeta}>{pkg.transport_mode === 'air' ? 'Avion' : 'Bateau'}</Text>
+                    <Text style={s.colisMeta}>{(pkg.transport_mode ?? pkg.type) === 'air' ? 'Avion' : 'Bateau'}</Text>
                   </View>
                 </View>
                 <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
@@ -308,9 +308,9 @@ export default function AdminDashboard() {
                 {renderCapacityBadge(air)}
               </View>
               <View style={s.progressBg}>
-                <View style={[s.progressFillThick, { width: `${(air.current_weight / air.capacity_lbs) * 100}%`, backgroundColor: getCapacityColor(air) }]} />
+                <View style={[s.progressFillThick, { width: `${((air.used_capacity_lbs ?? air.current_weight ?? 0) / air.capacity_lbs) * 100}%`, backgroundColor: getCapacityColor(air) }]} />
               </View>
-              <Text style={s.capacityText}>{air.current_weight.toLocaleString()} / {air.capacity_lbs.toLocaleString()} lbs</Text>
+              <Text style={s.capacityText}>{(air.used_capacity_lbs ?? air.current_weight ?? 0).toLocaleString()} / {air.capacity_lbs.toLocaleString()} lbs</Text>
               <TouchableOpacity style={[s.departBtn, { backgroundColor: ACCENT }]} activeOpacity={0.85}>
                 <Text style={[s.departBtnText, { color: '#0D0D0D' }]}>Ajouter des colis</Text>
               </TouchableOpacity>
@@ -329,9 +329,9 @@ export default function AdminDashboard() {
                 {renderCapacityBadge(sea)}
               </View>
               <View style={s.progressBg}>
-                <View style={[s.progressFillThick, { width: `${(sea.current_weight / sea.capacity_lbs) * 100}%`, backgroundColor: getCapacityColor(sea) }]} />
+                <View style={[s.progressFillThick, { width: `${((sea.used_capacity_lbs ?? sea.current_weight ?? 0) / sea.capacity_lbs) * 100}%`, backgroundColor: getCapacityColor(sea) }]} />
               </View>
-              <Text style={s.capacityText}>{sea.current_weight.toLocaleString()} / {sea.capacity_lbs.toLocaleString()} lbs</Text>
+              <Text style={s.capacityText}>{(sea.used_capacity_lbs ?? sea.current_weight ?? 0).toLocaleString()} / {sea.capacity_lbs.toLocaleString()} lbs</Text>
               <TouchableOpacity style={[s.departBtn, { backgroundColor: '#2A2A2A' }]} activeOpacity={0.85}>
                 <Text style={[s.departBtnText, { color: '#FFFFFF' }]}>Ajouter des colis</Text>
               </TouchableOpacity>
@@ -380,7 +380,7 @@ function formatDate(d: string) {
 }
 
 function getCapacityColor(dep: any) {
-  const pct = (dep.current_weight / dep.capacity_lbs) * 100;
+  const pct = ((dep.used_capacity_lbs ?? dep.current_weight ?? 0) / (dep.capacity_lbs || 1)) * 100;
   if (pct >= 80) return '#EF4444';
   if (pct >= 50) return '#F97316';
   return '#22C55E';
