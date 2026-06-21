@@ -3,11 +3,13 @@ import {
   View, Text, StyleSheet, Animated, Easing,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ACCENT = '#F97316';
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { session, profile, loading } = useAuth();
   const logoFade = useRef(new Animated.Value(0)).current;
   const logoY = useRef(new Animated.Value(8)).current;
   const glowScale = useRef(new Animated.Value(1)).current;
@@ -40,10 +42,16 @@ export default function SplashScreen() {
       Animated.timing(loadX, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
     ).start();
 
-    // Navigate to onboarding after 2.5s
-    const timer = setTimeout(() => router.replace('/onboarding'), 8000);
+    const timer = setTimeout(() => {
+      if (!loading && session && profile) {
+        const isAdmin = profile.role === 'admin' || profile.role === 'super_admin' || profile.role === 'employee';
+        router.replace(isAdmin ? '/(tabs-admin)/' : '/(tabs-client)/');
+      } else {
+        router.replace('/onboarding');
+      }
+    }, 3000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [loading, session, profile]);
 
   return (
     <View style={s.container}>

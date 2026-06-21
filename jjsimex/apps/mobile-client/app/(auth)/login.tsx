@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, profile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -19,9 +19,10 @@ export default function LoginScreen() {
     if (!email || !password) { setError('Veuillez remplir tous les champs.'); return; }
     setError(''); setLoading(true);
     try {
-      const { error: err } = await signIn(email, password);
+      const { error: err, role } = await signIn(email, password);
       if (err) { setError(err); return; }
-      router.replace('/(tabs)/');
+      const isAdmin = role === 'admin' || role === 'super_admin' || role === 'employee';
+      router.replace(isAdmin ? '/(tabs-admin)/' : '/(tabs-client)/');
     } finally {
       setLoading(false);
     }

@@ -35,7 +35,7 @@ const BANNERS = [
 ];
 
 const QUICK_ACTIONS = [
-  { Icon: Package, label: 'Tracker un colis', route: '/(tabs)/colis', darkIcon: true },
+  { Icon: Package, label: 'Tracker un colis', route: '/(tabs-client)/colis', darkIcon: true },
   { Icon: ShoppingCart, label: 'Personal Shopper', route: '/screens/personal-shopper' },
   { Icon: Calculator, label: 'Calculateur', route: '/screens/calculateur' },
   { Icon: MapPinned, label: 'Mes adresses US', route: '/screens/adresses-us', darkIcon: true },
@@ -174,7 +174,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
           </View>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/notifications')} style={styles.bellBtn}>
+          <TouchableOpacity onPress={() => router.push('/(tabs-client)/notifications')} style={styles.bellBtn}>
             <Bell size={22} color="#FFFFFF" strokeWidth={1.8} />
             <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>3</Text></View>
           </TouchableOpacity>
@@ -330,7 +330,7 @@ export default function HomeScreen() {
             <View style={styles.section}>
               <View style={styles.sectionRow}>
                 <Text style={styles.sectionTitle}>Colis en cours</Text>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/(tabs-client)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
               </View>
               <View style={{ backgroundColor: '#F97316', borderRadius: 16, padding: 18, gap: 14 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -385,7 +385,7 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitle}>Récents</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/(tabs-client)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
             </View>
             <View style={styles.card}>
               {recentPackages.map((pkg: Pkg, i: number) => {

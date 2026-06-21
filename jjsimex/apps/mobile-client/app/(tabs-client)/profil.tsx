@@ -96,7 +96,7 @@ export default function ProfilScreen() {
         <Text style={S.sectionTitle}>Mon compte</Text>
         <View style={S.section}>
           <MenuItem icon="👤" label="Mes informations personnelles" sub="Nom, email, téléphone" />
-          <Sep /><MenuItem icon="📦" label="Historique des colis" sub="Toutes mes expéditions" onPress={() => router.push('/(tabs)/colis')} />
+          <Sep /><MenuItem icon="📦" label="Historique des colis" sub="Toutes mes expéditions" onPress={() => router.push('/(tabs-client)/colis')} />
           <Sep /><MenuItem icon="🛒" label="Personal Shopper" sub="Commandes en cours" onPress={() => router.push('/screens/personal-shopper')} />
           <Sep /><MenuItem icon="📍" label="Mes adresses US" sub="Miami + Boston" onPress={() => router.push('/screens/adresses-us')} />
           <Sep /><MenuItem icon="💳" label="Mes paiements" sub="MonCash, Zelle configurés" onPress={() => router.push('/paiements')} />

@@ -20,7 +20,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null; role?: string }>;
   signUp: (data: SignUpData) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: prof } = await supabase
       .from('users')
-      .select('is_blocked')
+      .select('is_blocked, role')
       .eq('id', data.user.id)
       .single();
 
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: "Votre compte a été suspendu. Contactez JJ's IMEX au +1 (305) 600-9364." };
     }
 
-    return { error: null };
+    return { error: null, role: prof?.role };
   }
 
   async function signUp(data: SignUpData) {

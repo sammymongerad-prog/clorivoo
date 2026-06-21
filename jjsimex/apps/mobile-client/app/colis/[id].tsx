@@ -226,22 +226,22 @@ export default function ColisDetailScreen() {
 
       {/* BOTTOM NAVIGATION */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs)/home')}>
+        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs-client)/home')}>
           <Text style={styles.navIcon}>🏠</Text>
           <Text style={styles.navLabel}>Accueil</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs)/colis')}>
+        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs-client)/colis')}>
           <Text style={{ fontSize: 22 }}>📦</Text>
           <Text style={[styles.navLabel, { color: '#F97316' }]}>Mes colis</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navBtnCenter}>
           <View style={styles.navFAB}><Text style={{ fontSize: 22 }}>⬛</Text></View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs)/colis')}>
+        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs-client)/colis')}>
           <Text style={styles.navIcon}>🔔</Text>
           <Text style={styles.navLabel}>Notifs</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs)/profil')}>
+        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/(tabs-client)/profil')}>
           <Text style={styles.navIcon}>👤</Text>
           <Text style={styles.navLabel}>Profil</Text>
         </TouchableOpacity>

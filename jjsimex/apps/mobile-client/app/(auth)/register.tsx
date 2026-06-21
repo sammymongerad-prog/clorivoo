@@ -34,7 +34,7 @@ export default function RegisterScreen() {
     try {
       const { error: err } = await signUp({ email, password, firstName, lastName, whatsapp: phone, destinationCountry: dest === 'HT' ? 'haiti' : 'dr', destinationCity: city || cities[0] });
       if (err) { setError(err); return; }
-      router.replace('/(tabs)/');
+      router.replace('/(tabs-client)/');
     } finally {
       setLoading(false);
     }
