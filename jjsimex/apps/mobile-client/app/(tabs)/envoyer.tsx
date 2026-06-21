@@ -1,5 +1,13 @@
-import { Redirect } from 'expo-router';
+import { useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { View } from 'react-native';
 
 export default function EnvoyerTab() {
-  return <Redirect href="/screens/create-shipment" />;
+  const router = useRouter();
+
+  useEffect(() => {
+    router.push('/screens/create-shipment');
+  }, []);
+
+  return <View style={{ flex: 1, backgroundColor: '#0D0D0D' }} />;
 }
