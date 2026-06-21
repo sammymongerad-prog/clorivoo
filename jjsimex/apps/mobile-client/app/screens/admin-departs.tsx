@@ -87,8 +87,8 @@ export default function AdminDeparts() {
   }
 
   function getCapacityPercent(d: Departure) {
-    if (d.capacity_lbs === 0) return 0;
-    return Math.min(100, Math.round((d.current_weight / d.capacity_lbs) * 100));
+    if (!d.capacity_lbs) return 0;
+    return Math.min(100, Math.round(((d.current_weight ?? 0) / d.capacity_lbs) * 100));
   }
 
   function getCapacityColor(pct: number) {
@@ -169,7 +169,7 @@ export default function AdminDeparts() {
                           <Text style={s.detailText}>Capacité</Text>
                         </View>
                         <Text style={[s.detailText, { color: capColor, fontWeight: '700' }]}>
-                          {d.current_weight.toFixed(0)} / {d.capacity_lbs} lbs ({pct}%)
+                          {(d.current_weight ?? 0).toFixed(0)} / {d.capacity_lbs ?? 0} lbs ({pct}%)
                         </Text>
                       </View>
                       <View style={s.progressBg}>
