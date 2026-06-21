@@ -9,11 +9,32 @@ import {
   ArrowLeft, ShoppingCart, ExternalLink, MapPin, Truck,
   DollarSign, Clock, CheckCircle, XCircle, Package,
 } from 'lucide-react-native';
-import {
-  getAllShopperRequests, sendQuote, markAsPurchased, markAsShipped,
-  cancelRequest, subscribeToRequests,
-} from '@jjsimex/supabase';
-import type { ShopperRequest, ShopperStatus } from '@jjsimex/supabase';
+import { supabase } from '@/lib/supabase';
+
+type ShopperStatus = 'pending' | 'quoted' | 'confirmed' | 'purchased' | 'shipped' | 'cancelled';
+
+interface ShopperRequest {
+  id: string;
+  request_number: string;
+  client_id: string;
+  product_url: string;
+  merchant: string;
+  quantity: number;
+  variant: string | null;
+  destination_city: string;
+  destination_country: string;
+  transport_mode: string;
+  estimated_price: number | null;
+  final_price: number | null;
+  shipping_cost: number | null;
+  total_price: number | null;
+  status: ShopperStatus;
+  notes: string | null;
+  admin_notes: string | null;
+  handled_by: string | null;
+  created_at: string;
+  client?: { full_name?: string; email?: string };
+}
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -47,9 +68,15 @@ export default function AdminPersonalShopper() {
 
   const fetchRequests = useCallback(async () => {
     try {
-      const filters = tab === 'all' ? {} : { status: tab as ShopperStatus };
-      const data = await getAllShopperRequests(filters);
-      setRequests(data);
+      let query = supabase
+        .from('personal_shopper')
+        .select('*, client:client_id(full_name, email)')
+        .order('created_at', { ascending: false });
+
+      if (tab !== 'all') query = query.eq('status', tab);
+
+      const { data } = await query;
+      setRequests((data ?? []) as ShopperRequest[]);
     } catch {}
     setLoading(false);
   }, [tab]);
@@ -57,8 +84,11 @@ export default function AdminPersonalShopper() {
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
   useEffect(() => {
-    const unsub = subscribeToRequests(() => fetchRequests());
-    return unsub;
+    const channel = supabase
+      .channel('shopper_rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_shopper' }, () => fetchRequests())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [fetchRequests]);
 
   async function onRefresh() {
@@ -75,7 +105,7 @@ export default function AdminPersonalShopper() {
         onPress: async (price) => {
           if (!price || isNaN(Number(price))) return;
           try {
-            await sendQuote(r.id, Number(price), profile!.id);
+            await supabase.from('personal_shopper').update({ final_price: Number(price), status: 'quoted', handled_by: profile!.id }).eq('id', r.id);
             fetchRequests();
           } catch (e: any) { Alert.alert('Erreur', e.message); }
         },
@@ -89,7 +119,7 @@ export default function AdminPersonalShopper() {
       {
         text: 'Oui', onPress: async () => {
           try {
-            await markAsPurchased(r.id, profile!.id);
+            await supabase.from('personal_shopper').update({ status: 'purchased', handled_by: profile!.id }).eq('id', r.id);
             fetchRequests();
           } catch (e: any) { Alert.alert('Erreur', e.message); }
         },
@@ -105,7 +135,7 @@ export default function AdminPersonalShopper() {
         onPress: async (tracking) => {
           if (!tracking?.trim()) return;
           try {
-            await markAsShipped(r.id, tracking.trim(), profile!.id);
+            await supabase.from('personal_shopper').update({ status: 'shipped', handled_by: profile!.id }).eq('id', r.id);
             fetchRequests();
           } catch (e: any) { Alert.alert('Erreur', e.message); }
         },
@@ -122,7 +152,7 @@ export default function AdminPersonalShopper() {
         onPress: async (reason) => {
           if (!reason?.trim()) return;
           try {
-            await cancelRequest(r.id, reason.trim(), profile!.id);
+            await supabase.from('personal_shopper').update({ status: 'cancelled', admin_notes: reason.trim(), handled_by: profile!.id }).eq('id', r.id);
             fetchRequests();
           } catch (e: any) { Alert.alert('Erreur', e.message); }
         },

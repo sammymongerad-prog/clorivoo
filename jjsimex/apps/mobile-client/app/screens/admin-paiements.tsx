@@ -9,11 +9,30 @@ import {
   ArrowLeft, DollarSign, CheckCircle, XCircle, Clock,
   CreditCard, TrendingUp, AlertTriangle,
 } from 'lucide-react-native';
-import {
-  getAllPayments, confirmPayment, refusePayment, getPaymentStats,
-  subscribeToPayments,
-} from '@jjsimex/supabase';
-import type { Payment, PaymentStatus, PaymentStats } from '@jjsimex/supabase';
+import { supabase } from '@/lib/supabase';
+
+type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'refunded';
+
+interface Payment {
+  id: string;
+  transaction_number: string;
+  user_id: string;
+  package_id: string;
+  amount: number;
+  method: string;
+  reference: string;
+  status: PaymentStatus;
+  confirmed_by?: string | null;
+  created_at: string;
+  user?: { full_name?: string; email?: string };
+  package?: { tracking_number?: string; destination_city?: string; total_price?: number };
+}
+
+interface PaymentStats {
+  total_revenue: number;
+  pending_amount: number;
+  confirmed_amount: number;
+}
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -52,13 +71,24 @@ export default function AdminPaiements() {
 
   const fetchData = useCallback(async () => {
     try {
-      const filters = tab === 'all' ? {} : { status: tab as PaymentStatus };
-      const [paymentsData, statsData] = await Promise.all([
-        getAllPayments(filters),
-        getPaymentStats('month'),
-      ]);
-      setPayments(paymentsData);
-      setStats(statsData);
+      let query = supabase
+        .from('payments')
+        .select('*, user:user_id(full_name, email), package:package_id(tracking_number, destination_city, total_price)')
+        .order('created_at', { ascending: false });
+
+      if (tab !== 'all') query = query.eq('status', tab);
+
+      const { data } = await query;
+      const all = (data ?? []) as Payment[];
+      setPayments(all);
+
+      const confirmed = all.filter(p => p.status === 'confirmed');
+      const pending = all.filter(p => p.status === 'pending');
+      setStats({
+        total_revenue: confirmed.reduce((s, p) => s + p.amount, 0),
+        pending_amount: pending.reduce((s, p) => s + p.amount, 0),
+        confirmed_amount: confirmed.reduce((s, p) => s + p.amount, 0),
+      });
     } catch {}
     setLoading(false);
   }, [tab]);
@@ -66,8 +96,11 @@ export default function AdminPaiements() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const unsub = subscribeToPayments(() => fetchData());
-    return unsub;
+    const channel = supabase
+      .channel('payments_rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 
   async function onRefresh() {
@@ -82,7 +115,7 @@ export default function AdminPaiements() {
       {
         text: 'Confirmer', onPress: async () => {
           try {
-            await confirmPayment(p.id, profile!.id);
+            await supabase.from('payments').update({ status: 'confirmed', confirmed_by: profile!.id, confirmed_at: new Date().toISOString() }).eq('id', p.id);
             fetchData();
           } catch (e: any) { Alert.alert('Erreur', e.message); }
         },
@@ -99,7 +132,7 @@ export default function AdminPaiements() {
         onPress: async (reason) => {
           if (!reason?.trim()) return;
           try {
-            await refusePayment(p.id, reason.trim(), profile!.id);
+            await supabase.from('payments').update({ status: 'failed', refused_reason: reason.trim() }).eq('id', p.id);
             fetchData();
           } catch (e: any) { Alert.alert('Erreur', e.message); }
         },
