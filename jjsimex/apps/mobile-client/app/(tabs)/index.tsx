@@ -155,6 +155,7 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
       <ScrollView
         style={styles.scroll}
+        contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F97316" />}
       >
