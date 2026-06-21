@@ -16,14 +16,16 @@ ALTER TABLE packages
 -- 4. Make tracking_number nullable (NULL while awaiting_arrival)
 ALTER TABLE packages ALTER COLUMN tracking_number DROP NOT NULL;
 
--- 5. Add category and description columns for client-created shipments
+-- 5. Add category, description, and photo columns for client-created shipments
 ALTER TABLE packages
   ADD COLUMN IF NOT EXISTS category TEXT,
   ADD COLUMN IF NOT EXISTS description TEXT,
   ADD COLUMN IF NOT EXISTS weight_estimated NUMERIC,
   ADD COLUMN IF NOT EXISTS receiver_first_name TEXT,
   ADD COLUMN IF NOT EXISTS receiver_last_name TEXT,
-  ADD COLUMN IF NOT EXISTS receiver_phone TEXT;
+  ADD COLUMN IF NOT EXISTS receiver_phone TEXT,
+  ADD COLUMN IF NOT EXISTS client_photo_1_url TEXT,
+  ADD COLUMN IF NOT EXISTS client_photo_2_url TEXT;
 
 -- 6. Generate request number function
 CREATE OR REPLACE FUNCTION generate_request_number()

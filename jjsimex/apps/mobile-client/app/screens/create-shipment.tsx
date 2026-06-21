@@ -11,8 +11,11 @@ import { calculateShipping, getDestinationCities } from '@jjsimex/supabase/shipp
 import { createShipmentRequest } from '@jjsimex/supabase/packages';
 import {
   Smartphone, Laptop, Shirt, Footprints, Cpu, Home, Sparkles, MoreHorizontal,
-  Plane, Ship, CheckCircle, Copy, ChevronDown,
+  Plane, Ship, CheckCircle, Copy, ChevronDown, Camera, AlertTriangle, X,
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
+import { getClient } from '@jjsimex/supabase/client';
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#F97316';
@@ -53,6 +56,8 @@ export default function CreateShipmentScreen() {
   const [destAddress, setDestAddress] = useState('');
   const [cities, setCities] = useState<{ haiti: string[]; dr: string[] }>({ haiti: [], dr: [] });
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [photo1, setPhoto1] = useState<string | null>(null);
+  const [photo2, setPhoto2] = useState<string | null>(null);
 
   // Step 3
   const [transport, setTransport] = useState<'air' | 'sea'>('air');
@@ -95,10 +100,41 @@ export default function CreateShipmentScreen() {
   const insurance = 3;
   const total = selectedPrice + insurance;
 
+  async function pickPhoto(setter: (uri: string | null) => void) {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      allowsEditing: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setter(result.assets[0].uri);
+    }
+  }
+
+  async function uploadPhoto(uri: string, index: number): Promise<string | null> {
+    try {
+      const ext = uri.split('.').pop() ?? 'jpg';
+      const fileName = `${session!.user.id}/${Date.now()}_photo${index}.${ext}`;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const { error } = await getClient().storage.from('shipment-photos').upload(fileName, blob, { contentType: `image/${ext}` });
+      if (error) return null;
+      const { data } = getClient().storage.from('shipment-photos').getPublicUrl(fileName);
+      return data.publicUrl;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleConfirm() {
     if (!session?.user?.id) return;
     setLoading(true);
     try {
+      let photo1Url: string | undefined;
+      let photo2Url: string | undefined;
+      if (photo1) photo1Url = (await uploadPhoto(photo1, 1)) ?? undefined;
+      if (photo2) photo2Url = (await uploadPhoto(photo2, 2)) ?? undefined;
+
       const result = await createShipmentRequest({
         client_id: session.user.id,
         category,
@@ -113,6 +149,8 @@ export default function CreateShipmentScreen() {
         receiver_last_name: receiverLast,
         receiver_phone: receiverPhone,
         quantity,
+        client_photo_1_url: photo1Url,
+        client_photo_2_url: photo2Url,
       });
       setRequestNumber(result.request_number);
       setRequestId(result.id);
@@ -221,6 +259,47 @@ export default function CreateShipmentScreen() {
                 <TouchableOpacity onPress={() => setQuantity(Math.max(1, quantity - 1))} style={s.stepperBtn}><Text style={s.stepperBtnText}>−</Text></TouchableOpacity>
                 <Text style={s.stepperVal}>{quantity}</Text>
                 <TouchableOpacity onPress={() => setQuantity(quantity + 1)} style={s.stepperBtn}><Text style={s.stepperBtnText}>+</Text></TouchableOpacity>
+              </View>
+
+              <View style={s.divider} />
+
+              <Text style={s.sectionTitle}>Photos du produit (optionnel)</Text>
+              <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 12, marginTop: -8 }}>
+                Une capture du produit ou de la confirmation de commande nous aide à identifier votre colis.
+              </Text>
+
+              <View style={s.warningBox}>
+                <AlertTriangle size={20} color={ACCENT} style={{ marginBottom: 6 }} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 }}>⚠️ Avant de prendre vos photos</Text>
+                <Text style={{ fontSize: 13, color: '#CCCCCC', lineHeight: 18 }}>
+                  Écrivez clairement VOTRE NOM et le NOM DU DESTINATAIRE sur le colis avant de le prendre en photo. Cela nous aide à identifier rapidement votre envoi à la réception et évite les erreurs de livraison.
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                {[{ photo: photo1, setPhoto: setPhoto1, label: 'Photo 1' }, { photo: photo2, setPhoto: setPhoto2, label: 'Photo 2' }].map((p, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={s.photoZone}
+                    onPress={() => pickPhoto(p.setPhoto)}
+                    activeOpacity={0.8}
+                  >
+                    {p.photo ? (
+                      <View style={{ flex: 1, width: '100%' }}>
+                        <Image source={{ uri: p.photo }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                        <TouchableOpacity style={s.photoRemove} onPress={() => p.setPhoto(null)} activeOpacity={0.7}>
+                          <X size={14} color="#FFFFFF" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={{ alignItems: 'center' }}>
+                        <Camera size={28} color={ACCENT} strokeWidth={1.5} />
+                        <Text style={{ fontSize: 11, color: '#666', marginTop: 6 }}>Tap pour ajouter</Text>
+                        <Text style={{ fontSize: 10, color: '#555', marginTop: 2 }}>{p.label}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
               </View>
 
               <View style={s.divider} />
@@ -422,7 +501,7 @@ export default function CreateShipmentScreen() {
               </TouchableOpacity>
 
               <Text style={s.confirmDesc}>
-                Achetez votre produit chez le marchand, puis revenez ajouter votre numéro de suivi transporteur dès que disponible.
+                Achetez votre produit chez le marchand. Vous recevrez une notification dans les 2 à 5 prochains jours pour ajouter votre numéro de suivi et le nom du transporteur utilisé (UPS, FedEx, USPS, etc.).
               </Text>
 
               <TouchableOpacity
@@ -579,6 +658,20 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#2A2A2A',
   },
   outlineBtnText: { fontSize: 16, fontWeight: '600', color: '#9CA3AF' },
+
+  warningBox: {
+    backgroundColor: 'rgba(249,115,22,0.1)', borderWidth: 1, borderColor: ACCENT,
+    borderRadius: 12, padding: 14, marginBottom: 12,
+  },
+  photoZone: {
+    flex: 1, height: 120, backgroundColor: '#1A1A1A', borderRadius: 12,
+    borderWidth: 1, borderColor: '#2A2A2A', borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  photoRemove: {
+    position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center',
+  },
 
   confirmTitle: { fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 20, marginBottom: 8 },
   requestNum: { fontSize: 22, fontWeight: '800', color: ACCENT, marginBottom: 12 },

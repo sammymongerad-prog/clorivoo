@@ -138,6 +138,8 @@ export interface CreateShipmentRequest {
   receiver_last_name: string;
   receiver_phone: string;
   quantity?: number;
+  client_photo_1_url?: string;
+  client_photo_2_url?: string;
 }
 
 export async function createShipmentRequest(data: CreateShipmentRequest) {
@@ -160,6 +162,8 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
       receiver_first_name: data.receiver_first_name,
       receiver_last_name: data.receiver_last_name,
       receiver_phone: data.receiver_phone,
+      client_photo_1_url: data.client_photo_1_url ?? null,
+      client_photo_2_url: data.client_photo_2_url ?? null,
       shipping_cost: 0,
       is_paid: false,
     })
