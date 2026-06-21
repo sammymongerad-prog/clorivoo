@@ -3,6 +3,7 @@ import { getClient } from './client';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type PackageStatus =
+  | 'awaiting_arrival'
   | 'received_usa'
   | 'in_transit'
   | 'arrived'
@@ -119,6 +120,80 @@ export async function getPackageDetail(packageId: string, userId: string) {
   }
 
   return pkg;
+}
+
+// ─── CLIENT : Créer une demande d'envoi ──────────────────────────────────────
+
+export interface CreateShipmentRequest {
+  client_id: string;
+  category: string;
+  description: string;
+  weight_estimated: number;
+  declared_value: number;
+  transport_mode: 'air' | 'sea';
+  destination_country: 'haiti' | 'dominican_republic';
+  destination_city: string;
+  destination_address: string;
+  receiver_first_name: string;
+  receiver_last_name: string;
+  receiver_phone: string;
+  quantity?: number;
+}
+
+export async function createShipmentRequest(data: CreateShipmentRequest) {
+  const { data: pkg, error } = await getClient()
+    .from('packages')
+    .insert({
+      client_id: data.client_id,
+      status: 'awaiting_arrival',
+      category: data.category,
+      description: data.description,
+      weight_estimated: data.weight_estimated,
+      weight_real: 0,
+      weight_billed: 0,
+      declared_value: data.declared_value,
+      insurance_amount: 0,
+      transport_mode: data.transport_mode,
+      destination_country: data.destination_country,
+      destination_city: data.destination_city,
+      destination_address: data.destination_address,
+      receiver_first_name: data.receiver_first_name,
+      receiver_last_name: data.receiver_last_name,
+      receiver_phone: data.receiver_phone,
+      shipping_cost: 0,
+      is_paid: false,
+    })
+    .select('id, request_number, status, created_at')
+    .single();
+
+  if (error || !pkg) {
+    throw new Error('Erreur lors de la création de la demande. Réessayez.');
+  }
+
+  return pkg;
+}
+
+// ─── CLIENT : Ajouter le tracking transporteur ──────────────────────────────
+
+export async function addCarrierTracking(
+  packageId: string,
+  userId: string,
+  carrierName: string,
+  carrierTrackingNumber: string,
+) {
+  const { error } = await getClient()
+    .from('packages')
+    .update({
+      carrier_name: carrierName,
+      carrier_tracking_number: carrierTrackingNumber,
+    })
+    .eq('id', packageId)
+    .eq('client_id', userId)
+    .eq('status', 'awaiting_arrival');
+
+  if (error) throw new Error('Erreur lors de l\'ajout du tracking.');
+
+  return { success: true };
 }
 
 // ─── ADMIN : Créer un colis ───────────────────────────────────────────────────
@@ -416,6 +491,7 @@ export async function scanPackage(trackingNumber: string) {
 
   // Actions disponibles selon statut
   const nextStatuses: Record<string, PackageStatus[]> = {
+    awaiting_arrival: ['received_usa'],
     pending: ['received_usa'],
     received_usa: ['in_transit'],
     in_transit: ['arrived'],

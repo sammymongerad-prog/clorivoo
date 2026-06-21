@@ -15,13 +15,8 @@ function IcoPackage({ color }: { color: string }) {
 function IcoQr() {
   return <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><Rect x="3" y="3" width="7" height="7" rx="1" /><Rect x="14" y="3" width="7" height="7" rx="1" /><Rect x="3" y="14" width="7" height="7" rx="1" /><Line x1="14" y1="14" x2="14" y2="17" /><Line x1="21" y1="14" x2="21" y2="17" /><Line x1="14" y1="21" x2="17" y2="21" /><Line x1="21" y1="18" x2="21" y2="21" /></Svg>;
 }
-function IcoBell({ color }: { color: string }) {
-  return (
-    <View>
-      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><Path d="M13.73 21a2 2 0 0 1-3.46 0" /></Svg>
-      <View style={s.badge}><Text style={s.badgeText}>3</Text></View>
-    </View>
-  );
+function IcoSend({ color }: { color: string }) {
+  return <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><Path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" /><Path d="M12 10v6" /><Path d="M9 13h6" /></Svg>;
 }
 function IcoUser({ color }: { color: string }) {
   return <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><Circle cx="12" cy="7" r="4" /></Svg>;
@@ -90,7 +85,15 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="notifications"
-          options={{ title: 'Notifs', tabBarIcon: ({ color }) => <IcoBell color={color} /> }}
+          options={{
+            title: '',
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="envoyer"
+          options={{ title: 'Envoyer', tabBarIcon: ({ color }) => <IcoSend color={color} /> }}
         />
         <Tabs.Screen
           name="profil"
@@ -105,19 +108,6 @@ export default function TabsLayout() {
 }
 
 const s = StyleSheet.create({
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-    backgroundColor: ACCENT,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  badgeText: { fontSize: 9, fontWeight: '800', color: '#FFFFFF' },
   scannerBtn: {
     position: 'absolute',
     bottom: 22,

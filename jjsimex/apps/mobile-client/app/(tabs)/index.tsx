@@ -46,9 +46,9 @@ const CITY_SECTIONS = [
   { flag: '\u{1F1E9}\u{1F1F4}', country: 'dr', title: 'Rép. Dom.', cities: ['Santo Domingo', 'Santiago', 'Punta Cana'] },
 ];
 
-const STATUS_STEPS = ['received_usa', 'in_transit', 'arrived', 'ready_pickup', 'delivered'];
+const STATUS_STEPS = ['awaiting_arrival', 'received_usa', 'in_transit', 'arrived', 'ready_pickup', 'delivered'];
 const STATUS_LABELS: Record<string, string> = {
-  received_usa: 'Reçu USA', in_transit: 'En transit', arrived: 'Arrivé', ready_pickup: 'Prêt retrait', delivered: 'Livré',
+  awaiting_arrival: 'En attente', received_usa: 'Reçu USA', in_transit: 'En transit', arrived: 'Arrivé', ready_pickup: 'Prêt retrait', delivered: 'Livré',
 };
 
 const LOYALTY_LABELS: Record<string, string> = {

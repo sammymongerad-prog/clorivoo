@@ -31,6 +31,7 @@ export interface User {
 // ---- COLIS ----
 
 export type ColisStatus =
+  | 'awaiting_arrival' // En attente de réception
   | 'received_usa'    // Reçu à Miami
   | 'in_transit'      // En transit
   | 'arrived'         // Arrivé en Haïti/RD
@@ -42,9 +43,18 @@ export type TransportMode = 'air' | 'sea';
 
 export interface Colis {
   id: string;
-  tracking_number: string; // Ex: JJI-2025-00847
+  tracking_number: string | null; // Ex: JJI-2025-00847 (null while awaiting_arrival)
+  request_number?: string; // Ex: JJI-REQ-2025-00001
   user_id: string;
   status: ColisStatus;
+  category?: string;
+  description?: string;
+  weight_estimated?: number;
+  carrier_name?: string;
+  carrier_tracking_number?: string;
+  receiver_first_name?: string;
+  receiver_last_name?: string;
+  receiver_phone?: string;
   transport_mode: TransportMode;
   weight_real: number;       // lbs
   weight_billed: number;     // lbs
