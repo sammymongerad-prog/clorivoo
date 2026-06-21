@@ -1,0 +1,588 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
+  Dimensions, Platform, StatusBar, KeyboardAvoidingView, Alert, Linking,
+  ActivityIndicator,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { BackButton } from '@/components/layout/BackButton';
+import { calculateShipping, getDestinationCities } from '@jjsimex/supabase/shipping';
+import { createShipmentRequest } from '@jjsimex/supabase/packages';
+import {
+  Smartphone, Laptop, Shirt, Footprints, Cpu, Home, Sparkles, MoreHorizontal,
+  Plane, Ship, CheckCircle, Copy, ChevronDown,
+} from 'lucide-react-native';
+
+const { width } = Dimensions.get('window');
+const ACCENT = '#F97316';
+const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
+
+const CATEGORIES = [
+  { key: 'phone', label: 'Téléphone', Icon: Smartphone },
+  { key: 'laptop', label: 'Ordinateur', Icon: Laptop },
+  { key: 'clothes', label: 'Vêtements', Icon: Shirt },
+  { key: 'shoes', label: 'Chaussures', Icon: Footprints },
+  { key: 'electronics', label: 'Électronique', Icon: Cpu },
+  { key: 'home', label: 'Maison', Icon: Home },
+  { key: 'cosmetics', label: 'Cosmétiques', Icon: Sparkles },
+  { key: 'other', label: 'Autre', Icon: MoreHorizontal },
+];
+
+type Step = 1 | 2 | 3 | 4 | 5;
+
+export default function CreateShipmentScreen() {
+  const router = useRouter();
+  const { session, profile } = useAuth();
+  const [step, setStep] = useState<Step>(1);
+  const [loading, setLoading] = useState(false);
+
+  // Step 1
+  const [category, setCategory] = useState('');
+
+  // Step 2
+  const [description, setDescription] = useState('');
+  const [weightEstimated, setWeightEstimated] = useState('');
+  const [declaredValue, setDeclaredValue] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [receiverFirst, setReceiverFirst] = useState('');
+  const [receiverLast, setReceiverLast] = useState('');
+  const [receiverPhone, setReceiverPhone] = useState('');
+  const [destCountry, setDestCountry] = useState<'haiti' | 'dr'>('haiti');
+  const [destCity, setDestCity] = useState('');
+  const [destAddress, setDestAddress] = useState('');
+  const [cities, setCities] = useState<{ haiti: string[]; dr: string[] }>({ haiti: [], dr: [] });
+  const [showCityPicker, setShowCityPicker] = useState(false);
+
+  // Step 3
+  const [transport, setTransport] = useState<'air' | 'sea'>('air');
+  const [airPrice, setAirPrice] = useState(0);
+  const [seaPrice, setSeaPrice] = useState(0);
+  const [airDays, setAirDays] = useState('5 - 7 jours');
+  const [seaDays, setSeaDays] = useState('3 - 4 semaines');
+
+  // Step 4 result
+  const [requestNumber, setRequestNumber] = useState('');
+  const [requestId, setRequestId] = useState('');
+
+  useEffect(() => {
+    getDestinationCities().then(setCities).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const cityList = destCountry === 'haiti' ? cities.haiti : cities.dr;
+    if (cityList.length > 0 && !cityList.includes(destCity)) {
+      setDestCity(cityList[0]);
+    }
+  }, [destCountry, cities]);
+
+  useEffect(() => {
+    if (!destCity || !weightEstimated) return;
+    const w = parseFloat(weightEstimated) || 1;
+    const country = destCountry === 'haiti' ? 'haiti' : 'dr';
+    Promise.all([
+      calculateShipping({ destination_city: destCity, destination_country: country, transport_mode: 'air', real_weight_lbs: w, user_id: session?.user?.id }),
+      calculateShipping({ destination_city: destCity, destination_country: country, transport_mode: 'sea', real_weight_lbs: w, user_id: session?.user?.id }),
+    ]).then(([air, sea]) => {
+      setAirPrice(air.final_price);
+      setSeaPrice(sea.final_price);
+      setAirDays(`${air.estimated_days_min} - ${air.estimated_days_max} jours`);
+      setSeaDays(`${Math.round(sea.estimated_days_min / 7)} - ${Math.round(sea.estimated_days_max / 7)} semaines`);
+    }).catch(() => {});
+  }, [destCity, weightEstimated, destCountry]);
+
+  const selectedPrice = transport === 'air' ? airPrice : seaPrice;
+  const insurance = 3;
+  const total = selectedPrice + insurance;
+
+  async function handleConfirm() {
+    if (!session?.user?.id) return;
+    setLoading(true);
+    try {
+      const result = await createShipmentRequest({
+        client_id: session.user.id,
+        category,
+        description,
+        weight_estimated: parseFloat(weightEstimated) || 0,
+        declared_value: parseFloat(declaredValue) || 0,
+        transport_mode: transport,
+        destination_country: destCountry === 'haiti' ? 'haiti' : 'dominican_republic',
+        destination_city: destCity,
+        destination_address: destAddress,
+        receiver_first_name: receiverFirst,
+        receiver_last_name: receiverLast,
+        receiver_phone: receiverPhone,
+        quantity,
+      });
+      setRequestNumber(result.request_number);
+      setRequestId(result.id);
+      setStep(5);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleWhatsApp() {
+    const categoryLabel = CATEGORIES.find(c => c.key === category)?.label ?? category;
+    const msg = encodeURIComponent(
+      `Bonjour JJ's IMEX,\n\nNouvelle demande d'envoi :\n` +
+      `Réf: ${requestNumber || 'En attente'}\n` +
+      `Catégorie: ${categoryLabel}\n` +
+      `Description: ${description}\n` +
+      `Poids estimé: ${weightEstimated} lbs\n` +
+      `Mode: ${transport === 'air' ? 'Avion' : 'Bateau'}\n` +
+      `Destination: ${destCity}, ${destCountry === 'haiti' ? 'Haïti' : 'Rép. Dom.'}\n` +
+      `Destinataire: ${receiverFirst} ${receiverLast}\n` +
+      `Tél: ${receiverPhone}\n` +
+      `Total estimé: $${total.toFixed(2)}\n\n` +
+      `Merci de confirmer la réception.`
+    );
+    Linking.openURL(`https://wa.me/18097851234?text=${msg}`);
+  }
+
+  function canContinue(): boolean {
+    if (step === 1) return category !== '';
+    if (step === 2) return description !== '' && weightEstimated !== '' && declaredValue !== '' && receiverFirst !== '' && receiverLast !== '' && receiverPhone !== '' && destCity !== '';
+    if (step === 3) return true;
+    return true;
+  }
+
+  const cityList = destCountry === 'haiti' ? cities.haiti : cities.dr;
+
+  return (
+    <View style={s.container}>
+      <View style={s.header}>
+        <BackButton onPress={step > 1 && step < 5 ? () => setStep((step - 1) as Step) : undefined} />
+        <Text style={s.headerTitle}>Créer un envoi</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {step < 5 && (
+        <View style={s.stepper}>
+          {[1, 2, 3, 4].map((n) => (
+            <React.Fragment key={n}>
+              <View style={[s.stepCircle, n <= step && s.stepCircleActive]}>
+                <Text style={[s.stepNum, n <= step && s.stepNumActive]}>{n}</Text>
+              </View>
+              {n < 4 && <View style={[s.stepLine, n < step && s.stepLineActive]} />}
+            </React.Fragment>
+          ))}
+        </View>
+      )}
+      {step < 5 && <Text style={s.stepLabel}>Étape {step} sur 4</Text>}
+
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+
+          {/* STEP 1: Category */}
+          {step === 1 && (
+            <>
+              <Text style={s.sectionTitle}>Qu'envoyez-vous ?</Text>
+              <View style={s.catGrid}>
+                {CATEGORIES.map((c) => (
+                  <TouchableOpacity
+                    key={c.key}
+                    style={[s.catCard, category === c.key && s.catCardActive]}
+                    onPress={() => setCategory(c.key)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[s.catIcon, category === c.key && s.catIconActive]}>
+                      <c.Icon size={24} color={category === c.key ? '#FFFFFF' : ACCENT} strokeWidth={1.8} />
+                    </View>
+                    <Text style={[s.catLabel, category === c.key && s.catLabelActive]}>{c.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+
+          {/* STEP 2: Details + Receiver */}
+          {step === 2 && (
+            <>
+              <Text style={s.sectionTitle}>Le produit</Text>
+              <Text style={s.inputLabel}>Description</Text>
+              <TextInput style={s.input} value={description} onChangeText={setDescription} placeholder="Ex: iPhone 16 Pro Max" placeholderTextColor="#555" />
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Poids estimé (lbs)</Text>
+                  <TextInput style={s.input} value={weightEstimated} onChangeText={setWeightEstimated} placeholder="0.0" placeholderTextColor="#555" keyboardType="numeric" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Valeur déclarée ($)</Text>
+                  <TextInput style={s.input} value={declaredValue} onChangeText={setDeclaredValue} placeholder="0.00" placeholderTextColor="#555" keyboardType="numeric" />
+                </View>
+              </View>
+
+              <Text style={s.inputLabel}>Quantité</Text>
+              <View style={s.stepper2}>
+                <TouchableOpacity onPress={() => setQuantity(Math.max(1, quantity - 1))} style={s.stepperBtn}><Text style={s.stepperBtnText}>−</Text></TouchableOpacity>
+                <Text style={s.stepperVal}>{quantity}</Text>
+                <TouchableOpacity onPress={() => setQuantity(quantity + 1)} style={s.stepperBtn}><Text style={s.stepperBtnText}>+</Text></TouchableOpacity>
+              </View>
+
+              <View style={s.divider} />
+
+              <Text style={s.sectionTitle}>Destinataire en Haïti</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Prénom</Text>
+                  <TextInput style={s.input} value={receiverFirst} onChangeText={setReceiverFirst} placeholder="Jean" placeholderTextColor="#555" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Nom</Text>
+                  <TextInput style={s.input} value={receiverLast} onChangeText={setReceiverLast} placeholder="Louis" placeholderTextColor="#555" />
+                </View>
+              </View>
+
+              <Text style={s.inputLabel}>Téléphone destinataire</Text>
+              <TextInput style={s.input} value={receiverPhone} onChangeText={setReceiverPhone} placeholder="+509 33 12 3456" placeholderTextColor="#555" keyboardType="phone-pad" />
+
+              <Text style={s.inputLabel}>Pays</Text>
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                {(['haiti', 'dr'] as const).map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[s.transportCard, { flex: 1 }, destCountry === c && s.transportCardActive]}
+                    onPress={() => setDestCountry(c)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.transportTitle, destCountry === c && { color: ACCENT }]}>
+                      {c === 'haiti' ? '🇭🇹 Haïti' : '🇩🇴 Rép. Dom.'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={s.inputLabel}>Ville de destination</Text>
+              <TouchableOpacity style={s.dropdown} onPress={() => setShowCityPicker(!showCityPicker)} activeOpacity={0.8}>
+                <Text style={{ color: destCity ? '#FFFFFF' : '#555', fontSize: 15 }}>{destCity || 'Choisir une ville'}</Text>
+                <ChevronDown size={18} color="#666" />
+              </TouchableOpacity>
+              {showCityPicker && (
+                <View style={s.pickerList}>
+                  {cityList.map((city) => (
+                    <TouchableOpacity key={city} style={s.pickerItem} onPress={() => { setDestCity(city); setShowCityPicker(false); }}>
+                      <Text style={[s.pickerItemText, destCity === city && { color: ACCENT }]}>{city}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <Text style={s.inputLabel}>Adresse de livraison</Text>
+              <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} value={destAddress} onChangeText={setDestAddress} placeholder="Adresse complète du destinataire" placeholderTextColor="#555" multiline />
+            </>
+          )}
+
+          {/* STEP 3: Transport */}
+          {step === 3 && (
+            <>
+              <Text style={s.sectionTitle}>Choisissez le transport</Text>
+              <TouchableOpacity
+                style={[s.transportCard, transport === 'air' && s.transportCardActive]}
+                onPress={() => setTransport('air')}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={[s.transportIcon, transport === 'air' && { backgroundColor: ACCENT }]}>
+                      <Plane size={22} color="#FFFFFF" strokeWidth={1.8} />
+                    </View>
+                    <View>
+                      <Text style={s.transportTitle}>Air Freight</Text>
+                      <Text style={s.transportSub}>Livraison rapide</Text>
+                    </View>
+                  </View>
+                  {transport === 'air' && <View style={s.radioActive} />}
+                </View>
+                <View style={s.transportMeta}>
+                  <View>
+                    <Text style={s.transportMetaLabel}>Délai estimé</Text>
+                    <Text style={s.transportMetaVal}>{airDays}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.transportMetaLabel}>Prix estimé</Text>
+                    <Text style={[s.transportPrice, transport === 'air' && { color: ACCENT }]}>${airPrice.toFixed(2)}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.transportCard, { marginTop: 12 }, transport === 'sea' && s.transportCardActive]}
+                onPress={() => setTransport('sea')}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={[s.transportIcon, transport === 'sea' && { backgroundColor: ACCENT }]}>
+                      <Ship size={22} color="#FFFFFF" strokeWidth={1.8} />
+                    </View>
+                    <View>
+                      <Text style={s.transportTitle}>Sea Freight</Text>
+                      <Text style={s.transportSub}>Moins cher, plus lent</Text>
+                    </View>
+                  </View>
+                  {transport === 'sea' && <View style={s.radioActive} />}
+                </View>
+                <View style={s.transportMeta}>
+                  <View>
+                    <Text style={s.transportMetaLabel}>Délai estimé</Text>
+                    <Text style={s.transportMetaVal}>{seaDays}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.transportMetaLabel}>Prix estimé</Text>
+                    <Text style={[s.transportPrice, transport === 'sea' && { color: ACCENT }]}>${seaPrice.toFixed(2)}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <View style={s.divider} />
+
+              <Text style={s.sectionTitle}>Résumé de la commande</Text>
+              <View style={s.summaryCard}>
+                <SummaryRow label="Catégorie" value={CATEGORIES.find(c => c.key === category)?.label ?? category} />
+                <SummaryRow label="Description" value={description} />
+                <SummaryRow label="Poids estimé" value={`${weightEstimated} lbs`} />
+                <SummaryRow label="Quantité" value={String(quantity)} />
+                <SummaryRow label="Mode" value={transport === 'air' ? 'Avion' : 'Bateau'} />
+                <SummaryRow label="Délai estimé" value={transport === 'air' ? airDays : seaDays} />
+                <View style={s.summaryDivider} />
+                <SummaryRow label="Prix expédition" value={`$${selectedPrice.toFixed(2)}`} />
+                <SummaryRow label="Assurance" value={`$${insurance.toFixed(2)}`} />
+                <View style={s.summaryDivider} />
+                <View style={s.summaryRow}>
+                  <Text style={[s.summaryLabel, { fontWeight: '800', color: '#FFFFFF' }]}>TOTAL ESTIMÉ</Text>
+                  <Text style={[s.summaryValue, { fontWeight: '800', color: ACCENT, fontSize: 18 }]}>${total.toFixed(2)}</Text>
+                </View>
+              </View>
+              <Text style={s.noteText}>Le prix final sera confirmé au poids réel à la réception du colis.</Text>
+            </>
+          )}
+
+          {/* STEP 4: Confirm */}
+          {step === 4 && (
+            <>
+              <Text style={s.sectionTitle}>Finaliser votre demande</Text>
+              <View style={s.summaryCard}>
+                <SummaryRow label="Catégorie" value={CATEGORIES.find(c => c.key === category)?.label ?? category} />
+                <SummaryRow label="Description" value={description} />
+                <SummaryRow label="Poids estimé" value={`${weightEstimated} lbs`} />
+                <SummaryRow label="Quantité" value={String(quantity)} />
+                <SummaryRow label="Mode" value={transport === 'air' ? 'Avion' : 'Bateau'} />
+                <SummaryRow label="Délai estimé" value={transport === 'air' ? airDays : seaDays} />
+                <View style={s.summaryDivider} />
+                <SummaryRow label="Destinataire" value={`${receiverFirst} ${receiverLast}`} />
+                <SummaryRow label="Tél. destinataire" value={receiverPhone} />
+                <SummaryRow label="Destination" value={`${destCity}, ${destCountry === 'haiti' ? 'Haïti' : 'Rép. Dom.'}`} />
+                <SummaryRow label="Adresse" value={destAddress || '—'} />
+                <View style={s.summaryDivider} />
+                <SummaryRow label="Prix expédition" value={`$${selectedPrice.toFixed(2)}`} />
+                <SummaryRow label="Assurance" value={`$${insurance.toFixed(2)}`} />
+                <View style={s.summaryDivider} />
+                <View style={s.summaryRow}>
+                  <Text style={[s.summaryLabel, { fontWeight: '800', color: '#FFFFFF' }]}>TOTAL ESTIMÉ</Text>
+                  <Text style={[s.summaryValue, { fontWeight: '800', color: ACCENT, fontSize: 18 }]}>${total.toFixed(2)}</Text>
+                </View>
+              </View>
+              <Text style={s.noteText}>Le prix final sera confirmé au poids réel à la réception du colis.</Text>
+
+              <TouchableOpacity style={s.ctaBtn} onPress={handleConfirm} activeOpacity={0.85} disabled={loading}>
+                {loading ? <ActivityIndicator color="#FFF" /> : <Text style={s.ctaBtnText}>Confirmer la demande</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.whatsappBtn} onPress={handleWhatsApp} activeOpacity={0.85}>
+                <Text style={s.whatsappBtnText}>Finaliser sur WhatsApp</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* STEP 5: Confirmation */}
+          {step === 5 && (
+            <View style={{ alignItems: 'center', paddingTop: 40 }}>
+              <CheckCircle size={72} color="#22C55E" strokeWidth={1.5} />
+              <Text style={s.confirmTitle}>Demande enregistrée !</Text>
+              <Text style={s.requestNum}>{requestNumber}</Text>
+              <TouchableOpacity
+                style={s.copyBtn}
+                onPress={() => {
+                  try {
+                    const Clipboard = require('expo-clipboard');
+                    Clipboard.setStringAsync(requestNumber);
+                    Alert.alert('Copié !', requestNumber);
+                  } catch {
+                    Alert.alert('Numéro', requestNumber);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Copy size={16} color={ACCENT} />
+                <Text style={s.copyText}>Copier</Text>
+              </TouchableOpacity>
+
+              <Text style={s.confirmDesc}>
+                Achetez votre produit chez le marchand, puis revenez ajouter votre numéro de suivi transporteur dès que disponible.
+              </Text>
+
+              <TouchableOpacity
+                style={[s.ctaBtn, { marginTop: 24, width: '100%' }]}
+                onPress={() => router.push({ pathname: '/screens/add-carrier-tracking', params: { packageId: requestId, requestNumber } })}
+                activeOpacity={0.85}
+              >
+                <Text style={s.ctaBtnText}>Ajouter mon tracking maintenant</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.outlineBtn, { marginTop: 12, width: '100%' }]}
+                onPress={() => router.replace('/(tabs)')}
+                activeOpacity={0.85}
+              >
+                <Text style={s.outlineBtnText}>Plus tard, retour à l'accueil</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Bottom CTA for steps 1-3 */}
+      {step < 4 && (
+        <View style={s.bottomBar}>
+          <TouchableOpacity
+            style={[s.ctaBtn, !canContinue() && s.ctaBtnDisabled]}
+            onPress={() => canContinue() && setStep((step + 1) as Step)}
+            activeOpacity={0.85}
+            disabled={!canContinue()}
+          >
+            <Text style={s.ctaBtnText}>Continuer</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={s.summaryRow}>
+      <Text style={s.summaryLabel}>{label}</Text>
+      <Text style={s.summaryValue}>{value}</Text>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: statusBarH + 10, paddingBottom: 12,
+  },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, marginTop: 8 },
+  stepCircle: {
+    width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: '#333',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepCircleActive: { borderColor: ACCENT, backgroundColor: ACCENT },
+  stepNum: { fontSize: 13, fontWeight: '700', color: '#555' },
+  stepNumActive: { color: '#FFFFFF' },
+  stepLine: { flex: 1, height: 2, backgroundColor: '#333', marginHorizontal: 4 },
+  stepLineActive: { backgroundColor: ACCENT },
+  stepLabel: { textAlign: 'center', fontSize: 12, color: '#666', marginTop: 6, marginBottom: 8 },
+
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginBottom: 16 },
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  catCard: {
+    width: (width - 70) / 4, backgroundColor: '#1A1A1A', borderRadius: 14,
+    paddingVertical: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent',
+  },
+  catCardActive: { borderColor: ACCENT },
+  catIcon: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.12)',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+  },
+  catIconActive: { backgroundColor: ACCENT },
+  catLabel: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', textAlign: 'center' },
+  catLabelActive: { color: '#FFFFFF' },
+
+  inputLabel: { fontSize: 13, fontWeight: '600', color: '#9CA3AF', marginBottom: 6, marginTop: 14 },
+  input: {
+    backgroundColor: '#1A1A1A', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 15, color: '#FFFFFF', borderWidth: 1, borderColor: '#2A2A2A',
+  },
+
+  stepper2: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 4 },
+  stepperBtn: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: '#1A1A1A',
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A2A2A',
+  },
+  stepperBtnText: { fontSize: 20, color: '#FFFFFF', fontWeight: '600' },
+  stepperVal: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', minWidth: 30, textAlign: 'center' },
+
+  divider: { height: 1, backgroundColor: '#2A2A2A', marginVertical: 24 },
+
+  dropdown: {
+    backgroundColor: '#1A1A1A', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+    borderWidth: 1, borderColor: '#2A2A2A', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  pickerList: { backgroundColor: '#1A1A1A', borderRadius: 12, marginTop: 4, borderWidth: 1, borderColor: '#2A2A2A', overflow: 'hidden' },
+  pickerItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#2A2A2A' },
+  pickerItemText: { fontSize: 15, color: '#FFFFFF' },
+
+  transportCard: {
+    backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16,
+    borderWidth: 2, borderColor: '#2A2A2A',
+  },
+  transportCardActive: { borderColor: ACCENT },
+  transportIcon: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: '#2A2A2A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  transportTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  transportSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  radioActive: { width: 22, height: 22, borderRadius: 11, backgroundColor: ACCENT, borderWidth: 3, borderColor: '#0D0D0D' },
+  transportMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#2A2A2A' },
+  transportMetaLabel: { fontSize: 11, color: '#666', marginBottom: 2 },
+  transportMetaVal: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  transportPrice: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
+
+  summaryCard: { backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#2A2A2A' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  summaryLabel: { fontSize: 13, color: '#9CA3AF' },
+  summaryValue: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', maxWidth: '55%', textAlign: 'right' },
+  summaryDivider: { height: 1, backgroundColor: '#2A2A2A', marginVertical: 8 },
+
+  noteText: { fontSize: 12, color: '#666', textAlign: 'center', marginTop: 12 },
+
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    padding: 20, paddingBottom: 30, backgroundColor: '#0D0D0D',
+    borderTopWidth: 1, borderTopColor: '#1A1A1A',
+  },
+  ctaBtn: {
+    height: 56, borderRadius: 16, backgroundColor: ACCENT,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ctaBtnDisabled: { opacity: 0.4 },
+  ctaBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+
+  whatsappBtn: {
+    height: 56, borderRadius: 16, backgroundColor: '#22C55E',
+    alignItems: 'center', justifyContent: 'center', marginTop: 12,
+  },
+  whatsappBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+
+  outlineBtn: {
+    height: 56, borderRadius: 16, backgroundColor: 'transparent',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#2A2A2A',
+  },
+  outlineBtnText: { fontSize: 16, fontWeight: '600', color: '#9CA3AF' },
+
+  confirmTitle: { fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 20, marginBottom: 8 },
+  requestNum: { fontSize: 22, fontWeight: '800', color: ACCENT, marginBottom: 12 },
+  copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 99, backgroundColor: 'rgba(249,115,22,0.12)' },
+  copyText: { fontSize: 13, fontWeight: '600', color: ACCENT },
+  confirmDesc: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 20, marginTop: 20, paddingHorizontal: 10 },
+});
