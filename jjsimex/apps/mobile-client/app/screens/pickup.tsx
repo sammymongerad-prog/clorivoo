@@ -8,11 +8,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BackButton } from '@/components/layout/BackButton';
 import { createPickupRequest, getMyPickupRequests } from '@jjsimex/supabase/pickup';
 import type { PickupRequest } from '@jjsimex/supabase/pickup';
-import { Truck, MapPin, Calendar, Clock, Package } from 'lucide-react-native';
+import { Truck, MapPin, Calendar, Clock, Package, MessageCircle } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#F97316';
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
+const WA_NUMBER = '18097851234';
 
 const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
   pending: { bg: 'rgba(249,115,22,0.14)', color: '#F97316', label: 'En attente' },
@@ -66,6 +67,13 @@ export default function PickupScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function openWhatsApp() {
+    const msg = encodeURIComponent(
+      `Bonjour JJ's IMEX,\n\nJe souhaite planifier un pickup à domicile.\n\n📍 Adresse : ${addr || '(à préciser)'}\n📅 Date : ${date || '(à préciser)'}\n🕐 Heure : ${time || '(à préciser)'}\n📦 Poids estimé : ${weight ? weight + ' lbs' : '(non précisé)'}\n\nMerci !`
+    );
+    Linking.openURL(`https://wa.me/${WA_NUMBER}?text=${msg}`);
   }
 
   function formatWhen(d: string, t: string) {
@@ -176,6 +184,15 @@ export default function PickupScreen() {
           {loading ? <ActivityIndicator color="#0D0D0D" /> : <Text style={s.ctaBtnText}>Envoyer la demande</Text>}
         </TouchableOpacity>
 
+        {/* WhatsApp option */}
+        <View style={s.waCard}>
+          <Text style={s.waCardTitle}>Ou contactez-nous directement</Text>
+          <TouchableOpacity style={s.waBtn} onPress={openWhatsApp} activeOpacity={0.85}>
+            <MessageCircle size={18} color="#22C55E" strokeWidth={1.9} />
+            <Text style={s.waBtnText}>Planifier via WhatsApp</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Requests list */}
         <Text style={s.listTitle}>Mes demandes de pickup</Text>
 
@@ -256,6 +273,17 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   ctaBtnText: { fontSize: 15, fontWeight: '700', color: '#0D0D0D' },
+
+  waCard: {
+    marginTop: 16, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#1F1F1F',
+    borderRadius: 14, padding: 16, alignItems: 'center',
+  },
+  waCardTitle: { fontSize: 12.5, color: '#9CA3AF', marginBottom: 12 },
+  waBtn: {
+    width: '100%', height: 48, backgroundColor: 'rgba(34,197,94,0.12)', borderRadius: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+  },
+  waBtnText: { fontSize: 14, fontWeight: '700', color: '#22C55E' },
 
   listTitle: { fontWeight: '700', fontSize: 17, color: '#FFFFFF', marginTop: 28, marginBottom: 12 },
   emptyText: { fontSize: 13, color: '#666', textAlign: 'center', marginTop: 12 },
