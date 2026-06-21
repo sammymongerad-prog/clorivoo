@@ -50,7 +50,7 @@ export default function TabsLayout() {
             position: 'absolute',
             bottom: 20,
             left: 16,
-            right: 76,
+            right: 82,
             height: 64,
             backgroundColor: 'rgba(20,20,20,0.92)',
             borderRadius: 99,
