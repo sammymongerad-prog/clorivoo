@@ -465,6 +465,16 @@ export default function HomeScreen() {
             })}
           </View>
         </View>
+
+        {/* ─── LEGAL FOOTER ─── */}
+        <View style={{ paddingHorizontal: 20, paddingVertical: 16, marginTop: 8 }}>
+          <Text style={{ fontSize: 11, lineHeight: 16, color: '#9CA3AF', textAlign: 'center' }}>
+            JJ's IMEX opère entre Miami, Boston, Haïti et la République Dominicaine. Service soumis à nos conditions de transport.
+          </Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://jjsimex.com/conditions')} style={{ alignSelf: 'center', marginTop: 6 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#F97316', textDecorationLine: 'underline' }}>Conditions de transport</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* CITY PICKER BOTTOM SHEET */}
