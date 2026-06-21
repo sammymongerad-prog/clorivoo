@@ -1,32 +1,520 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform, StatusBar } from 'react-native';
-import { LayoutDashboard } from 'lucide-react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  Platform, StatusBar, ActivityIndicator, RefreshControl,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { getPackageStats, getAllPackages, subscribeToPackages } from '@jjsimex/supabase/packages';
+import { getNextDepartures } from '@jjsimex/supabase/departures';
+import { getActiveBranches } from '@jjsimex/supabase/branches';
+import {
+  Package, DollarSign, Users, Clock, Bell, Search,
+  Plane, Ship, MapPin, ChevronRight, TrendingUp, AlertTriangle,
+  ShoppingCart, CreditCard,
+} from 'lucide-react-native';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
+const ACCENT = '#F97316';
+
+const PERIODS = [
+  { label: "Aujourd'hui", key: 'today' },
+  { label: '7 jours', key: 'week' },
+  { label: '30 jours', key: 'month' },
+  { label: 'Ce mois', key: 'this_month' },
+] as const;
+
+const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
+  awaiting_arrival: { bg: 'rgba(249,115,22,0.14)', color: '#F97316', label: 'En attente' },
+  received_usa: { bg: '#2A2A2A', color: '#C9CDD3', label: 'Reçu USA' },
+  in_transit: { bg: 'rgba(249,115,22,0.14)', color: '#F97316', label: 'En transit' },
+  arrived: { bg: 'rgba(59,130,246,0.16)', color: '#60A5FA', label: 'Arrivé' },
+  ready_pickup: { bg: 'rgba(34,197,94,0.14)', color: '#22C55E', label: 'Prêt' },
+  delivered: { bg: 'rgba(34,197,94,0.14)', color: '#22C55E', label: 'Livré ✓' },
+};
 
 export default function AdminDashboard() {
+  const router = useRouter();
+  const { profile } = useAuth();
+  const [period, setPeriod] = useState(2);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [stats, setStats] = useState<any>(null);
+  const [recentPkgs, setRecentPkgs] = useState<any[]>([]);
+  const [departures, setDepartures] = useState<{ air: any; sea: any }>({ air: null, sea: null });
+  const [branches, setBranches] = useState<any[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [newClientsCount, setNewClientsCount] = useState(0);
+
+  const periodMap = ['week', 'week', 'month', 'month'] as const;
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [statsData, pkgsRes, depsData, branchesData] = await Promise.all([
+        getPackageStats(periodMap[period]),
+        getAllPackages({ limit: 4 }),
+        getNextDepartures(),
+        getActiveBranches(),
+      ]);
+      setStats(statsData);
+      setRecentPkgs(pkgsRes ?? []);
+      setDepartures(depsData);
+      setBranches(branchesData);
+      setPendingCount(statsData?.by_status?.awaiting_arrival ?? 0);
+    } catch {}
+    setLoading(false);
+  }, [period]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    const unsub = subscribeToPackages(() => fetchData());
+    return unsub;
+  }, [fetchData]);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  }
+
+  const initials = (profile?.full_name || 'A')
+    .split(' ')
+    .map((w: string) => w[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+
+  const roleLabel = profile?.role === 'super_admin' ? 'SUPER ADMIN' : profile?.role === 'employee' ? 'EMPLOYÉ' : 'ADMIN';
+
+  const formatNum = (n: number) => n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n);
+  const formatMoney = (n: number) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  if (loading) {
+    return (
+      <View style={[s.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={ACCENT} size="large" />
+      </View>
+    );
+  }
+
+  const air = departures.air;
+  const sea = departures.sea;
+
   return (
     <View style={s.container}>
-      <View style={s.header}>
-        <Text style={s.headerTitle}>Dashboard Admin</Text>
-      </View>
-      <View style={s.center}>
-        <LayoutDashboard size={48} color="#F97316" strokeWidth={1.5} />
-        <Text style={s.title}>Dashboard</Text>
-        <Text style={s.sub}>Les KPIs et statistiques arrivent bientôt.</Text>
-      </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} />}
+      >
+        {/* 1. HEADER */}
+        <View style={s.header}>
+          <View style={s.headerLeft}>
+            <View style={s.avatar}>
+              <Text style={s.avatarText}>{initials}</Text>
+            </View>
+            <View>
+              <Text style={s.headerName}>{profile?.full_name || 'Admin'}</Text>
+              <View style={s.roleBadge}>
+                <Text style={s.roleText}>{roleLabel}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={s.headerRight}>
+            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7}>
+              <Bell size={19} color="#FFFFFF" strokeWidth={1.8} />
+              <View style={s.bellBadge}><Text style={s.bellBadgeText}>5</Text></View>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7}>
+              <Search size={18} color="#FFFFFF" strokeWidth={1.8} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 2. PÉRIODE */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, gap: 8 }}>
+          {PERIODS.map((p, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[s.periodBtn, period === i && s.periodBtnActive]}
+              onPress={() => setPeriod(i)}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.periodText, period === i && s.periodTextActive]}>{p.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* 3. KPI CARDS */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, gap: 12, paddingTop: 18 }}>
+          {/* Colis reçus */}
+          <View style={s.kpiCard}>
+            <View style={s.kpiIcon}><Package size={18} color={ACCENT} strokeWidth={1.8} /></View>
+            <Text style={s.kpiLabel}>Colis reçus</Text>
+            <Text style={s.kpiValue}>{formatNum(stats?.total ?? 0)}</Text>
+            <View style={s.kpiTrend}>
+              <TrendingUp size={12} color="#22C55E" strokeWidth={2.4} />
+              <Text style={s.kpiTrendText}>{stats?.count_growth > 0 ? '+' : ''}{stats?.count_growth ?? 0}%</Text>
+            </View>
+          </View>
+
+          {/* Revenus */}
+          <View style={s.kpiCard}>
+            <View style={s.kpiIcon}><DollarSign size={18} color={ACCENT} strokeWidth={1.8} /></View>
+            <Text style={s.kpiLabel}>Revenus</Text>
+            <Text style={s.kpiValue}>{formatMoney(stats?.revenue ?? 0)}</Text>
+            <View style={s.kpiTrend}>
+              <TrendingUp size={12} color="#22C55E" strokeWidth={2.4} />
+              <Text style={s.kpiTrendText}>{stats?.revenue_growth > 0 ? '+' : ''}{stats?.revenue_growth ?? 0}%</Text>
+            </View>
+          </View>
+
+          {/* Nouveaux clients */}
+          <View style={s.kpiCard}>
+            <View style={s.kpiIcon}><Users size={18} color={ACCENT} strokeWidth={1.8} /></View>
+            <Text style={s.kpiLabel}>Nouveaux clients</Text>
+            <Text style={s.kpiValue}>{formatNum(newClientsCount)}</Text>
+            <View style={s.kpiTrend}>
+              <TrendingUp size={12} color="#22C55E" strokeWidth={2.4} />
+              <Text style={s.kpiTrendText}>—</Text>
+            </View>
+          </View>
+
+          {/* En attente */}
+          <View style={s.kpiCard}>
+            <View style={[s.kpiIcon, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+              <Clock size={18} color="#EF4444" strokeWidth={1.8} />
+            </View>
+            <Text style={s.kpiLabel}>En attente</Text>
+            <Text style={[s.kpiValue, { color: ACCENT }]}>{pendingCount}</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs-admin)/colis')} activeOpacity={0.7}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#EF4444', marginTop: 6 }}>Traiter →</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        {/* 4. ALERTES */}
+        <View style={s.sectionRow}>
+          <Text style={s.sectionTitle}>Alertes</Text>
+          <View style={s.alertCountBadge}><Text style={s.alertCountText}>3</Text></View>
+        </View>
+        <View style={{ paddingHorizontal: 22, gap: 10 }}>
+          {/* Alerte vol */}
+          {air && (
+            <View style={[s.alertCard, { borderLeftColor: '#EF4444' }]}>
+              <View style={s.alertRow}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.alertTitle}>Vol presque complet</Text>
+                  <Text style={s.alertSub}>{air.current_weight} / {air.capacity_lbs} lbs restantes</Text>
+                </View>
+                <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85}>
+                  <Text style={s.alertBtnOrangeText}>Gérer →</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={s.progressBg}>
+                <View style={[s.progressFill, { width: `${Math.min((air.current_weight / air.capacity_lbs) * 100, 100)}%`, backgroundColor: ACCENT }]} />
+              </View>
+            </View>
+          )}
+
+          {/* Alerte Personal Shopper */}
+          <View style={[s.alertCard, { borderLeftColor: ACCENT }]}>
+            <View style={s.alertRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={s.alertTitle}>Personal Shopper en attente</Text>
+                <Text style={s.alertSub}>En attente de devis depuis +2h</Text>
+              </View>
+              <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85}>
+                <Text style={s.alertBtnOrangeText}>Traiter →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Alerte paiement */}
+          <View style={[s.alertCard, { borderLeftColor: '#EAB308' }]}>
+            <View style={s.alertRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={s.alertTitle}>Paiement non confirmé</Text>
+                <Text style={s.alertSub}>Vérification requise</Text>
+              </View>
+              <TouchableOpacity style={s.alertBtnGrey} activeOpacity={0.85}>
+                <Text style={s.alertBtnGreyText}>Vérifier →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* 5. DERNIERS COLIS */}
+        <View style={s.sectionRow}>
+          <Text style={s.sectionTitle}>Derniers colis</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs-admin)/colis')} activeOpacity={0.7}>
+            <Text style={s.seeAll}>Voir tout →</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ paddingHorizontal: 22, gap: 10 }}>
+          {recentPkgs.map((pkg: any) => {
+            const badge = STATUS_BADGE[pkg.status] ?? STATUS_BADGE.awaiting_arrival;
+            return (
+              <TouchableOpacity key={pkg.id} style={s.colisCard} activeOpacity={0.7}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.colisId}>{pkg.tracking_number || pkg.request_number || pkg.id?.substring(0, 12)}</Text>
+                  <Text style={s.colisClient} numberOfLines={1}>{pkg.client_name ?? '—'}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                    <Text style={s.colisMeta}>{pkg.weight ? pkg.weight + ' lbs' : '—'}</Text>
+                    <Text style={s.colisMeta}>—</Text>
+                    {pkg.transport_mode === 'air' ? (
+                      <Plane size={11} color="#9CA3AF" strokeWidth={1.8} />
+                    ) : (
+                      <Ship size={11} color="#9CA3AF" strokeWidth={1.8} />
+                    )}
+                    <Text style={s.colisMeta}>{pkg.transport_mode === 'air' ? 'Avion' : 'Bateau'}</Text>
+                  </View>
+                </View>
+                <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
+                  <Text style={[s.statusBadgeText, { color: badge.color }]}>{badge.label}</Text>
+                </View>
+                <ChevronRight size={16} color="#6B7280" strokeWidth={2} />
+              </TouchableOpacity>
+            );
+          })}
+          {recentPkgs.length === 0 && (
+            <Text style={{ fontSize: 13, color: '#666', textAlign: 'center', paddingVertical: 20 }}>Aucun colis pour le moment.</Text>
+          )}
+        </View>
+
+        {/* 6. PROCHAINS DÉPARTS */}
+        <View style={s.sectionRow}>
+          <Text style={s.sectionTitle}>Prochains départs</Text>
+          <TouchableOpacity activeOpacity={0.7}>
+            <Text style={s.seeAll}>Gérer →</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ paddingHorizontal: 22, gap: 12 }}>
+          {air && (
+            <View style={[s.departCard, { borderTopColor: ACCENT }]}>
+              <View style={s.departHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                  <Plane size={17} color={ACCENT} strokeWidth={1.8} />
+                  <View>
+                    <Text style={s.departTitle}>Vol {air.origin} → {air.destination_country === 'haiti' ? 'Port-au-Prince' : 'Santo Domingo'}</Text>
+                    <Text style={s.departDate}>{formatDate(air.departure_date)}</Text>
+                  </View>
+                </View>
+                {renderCapacityBadge(air)}
+              </View>
+              <View style={s.progressBg}>
+                <View style={[s.progressFillThick, { width: `${(air.current_weight / air.capacity_lbs) * 100}%`, backgroundColor: getCapacityColor(air) }]} />
+              </View>
+              <Text style={s.capacityText}>{air.current_weight.toLocaleString()} / {air.capacity_lbs.toLocaleString()} lbs</Text>
+              <TouchableOpacity style={[s.departBtn, { backgroundColor: ACCENT }]} activeOpacity={0.85}>
+                <Text style={[s.departBtnText, { color: '#0D0D0D' }]}>Ajouter des colis</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {sea && (
+            <View style={[s.departCard, { borderTopColor: '#1F1F1F' }]}>
+              <View style={s.departHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                  <Ship size={17} color="#9CA3AF" strokeWidth={1.8} />
+                  <View>
+                    <Text style={s.departTitle}>Bateau {sea.origin} → {sea.destination_country === 'haiti' ? 'PAP' : 'SD'}</Text>
+                    <Text style={s.departDate}>{formatDate(sea.departure_date)}</Text>
+                  </View>
+                </View>
+                {renderCapacityBadge(sea)}
+              </View>
+              <View style={s.progressBg}>
+                <View style={[s.progressFillThick, { width: `${(sea.current_weight / sea.capacity_lbs) * 100}%`, backgroundColor: getCapacityColor(sea) }]} />
+              </View>
+              <Text style={s.capacityText}>{sea.current_weight.toLocaleString()} / {sea.capacity_lbs.toLocaleString()} lbs</Text>
+              <TouchableOpacity style={[s.departBtn, { backgroundColor: '#2A2A2A' }]} activeOpacity={0.85}>
+                <Text style={[s.departBtnText, { color: '#FFFFFF' }]}>Ajouter des colis</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {!air && !sea && (
+            <Text style={{ fontSize: 13, color: '#666', textAlign: 'center', paddingVertical: 20 }}>Aucun départ planifié.</Text>
+          )}
+        </View>
+
+        {/* 7. SUCCURSALES */}
+        <View style={s.sectionRow}>
+          <Text style={s.sectionTitle}>Succursales</Text>
+          <TouchableOpacity activeOpacity={0.7}>
+            <Text style={s.seeAll}>Voir tout →</Text>
+          </TouchableOpacity>
+        </View>
+        {branches.length > 0 && (
+          <View style={s.branchesCard}>
+            {branches.map((b: any, i: number) => (
+              <View key={b.id || i} style={[s.branchRow, i < branches.length - 1 && s.branchBorder]}>
+                <MapPin size={15} color={ACCENT} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.branchName} numberOfLines={1}>{b.name}</Text>
+                  <View style={s.branchBarBg}>
+                    <View style={[s.branchBarFill, { width: '75%' }]} />
+                  </View>
+                </View>
+                <Text style={s.branchStats}>{b.city || b.address?.substring(0, 15)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
 
+function formatDate(d: string) {
+  const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  try {
+    const dt = new Date(d + 'T12:00:00');
+    return `${days[dt.getDay()]} ${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
+  } catch { return d; }
+}
+
+function getCapacityColor(dep: any) {
+  const pct = (dep.current_weight / dep.capacity_lbs) * 100;
+  if (pct >= 80) return '#EF4444';
+  if (pct >= 50) return '#F97316';
+  return '#22C55E';
+}
+
+function renderCapacityBadge(dep: any) {
+  const pct = (dep.current_weight / dep.capacity_lbs) * 100;
+  if (pct >= 80) {
+    return <View style={{ backgroundColor: 'rgba(239,68,68,0.14)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 99 }}><Text style={{ fontSize: 10, fontWeight: '700', color: '#EF4444' }}>Bientôt complet !</Text></View>;
+  }
+  return <View style={{ backgroundColor: 'rgba(34,197,94,0.14)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 99 }}><Text style={{ fontSize: 10, fontWeight: '700', color: '#22C55E' }}>Places disponibles</Text></View>;
+}
+
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D0D0D' },
+
   header: {
-    paddingHorizontal: 18, paddingTop: statusBarH + 10, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: '#1A1A1A', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 22, paddingTop: statusBarH + 10, paddingBottom: 18,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 100 },
-  title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  sub: { fontSize: 13, color: '#9CA3AF' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: {
+    width: 46, height: 46, borderRadius: 23, backgroundColor: ACCENT,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { fontSize: 16, fontWeight: '700', color: '#0D0D0D' },
+  headerName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', lineHeight: 18 },
+  roleBadge: {
+    backgroundColor: ACCENT, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 6, marginTop: 4, alignSelf: 'flex-start',
+  },
+  roleText: { fontSize: 10, fontWeight: '700', color: '#0D0D0D', letterSpacing: 0.3 },
+  headerRight: { flexDirection: 'row', gap: 10 },
+  headerBtn: {
+    position: 'relative', width: 42, height: 42, borderRadius: 12,
+    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bellBadge: {
+    position: 'absolute', top: 6, right: 7,
+    minWidth: 15, height: 15, borderRadius: 99,
+    backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#0D0D0D',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+  bellBadgeText: { fontSize: 9, fontWeight: '700', color: '#FFFFFF' },
+
+  periodBtn: {
+    height: 36, borderRadius: 99, paddingHorizontal: 16,
+    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  periodBtnActive: { backgroundColor: ACCENT, borderColor: ACCENT },
+  periodText: { fontSize: 12, fontWeight: '500', color: '#9CA3AF' },
+  periodTextActive: { fontWeight: '700', color: '#0D0D0D' },
+
+  kpiCard: {
+    width: 160, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#1F1F1F',
+    borderRadius: 16, padding: 16,
+  },
+  kpiIcon: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(249,115,22,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  kpiLabel: { fontSize: 12, color: '#9CA3AF', marginTop: 12 },
+  kpiValue: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.8, marginTop: 2 },
+  kpiTrend: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  kpiTrendText: { fontSize: 12, fontWeight: '600', color: '#22C55E' },
+
+  sectionRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginHorizontal: 22, marginTop: 26, marginBottom: 12,
+  },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  seeAll: { fontSize: 13, fontWeight: '600', color: ACCENT },
+
+  alertCountBadge: {
+    minWidth: 22, height: 22, borderRadius: 99, backgroundColor: '#EF4444',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7,
+  },
+  alertCountText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+
+  alertCard: {
+    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#1F1F1F',
+    borderLeftWidth: 3, borderRadius: 16, padding: 14, paddingHorizontal: 16,
+  },
+  alertRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  alertTitle: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  alertSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  alertBtnOrange: {
+    backgroundColor: ACCENT, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 8,
+  },
+  alertBtnOrangeText: { fontSize: 12, fontWeight: '700', color: '#0D0D0D' },
+  alertBtnGrey: {
+    backgroundColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 13, paddingVertical: 8,
+  },
+  alertBtnGreyText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+
+  progressBg: { height: 5, borderRadius: 99, backgroundColor: '#2A2A2A', overflow: 'hidden', marginTop: 12 },
+  progressFill: { height: '100%', borderRadius: 99 },
+
+  colisCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#1F1F1F',
+    borderRadius: 16, padding: 14,
+  },
+  colisId: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  colisClient: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  colisMeta: { fontSize: 11, color: '#6B7280' },
+  statusBadge: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 99 },
+  statusBadgeText: { fontSize: 10, fontWeight: '700' },
+
+  departCard: {
+    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#1F1F1F',
+    borderTopWidth: 3, borderRadius: 16, padding: 16,
+  },
+  departHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  departTitle: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  departDate: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
+  progressFillThick: { height: '100%', borderRadius: 99 },
+  capacityText: { fontSize: 11, color: '#6B7280', marginTop: 7 },
+  departBtn: {
+    marginTop: 12, width: '100%', height: 42, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  departBtnText: { fontSize: 13, fontWeight: '700' },
+
+  branchesCard: {
+    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#1F1F1F',
+    borderRadius: 16, marginHorizontal: 22, paddingHorizontal: 16, paddingVertical: 6,
+  },
+  branchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
+  branchBorder: { borderBottomWidth: 1, borderBottomColor: '#1F1F1F' },
+  branchName: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  branchBarBg: { height: 4, borderRadius: 99, backgroundColor: '#2A2A2A', overflow: 'hidden', marginTop: 7 },
+  branchBarFill: { height: '100%', borderRadius: 99, backgroundColor: ACCENT },
+  branchStats: { fontSize: 11, color: '#9CA3AF', flexShrink: 0 },
 });
