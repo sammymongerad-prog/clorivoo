@@ -2,9 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   FlatList, Dimensions, RefreshControl, Platform, StatusBar,
-  Modal, TextInput, KeyboardAvoidingView, Animated, PanResponder, Linking,
+  Modal, TextInput, KeyboardAvoidingView, Animated, PanResponder, Linking, Image,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight, Truck } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -238,8 +237,7 @@ export default function HomeScreen() {
               <Image
                 source={require('../../assets/images/card-flip.gif')}
                 style={{ width: 200, height: 220 }}
-                contentFit="cover"
-                autoplay={true}
+                resizeMode="cover"
               />
             </View>
 
