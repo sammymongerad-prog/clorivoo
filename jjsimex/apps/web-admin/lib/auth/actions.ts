@@ -12,10 +12,11 @@ export async function signIn(formData: FormData) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    console.error('[signIn] Auth error:', error.message, error.status);
     if (error.message.includes('Invalid login credentials')) {
       redirect('/login?error=identifiants_invalides');
     }
-    redirect('/login?error=erreur_connexion');
+    redirect(`/login?error=erreur_connexion&detail=${encodeURIComponent(error.message)}`);
   }
 
   // Vérification du rôle — seuls admin/super_admin accèdent au dashboard web
