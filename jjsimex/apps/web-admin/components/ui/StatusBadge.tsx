@@ -2,6 +2,7 @@ import React from 'react';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   // Package statuses
+  awaiting_arrival: { label: 'En attente', color: '#F59E0B', bg: 'rgba(245,158,11,0.14)' },
   pending:      { label: 'En attente',   color: '#6B7280', bg: 'rgba(107,114,128,0.14)' },
   received_usa: { label: 'Reçu USA',     color: '#3B82F6', bg: 'rgba(59,130,246,0.14)' },
   in_transit:   { label: 'En transit',   color: '#F97316', bg: 'rgba(249,115,22,0.14)' },
