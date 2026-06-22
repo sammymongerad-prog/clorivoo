@@ -9,11 +9,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 interface Props {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: { error?: string };
 }
 
-export default async function LoginPage({ searchParams }: Props) {
-  const { error } = await searchParams;
+export default function LoginPage({ searchParams }: Props) {
+  const error = searchParams.error;
   const errorMsg = error ? ERROR_MESSAGES[error] : null;
 
   return (

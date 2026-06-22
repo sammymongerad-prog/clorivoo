@@ -1,11 +1,12 @@
 import { resetPassword } from '@/lib/auth/actions';
 
 interface Props {
-  searchParams: Promise<{ error?: string; success?: string }>;
+  searchParams: { error?: string; success?: string };
 }
 
-export default async function ForgotPasswordPage({ searchParams }: Props) {
-  const { error, success } = await searchParams;
+export default function ForgotPasswordPage({ searchParams }: Props) {
+  const error = searchParams.error;
+  const success = searchParams.success;
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
