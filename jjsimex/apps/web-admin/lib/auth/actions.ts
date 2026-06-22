@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 
 export async function signIn(formData: FormData) {
   const email = formData.get('email') as string;
@@ -19,8 +20,13 @@ export async function signIn(formData: FormData) {
     redirect(`/login?error=erreur_connexion&detail=${encodeURIComponent(error.message)}`);
   }
 
-  // Vérification du rôle — seuls admin/super_admin accèdent au dashboard web
-  const { data: profile } = await supabase
+  // Use service role to bypass RLS for profile check
+  const admin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: profile } = await admin
     .from('users')
     .select('role, is_blocked')
     .eq('id', data.user.id)
