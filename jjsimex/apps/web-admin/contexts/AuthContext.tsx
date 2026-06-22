@@ -1,12 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getClient } from '@jjsimex/supabase';
+import { createClient } from '@/lib/supabase/client';
 
 interface Profile {
   id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   email: string;
   role: string;
 }
@@ -19,7 +18,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({ profile: null, loading: true });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = getClient();
+  const supabase = createClient();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const { data } = await supabase.from('users').select('id, first_name, last_name, email, role').eq('id', session.user.id).single();
+        const { data } = await supabase.from('users').select('id, full_name, email, role').eq('id', session.user.id).single();
         if (data) setProfile(data as Profile);
       }
       setLoading(false);

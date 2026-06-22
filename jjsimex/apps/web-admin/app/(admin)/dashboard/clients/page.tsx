@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getClient } from '@jjsimex/supabase';
+import { createClient } from '@/lib/supabase/client';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
@@ -29,7 +29,7 @@ interface ClientDetail extends Client {
 const PAGE_SIZE = 20;
 
 export default function ClientsPage() {
-  const supabase = getClient();
+  const supabase = createClient();
   const { show, ToastEl } = useToast();
 
   const [clients, setClients] = useState<Client[]>([]);
