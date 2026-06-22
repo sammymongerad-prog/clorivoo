@@ -21,7 +21,7 @@ export async function signIn(formData: FormData) {
   // Vérification du rôle — seuls admin/super_admin accèdent au dashboard web
   const { data: profile } = await supabase
     .from('users')
-    .select('role, is_active')
+    .select('role, is_blocked')
     .eq('id', data.user.id)
     .single();
 
@@ -30,7 +30,7 @@ export async function signIn(formData: FormData) {
     redirect('/login?error=profil_introuvable');
   }
 
-  if (!profile.is_active) {
+  if (profile.is_blocked) {
     await supabase.auth.signOut();
     redirect('/login?error=compte_suspendu');
   }
