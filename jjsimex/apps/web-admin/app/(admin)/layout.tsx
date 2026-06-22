@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { getClient } from '@jjsimex/supabase';
+import { createClient } from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   {
@@ -26,6 +26,16 @@ const NAV_ITEMS = [
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
         <path d="m3.27 6.96 8.73 5.05 8.73-5.05"/><path d="M12 22.08V12"/>
+      </svg>
+    ),
+  },
+  {
+    key: 'envoyer',
+    label: 'Envoyer',
+    href: '/dashboard/envoyer',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
       </svg>
     ),
   },
@@ -108,8 +118,7 @@ const NAV_ITEMS = [
 
 interface AdminUser {
   id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   role: string;
 }
 
@@ -120,8 +129,9 @@ interface Badges {
 }
 
 function Sidebar({ pathname, badges, user, onSignOut }: { pathname: string; badges: Badges; user: AdminUser | null; onSignOut: () => void }) {
-  const initials = user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : '??';
-  const fullName = user ? `${user.first_name} ${user.last_name}` : 'Admin';
+  const nameParts = user?.full_name?.split(' ') ?? [];
+  const initials = user ? (nameParts.length >= 2 ? `${nameParts[0][0]}${nameParts[1][0]}` : nameParts[0]?.[0] ?? '?').toUpperCase() : '??';
+  const fullName = user?.full_name ?? 'Admin';
 
   return (
     <aside style={{ width: 260, flexShrink: 0, background: '#111111', borderRight: '1px solid #2A2A2A', display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -181,8 +191,9 @@ function Sidebar({ pathname, badges, user, onSignOut }: { pathname: string; badg
 
 function AdminHeader({ pathname, user, totalBadges }: { pathname: string; user: AdminUser | null; totalBadges: number }) {
   const title = NAV_ITEMS.find(i => pathname === i.href || (i.href !== '/dashboard' && pathname.startsWith(i.href)))?.label ?? 'Dashboard';
-  const firstName = user?.first_name ?? 'Admin';
-  const initials = user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : '??';
+  const hNameParts = user?.full_name?.split(' ') ?? [];
+  const firstName = hNameParts[0] ?? 'Admin';
+  const initials = user ? (hNameParts.length >= 2 ? `${hNameParts[0][0]}${hNameParts[1][0]}` : hNameParts[0]?.[0] ?? '?').toUpperCase() : '??';
 
   return (
     <header style={{ height: 64, flexShrink: 0, background: '#0D0D0D', borderBottom: '1px solid #2A2A2A', display: 'flex', alignItems: 'center', gap: 20, padding: '0 24px' }}>
@@ -225,7 +236,7 @@ function AdminHeader({ pathname, user, totalBadges }: { pathname: string; user: 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const supabase = getClient();
+  const supabase = createClient();
 
   const [user, setUser] = useState<AdminUser | null>(null);
   const [badges, setBadges] = useState<Badges>({ pending_packages: 0, pending_shopper: 0, pending_payments: 0 });
@@ -235,7 +246,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
 
-      const { data } = await supabase.from('users').select('id, first_name, last_name, role').eq('id', session.user.id).single();
+      const { data } = await supabase.from('users').select('id, full_name, role').eq('id', session.user.id).single();
       if (data) setUser(data as AdminUser);
     })();
   }, []);
@@ -244,7 +255,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const loadBadges = async () => {
       const [pkgRes, shopRes, payRes] = await Promise.all([
         supabase.from('packages').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('shopper_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('personal_shopper').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       ]);
       setBadges({
@@ -258,7 +269,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const ch = supabase.channel('admin-badges')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'packages' }, loadBadges)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shopper_requests' }, loadBadges)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_shopper' }, loadBadges)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, loadBadges)
       .subscribe();
 

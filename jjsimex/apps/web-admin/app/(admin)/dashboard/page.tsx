@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getPackageStats, getAllPackages } from '@jjsimex/supabase/packages';
-import { getPaymentStats } from '@jjsimex/supabase/payments';
+import { createClient } from '@/lib/supabase/client';
 import { KPICard } from '@/components/ui/KPICard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -12,89 +11,100 @@ import { DestinationDonut } from '@/components/charts/DestinationDonut';
 import { TransportBars } from '@/components/charts/TransportBars';
 
 const DEST_COLORS: Record<string, string> = {
-  HT: '#F97316', DO: '#3B82F6', MQ: '#A855F7', GP: '#06B6D4', FR: '#22C55E',
+  haiti: '#F97316', dr: '#3B82F6',
+};
+const DEST_LABELS: Record<string, string> = {
+  haiti: 'Haïti', dr: 'Rép. Dom.',
 };
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
-interface PackageRow {
-  id: string;
-  tracking_number: string;
-  users?: { first_name?: string; last_name?: string };
-  destination_city?: string;
-  destination_country?: string;
-  weight_billed?: number;
-  transport_mode?: string;
-  status: string;
-  created_at: string;
+interface DashboardData {
+  totalPackages: number;
+  totalRevenue: number;
+  confirmedPayments: number;
+  pendingCount: number;
+  byCountry: Record<string, number>;
+  airCount: number;
+  seaCount: number;
+  recentPackages: any[];
+  chartData: { month: string; revenue: number; packages: number }[];
+  nextDepartures: any[];
 }
 
-interface PkgStats {
-  total: number;
-  count_growth: number;
-  revenue: number;
-  revenue_growth: number;
-  by_status: Record<string, number>;
-  by_country: Record<string, number>;
-  by_transport: Record<string, number>;
-}
-
-interface PayStats {
-  total_confirmed: number;
-  growth_percentage: number;
+function getDateRange(period: 'week' | 'month' | 'year') {
+  const now = new Date();
+  const start = new Date(now);
+  if (period === 'week') start.setDate(now.getDate() - 7);
+  else if (period === 'month') start.setDate(now.getDate() - 30);
+  else start.setFullYear(now.getFullYear() - 1);
+  return start.toISOString();
 }
 
 export default function DashboardPage() {
-  const [pkgStats, setPkgStats] = useState<PkgStats | null>(null);
-  const [payStats, setPayStats] = useState<PayStats | null>(null);
-  const [recentPkgs, setRecentPkgs] = useState<PackageRow[]>([]);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month');
 
   useEffect(() => {
+    const supabase = createClient();
     (async () => {
       setLoading(true);
-      try {
-        const [ps, pays, pkgs] = await Promise.all([
-          getPackageStats(period),
-          getPaymentStats(period === 'year' ? 'year' : period === 'week' ? 'week' : 'month'),
-          getAllPackages({ limit: 8 } as Parameters<typeof getAllPackages>[0]),
-        ]);
-        setPkgStats(ps as PkgStats);
-        setPayStats(pays as PayStats);
-        setRecentPkgs((pkgs as PackageRow[]) ?? []);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
+      const since = getDateRange(period);
+
+      const [pkgRes, payRes, recentRes, depRes] = await Promise.all([
+        supabase.from('packages').select('id, total_price, destination_country, transport_mode, status, created_at').gte('created_at', since),
+        supabase.from('payments').select('id, amount, status').gte('created_at', since),
+        supabase.from('packages').select('id, tracking_number, client_id, destination_city, destination_country, billed_weight_lbs, transport_mode, status, created_at, users!packages_client_id_fkey(full_name)').order('created_at', { ascending: false }).limit(8),
+        supabase.from('departures').select('*').in('status', ['open', 'closed']).order('departure_date', { ascending: true }).limit(4),
+      ]);
+
+      const packages = pkgRes.data ?? [];
+      const payments = payRes.data ?? [];
+      const recentPackages = recentRes.data ?? [];
+      const departures = depRes.data ?? [];
+
+      const totalPackages = packages.length;
+      const totalRevenue = packages.reduce((s: number, p: any) => s + Number(p.total_price || 0), 0);
+      const confirmedPayments = payments.filter((p: any) => p.status === 'confirmed').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+      const pendingCount = packages.filter((p: any) => p.status === 'received_usa').length;
+
+      const byCountry: Record<string, number> = {};
+      const airCount = packages.filter((p: any) => p.transport_mode === 'air').length;
+      const seaCount = packages.filter((p: any) => p.transport_mode === 'sea').length;
+      packages.forEach((p: any) => {
+        const c = p.destination_country || 'unknown';
+        byCountry[c] = (byCountry[c] || 0) + 1;
+      });
+
+      // Build chart data for last 6 months
+      const now = new Date();
+      const chartData = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - (5 - i));
+        const m = d.getMonth();
+        const y = d.getFullYear();
+        const monthPkgs = packages.filter((p: any) => {
+          const pd = new Date(p.created_at);
+          return pd.getMonth() === m && pd.getFullYear() === y;
+        });
+        return {
+          month: MONTH_LABELS[m],
+          revenue: Math.round(monthPkgs.reduce((s: number, p: any) => s + Number(p.total_price || 0), 0)),
+          packages: monthPkgs.length,
+        };
+      });
+
+      setData({ totalPackages, totalRevenue, confirmedPayments, pendingCount, byCountry, airCount, seaCount, recentPackages, chartData, nextDepartures: departures });
+      setLoading(false);
     })();
   }, [period]);
 
-  const now = new Date();
-  const chartData = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now);
-    d.setMonth(d.getMonth() - (5 - i));
-    return { month: MONTH_LABELS[d.getMonth()], revenue: 0, packages: 0 };
-  });
-
-  const destData = pkgStats
-    ? Object.entries(pkgStats.by_country).map(([k, v]) => ({
-        name: k, value: v as number, color: DEST_COLORS[k] ?? '#6B7280',
-      }))
-    : [];
-
-  const airCount = (pkgStats?.by_transport?.['air'] as number) ?? 0;
-  const seaCount = (pkgStats?.by_transport?.['sea'] as number) ?? 0;
-
   const fmt = (n: number) => n.toLocaleString('fr-FR');
   const fmtUSD = (n: number) => `$${n.toLocaleString('fr-FR', { minimumFractionDigits: 0 })}`;
-  const fmtGrowth = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-      {/* Period selector */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>Tableau de bord</h1>
         <div style={{ display: 'flex', gap: 4, background: '#111111', border: '1px solid #2A2A2A', borderRadius: 10, padding: 4 }}>
@@ -110,48 +120,38 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {loading ? <LoadingSpinner /> : (
+      {loading ? <LoadingSpinner /> : data && (
         <>
-          {/* KPI row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
             <KPICard
               icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.27 6.96 8.73 5.05 8.73-5.05"/><path d="M12 22.08V12"/></svg>}
               label="Colis reçus"
-              value={fmt(pkgStats?.total ?? 0)}
-              growth={fmtGrowth(pkgStats?.count_growth ?? 0)}
-              growthUp={(pkgStats?.count_growth ?? 0) >= 0}
+              value={fmt(data.totalPackages)}
             />
             <KPICard
               icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>}
               label="Revenus colis"
-              value={fmtUSD(pkgStats?.revenue ?? 0)}
-              growth={fmtGrowth(pkgStats?.revenue_growth ?? 0)}
-              growthUp={(pkgStats?.revenue_growth ?? 0) >= 0}
+              value={fmtUSD(data.totalRevenue)}
               accent="#22C55E"
             />
             <KPICard
               icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>}
               label="Paiements confirmés"
-              value={fmtUSD(payStats?.total_confirmed ?? 0)}
-              growth={fmtGrowth(payStats?.growth_percentage ?? 0)}
-              growthUp={(payStats?.growth_percentage ?? 0) >= 0}
+              value={fmtUSD(data.confirmedPayments)}
               accent="#3B82F6"
             />
             <KPICard
               icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
               label="En attente traitement"
-              value={fmt((pkgStats?.by_status?.['pending'] as number) ?? 0)}
-              growth="À traiter"
-              growthUp={false}
+              value={fmt(data.pendingCount)}
               action={
-                <Link href="/dashboard/colis?status=pending" style={{ background: '#F97316', borderRadius: 8, padding: '7px 12px', color: '#0D0D0D', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                <Link href="/dashboard/colis?status=received_usa" style={{ background: '#F97316', borderRadius: 8, padding: '7px 12px', color: '#0D0D0D', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
                   Traiter →
                 </Link>
               }
             />
           </div>
 
-          {/* Charts row */}
           <div style={{ display: 'grid', gridTemplateColumns: '65fr 35fr', gap: 16 }}>
             <div style={{ background: '#1A1A1A', border: '1px solid #222222', borderRadius: 12, padding: 20, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -161,31 +161,32 @@ export default function DashboardPage() {
                   <span><span style={{ color: '#3B82F6' }}>■</span> Colis</span>
                 </div>
               </div>
-              <RevenueChart data={chartData} />
+              <RevenueChart data={data.chartData} />
             </div>
 
             <div style={{ background: '#1A1A1A', border: '1px solid #222222', borderRadius: 12, padding: 20, minWidth: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>Destinations</div>
-              {destData.length > 0 ? (
-                <DestinationDonut data={destData} />
+              {Object.keys(data.byCountry).length > 0 ? (
+                <DestinationDonut data={Object.entries(data.byCountry).map(([k, v]) => ({
+                  name: DEST_LABELS[k] ?? k, value: v, color: DEST_COLORS[k] ?? '#6B7280',
+                }))} />
               ) : (
                 <div style={{ color: '#6B7280', fontSize: 14, textAlign: 'center', paddingTop: 40 }}>Aucune donnée</div>
               )}
             </div>
           </div>
 
-          {/* Transport + Recent packages */}
           <div style={{ display: 'grid', gridTemplateColumns: '35fr 65fr', gap: 16 }}>
             <div style={{ background: '#1A1A1A', border: '1px solid #222222', borderRadius: 12, padding: 20 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>Mode de transport</div>
-              <TransportBars air={airCount} sea={seaCount} />
+              <TransportBars air={data.airCount} sea={data.seaCount} />
               <div style={{ marginTop: 16, display: 'flex', gap: 16 }}>
                 <div style={{ flex: 1, background: '#111', borderRadius: 10, padding: '12px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#3B82F6' }}>{fmt(airCount)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#3B82F6' }}>{fmt(data.airCount)}</div>
                   <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>✈ Aérien</div>
                 </div>
                 <div style={{ flex: 1, background: '#111', borderRadius: 10, padding: '12px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#06B6D4' }}>{fmt(seaCount)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#06B6D4' }}>{fmt(data.seaCount)}</div>
                   <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>🚢 Maritime</div>
                 </div>
               </div>
@@ -206,19 +207,19 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentPkgs.map(pkg => (
+                    {data.recentPackages.map((pkg: any) => (
                       <tr key={pkg.id} style={{ borderBottom: '1px solid #111111' }}>
                         <td style={{ padding: '12px 12px', fontSize: 13, color: '#F97316', fontWeight: 600, whiteSpace: 'nowrap' }}>
                           <Link href={`/dashboard/colis/${pkg.id}`} style={{ color: '#F97316', textDecoration: 'none' }}>{pkg.tracking_number}</Link>
                         </td>
                         <td style={{ padding: '12px 12px', fontSize: 13, color: '#E5E7EB', whiteSpace: 'nowrap' }}>
-                          {pkg.users?.first_name} {pkg.users?.last_name}
+                          {pkg.users?.full_name ?? '—'}
                         </td>
                         <td style={{ padding: '12px 12px', fontSize: 13, color: '#9CA3AF', whiteSpace: 'nowrap' }}>
-                          {pkg.destination_city}, {pkg.destination_country}
+                          {pkg.destination_city}{pkg.destination_country ? `, ${DEST_LABELS[pkg.destination_country] ?? pkg.destination_country}` : ''}
                         </td>
                         <td style={{ padding: '12px 12px', fontSize: 13, color: '#E5E7EB', whiteSpace: 'nowrap' }}>
-                          {pkg.weight_billed ? `${pkg.weight_billed} lbs` : '—'}
+                          {pkg.billed_weight_lbs ? `${pkg.billed_weight_lbs} lbs` : '—'}
                         </td>
                         <td style={{ padding: '12px 12px', fontSize: 13, color: '#9CA3AF' }}>
                           {pkg.transport_mode === 'air' ? '✈ Avion' : '🚢 Bateau'}
@@ -228,7 +229,7 @@ export default function DashboardPage() {
                         </td>
                       </tr>
                     ))}
-                    {recentPkgs.length === 0 && (
+                    {data.recentPackages.length === 0 && (
                       <tr><td colSpan={6} style={{ padding: '30px 12px', textAlign: 'center', color: '#6B7280', fontSize: 14 }}>Aucun colis récent</td></tr>
                     )}
                   </tbody>
@@ -236,6 +237,39 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {data.nextDepartures.length > 0 && (
+            <div style={{ background: '#1A1A1A', border: '1px solid #222222', borderRadius: 12, padding: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF' }}>Prochains départs</span>
+                <Link href="/dashboard/departs" style={{ fontSize: 13, color: '#F97316', textDecoration: 'none', fontWeight: 600 }}>Voir tout →</Link>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(data.nextDepartures.length, 4)}, 1fr)`, gap: 12 }}>
+                {data.nextDepartures.map((dep: any) => {
+                  const pct = dep.capacity_lbs > 0 ? Math.round((Number(dep.used_capacity_lbs) / Number(dep.capacity_lbs)) * 100) : 0;
+                  return (
+                    <div key={dep.id} style={{ background: '#111', borderRadius: 10, padding: 16, border: '1px solid #2A2A2A' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <span style={{ fontSize: 18 }}>{dep.type === 'air' ? '✈' : '🚢'}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{dep.type === 'air' ? 'Aérien' : 'Maritime'}</span>
+                        <StatusBadge status={dep.status} />
+                      </div>
+                      <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 8 }}>
+                        {new Date(dep.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 4 }}>
+                        {dep.used_capacity_lbs} / {dep.capacity_lbs} lbs
+                      </div>
+                      <div style={{ height: 6, background: '#2A2A2A', borderRadius: 3 }}>
+                        <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: pct > 80 ? '#EF4444' : '#F97316', borderRadius: 3 }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: pct > 80 ? '#EF4444' : '#6B7280', marginTop: 4, textAlign: 'right' }}>{pct}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
