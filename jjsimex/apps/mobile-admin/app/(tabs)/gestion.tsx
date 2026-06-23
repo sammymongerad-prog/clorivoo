@@ -19,7 +19,7 @@ export default function GestionScreen() {
   async function loadUrgencies() {
     const [pkgRes, shopRes, payRes] = await Promise.all([
       supabase.from('packages').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('shopper_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('personal_shopper').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     ]);
     setUrgencies({
@@ -33,7 +33,7 @@ export default function GestionScreen() {
     loadUrgencies();
     const ch = supabase.channel('gestion-urgencies')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'packages' }, loadUrgencies)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shopper_requests' }, loadUrgencies)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_shopper' }, loadUrgencies)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, loadUrgencies)
       .subscribe();
     return () => { supabase.removeChannel(ch); };

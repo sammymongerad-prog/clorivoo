@@ -79,10 +79,10 @@ export default function PersonalShopper() {
     fetchRequests();
 
     const channel = supabase
-      .channel('shopper_requests_admin')
+      .channel('personal_shopper_admin')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'shopper_requests' },
+        { event: '*', schema: 'public', table: 'personal_shopper' },
         (payload) => {
           const eventType = payload.eventType;
           if (eventType === 'INSERT') {

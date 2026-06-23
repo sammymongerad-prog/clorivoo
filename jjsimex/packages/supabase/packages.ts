@@ -624,6 +624,66 @@ export function subscribeToPackages(
   return () => { supabase.removeChannel(channel); };
 }
 
+// ─── ADMIN : Marquer un colis comme reçu (avec génération tracking) ─────────
+
+export async function markPackageAsReceived(
+  packageId: string,
+  realWeight: number,
+  adminPhotos: { front?: string; back?: string; left?: string; right?: string },
+): Promise<{ tracking_number: string } | null> {
+  const supabase = getClient();
+
+  // Step 1: Generate tracking number via RPC
+  const { data: trackingNumber, error: rpcError } = await supabase.rpc('generate_next_tracking_number');
+  if (rpcError || !trackingNumber) {
+    console.error('Failed to generate tracking number:', rpcError);
+    return null;
+  }
+
+  // Step 2: Get client_id and request_number
+  const { data: pkgData } = await supabase
+    .from('packages')
+    .select('client_id, request_number')
+    .eq('id', packageId)
+    .single();
+
+  if (!pkgData) return null;
+
+  // Step 3: Update the package
+  const { error } = await supabase.from('packages').update({
+    status: 'received_usa',
+    tracking_number: trackingNumber,
+    real_weight_lbs: realWeight,
+    billed_weight_lbs: realWeight,
+    admin_photo_front_url: adminPhotos.front ?? null,
+    admin_photo_back_url: adminPhotos.back ?? null,
+    admin_photo_left_url: adminPhotos.left ?? null,
+    admin_photo_right_url: adminPhotos.right ?? null,
+  }).eq('id', packageId);
+
+  if (error) {
+    console.error('Failed to update package:', error);
+    return null;
+  }
+
+  // Step 4: Insert into package_status_history
+  await supabase.from('package_status_history').insert({
+    package_id: packageId,
+    status: 'received_usa',
+    note: 'Colis reçu à l\'entrepôt',
+  });
+
+  // Step 5: Send notification to the client
+  await supabase.from('notifications').insert({
+    user_id: pkgData.client_id,
+    title: 'Colis reçu à Miami !',
+    message: `Votre colis ${pkgData.request_number} (tracking: ${trackingNumber}) a été reçu dans notre entrepôt. Poids vérifié: ${realWeight} lbs.`,
+    type: 'package',
+  });
+
+  return { tracking_number: trackingNumber };
+}
+
 // ─── Utilitaire : Date estimée de livraison ───────────────────────────────────
 
 function calculateEstimatedDelivery(pkg: {

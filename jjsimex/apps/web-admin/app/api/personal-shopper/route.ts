@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get('offset') ?? '0');
 
   let query = supabase
-    .from('shopper_requests')
+    .from('personal_shopper')
     .select('*, users(first_name, last_name, email)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   const { data, error } = await supabase
-    .from('shopper_requests')
+    .from('personal_shopper')
     .insert({ ...body, created_by: user.id, status: 'pending' })
     .select()
     .single();

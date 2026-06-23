@@ -135,11 +135,21 @@ export default function EnvoyerPage() {
 
     const weight = parseFloat(modal.realWeight) || modal.shipment.billed_weight_lbs;
 
-    // Get client_id
+    // Step 1: Generate a tracking number via RPC
+    const { data: trackingNumber, error: rpcError } = await supabase.rpc('generate_next_tracking_number');
+    if (rpcError || !trackingNumber) {
+      console.error('Failed to generate tracking number:', rpcError);
+      setModal(m => ({ ...m, submitting: false }));
+      return;
+    }
+
+    // Step 2: Get client_id
     const { data: pkgData } = await supabase.from('packages').select('client_id').eq('id', modal.shipment.id).single();
 
+    // Step 3: Update the package with status, tracking number, weight, and admin photos
     const { error } = await supabase.from('packages').update({
       status: 'received_usa',
+      tracking_number: trackingNumber,
       real_weight_lbs: weight,
       billed_weight_lbs: weight,
       admin_photo_front_url: urls.front,
@@ -149,10 +159,18 @@ export default function EnvoyerPage() {
     }).eq('id', modal.shipment.id);
 
     if (!error && pkgData) {
+      // Step 4: Insert into package_status_history
+      await supabase.from('package_status_history').insert({
+        package_id: modal.shipment.id,
+        status: 'received_usa',
+        note: 'Colis reçu à l\'entrepôt',
+      });
+
+      // Step 5: Send notification to the client with request_number and tracking_number
       await supabase.from('notifications').insert({
         user_id: pkgData.client_id,
         title: 'Colis reçu à Miami !',
-        message: `Votre colis ${modal.shipment.request_number} a été reçu dans notre entrepôt. Poids vérifié: ${weight} lbs.`,
+        message: `Votre colis ${modal.shipment.request_number} (tracking: ${trackingNumber}) a été reçu dans notre entrepôt. Poids vérifié: ${weight} lbs.`,
         type: 'package',
       });
 

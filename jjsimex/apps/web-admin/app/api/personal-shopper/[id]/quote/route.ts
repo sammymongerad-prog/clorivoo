@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   const { data, error } = await supabase
-    .from('shopper_requests')
+    .from('personal_shopper')
     .update({
       status: 'quoted',
       quote_amount,
