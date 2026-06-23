@@ -27,10 +27,19 @@ const FILTER_LABELS: { key: FilterType; label: string }[] = [
 ];
 
 const TYPE_ICON: Record<string, { emoji: string; bg: string }> = {
-  colis:    { emoji: '📦', bg: '#F97316' },
-  paiement: { emoji: '💳', bg: '#2563EB' },
-  promo:    { emoji: '🏷️', bg: '#F97316' },
-  systeme:  { emoji: '⚙️', bg: '#6B7280' },
+  package:          { emoji: '📦', bg: '#F97316' },
+  personal_shopper: { emoji: '🛍️', bg: '#A855F7' },
+  payment:          { emoji: '💳', bg: '#2563EB' },
+  promo:            { emoji: '🏷️', bg: '#F97316' },
+  system:           { emoji: '⚙️', bg: '#6B7280' },
+};
+
+const FILTER_TYPES: Record<FilterType, string[]> = {
+  tous:     [],
+  colis:    ['package', 'personal_shopper'],
+  paiement: ['payment'],
+  promo:    ['promo'],
+  systeme:  ['system'],
 };
 
 function fmtTime(date: string): string {
@@ -105,7 +114,8 @@ export default function NotificationsScreen() {
     }
   }
 
-  const filtered = notifications.filter(n => filter === 'tous' || n.type === filter);
+  const filterTypes = FILTER_TYPES[filter];
+  const filtered = notifications.filter(n => !filterTypes.length || filterTypes.includes(n.type));
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   // Group by date
