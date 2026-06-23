@@ -146,6 +146,18 @@ export async function createPayment(
     }
   }
 
+  // #17: Client confirmation notification
+  const payClientTitle = 'Paiement reçu';
+  const payClientMsg = `Votre paiement de $${data.amount.toFixed(2)} via ${methodLabel[data.method]} est en attente de confirmation.`;
+  await supabase.from('notifications').insert({
+    user_id,
+    type: 'payment',
+    title: payClientTitle,
+    message: payClientMsg,
+    action_url: `/colis/${data.package_id}`,
+  });
+  sendPushNotification(user_id, payClientTitle, payClientMsg).catch(() => {});
+
   return payment as Payment;
 }
 
@@ -308,7 +320,7 @@ export async function refusePayment(
     .single();
 
   const refTitle = 'Paiement non confirmé ❌';
-  const refMsg = `Votre paiement n'a pas pu être confirmé. Contactez-nous.`;
+  const refMsg = `Votre paiement n'a pas pu être confirmé. Raison: ${reason}`;
   await supabase.from('notifications').insert({
     user_id: payment.user_id,
     type: 'payment',

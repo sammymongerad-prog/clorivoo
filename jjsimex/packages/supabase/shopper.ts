@@ -115,6 +115,19 @@ export async function createShopperRequest(
     .select('id, expo_push_token')
     .in('role', ['admin', 'super_admin']);
 
+  // Confirmation client
+  const clientConfTitle = 'Demande Personal Shopper reçue';
+  const clientConfMsg = `Votre demande ${request_number} (${data.merchant}) a été enregistrée. Nous vous enverrons un devis sous 24h.`;
+  await supabase.from('notifications').insert({
+    user_id: user_id,
+    type: 'personal_shopper',
+    title: clientConfTitle,
+    message: clientConfMsg,
+    action_url: `/shopper/${request.id}`,
+  });
+  sendPushNotification(user_id, clientConfTitle, clientConfMsg).catch(() => {});
+
+  // Notification admins
   const shopTitle = 'Nouvelle demande Personal Shopper';
   const shopMsg = `${client?.full_name ?? 'Client'} — ${data.merchant} — ${request_number}`;
   if (admins && admins.length > 0) {

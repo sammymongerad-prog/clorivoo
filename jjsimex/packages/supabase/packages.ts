@@ -187,6 +187,23 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
   });
   sendPushNotification(data.client_id, shipTitle, shipMsg).catch(() => {});
 
+  // Notification admins
+  const { data: admins } = await getClient()
+    .from('users')
+    .select('id')
+    .in('role', ['admin', 'super_admin']);
+
+  if (admins && admins.length > 0) {
+    const adminTitle = 'Nouvelle demande d\'envoi';
+    const adminMsg = `Demande ${pkg.request_number} — ${data.category ?? 'Colis'} vers ${data.destination_city}.`;
+    await getClient().from('notifications').insert(
+      admins.map(a => ({ user_id: a.id, type: 'package' as const, title: adminTitle, message: adminMsg }))
+    );
+    for (const a of admins) {
+      sendPushNotification(a.id, adminTitle, adminMsg).catch(() => {});
+    }
+  }
+
   return pkg;
 }
 
@@ -209,6 +226,30 @@ export async function addCarrierTracking(
     .eq('status', 'awaiting_arrival');
 
   if (error) throw new Error('Erreur lors de l\'ajout du tracking.');
+
+  // Notify admins that client added tracking
+  const { data: pkg } = await getClient()
+    .from('packages')
+    .select('request_number, users!client_id(full_name)')
+    .eq('id', packageId)
+    .single();
+
+  const { data: admins } = await getClient()
+    .from('users')
+    .select('id')
+    .in('role', ['admin', 'super_admin']);
+
+  if (admins && admins.length > 0 && pkg) {
+    const clientName = (pkg as any).users?.full_name ?? 'Client';
+    const trackTitle = 'Tracking ajouté par le client';
+    const trackMsg = `${clientName} a ajouté le tracking ${carrierName} ${carrierTrackingNumber} sur ${(pkg as any).request_number ?? packageId}.`;
+    await getClient().from('notifications').insert(
+      admins.map(a => ({ user_id: a.id, type: 'package' as const, title: trackTitle, message: trackMsg }))
+    );
+    for (const a of admins) {
+      sendPushNotification(a.id, trackTitle, trackMsg).catch(() => {});
+    }
+  }
 
   return { success: true };
 }
@@ -317,7 +358,8 @@ export async function updatePackageStatus(
     .select(`
       *,
       users!client_id ( id, first_name, email ),
-      departures ( origin )
+      departures ( origin ),
+      branches!branch_id ( name, address, opening_hours, city )
     `)
     .eq('id', packageId)
     .single();
@@ -355,6 +397,11 @@ export async function updatePackageStatus(
   if (!client) return pkg;
 
   // Messages push selon statut
+  const branch = (pkg as any).branches;
+  const branchInfo = branch
+    ? `\n📍 ${branch.name}${branch.address ? ` — ${branch.address}` : ''}${branch.opening_hours ? `\n🕐 ${branch.opening_hours}` : ''}`
+    : '';
+
   const pushMessages: Record<string, { title: string; body: string }> = {
     in_transit: {
       title: 'Colis en route ✈️',
@@ -366,11 +413,11 @@ export async function updatePackageStatus(
     },
     ready_pickup: {
       title: 'Colis prêt à retirer 📦',
-      body: `${pkg.tracking_number} vous attend à notre succursale de ${pkg.destination_city}.`,
+      body: `${pkg.tracking_number} vous attend à notre succursale de ${pkg.destination_city}.${branchInfo}`,
     },
     delivered: {
       title: 'Colis livré ✅',
-      body: `${pkg.tracking_number} a été livré. Merci de faire confiance à JJ's IMEX !`,
+      body: `${pkg.tracking_number} a été livré. Merci de faire confiance à JJ's IMEX ! ⭐ Laissez-nous un avis dans l'app.`,
     },
   };
 
@@ -477,10 +524,38 @@ export async function assignToDeparture(packageId: string, departureId: string) 
 
   if (error) throw new Error('Erreur lors de l\'assignation.');
 
+  const newUsed = departure.used_capacity_lbs + pkg.billed_weight_lbs;
   await supabase
     .from('departures')
-    .update({ used_capacity_lbs: departure.used_capacity_lbs + pkg.billed_weight_lbs })
+    .update({ used_capacity_lbs: newUsed })
     .eq('id', departureId);
+
+  // A6: Alert admins when departure reaches 80% capacity
+  const pct = (newUsed / departure.capacity_lbs) * 100;
+  const prevPct = (departure.used_capacity_lbs / departure.capacity_lbs) * 100;
+  if (pct >= 80 && prevPct < 80) {
+    const { data: admins } = await supabase
+      .from('users')
+      .select('id')
+      .in('role', ['admin', 'super_admin']);
+
+    const capTitle = 'Départ presque plein ⚠️';
+    const capMsg = `Capacité à ${pct.toFixed(0)}% — ${newUsed.toFixed(1)}/${departure.capacity_lbs} lbs`;
+    if (admins && admins.length > 0) {
+      await supabase.from('notifications').insert(
+        admins.map(a => ({
+          user_id: a.id,
+          type: 'departure',
+          title: capTitle,
+          message: capMsg,
+          action_url: `/dashboard/departs`,
+        }))
+      );
+      for (const a of admins) {
+        sendPushNotification(a.id, capTitle, capMsg).catch(() => {});
+      }
+    }
+  }
 
   return { success: true };
 }
