@@ -38,16 +38,16 @@ export async function createPickupRequest(data: CreatePickupData, userId: string
     .single();
 
   if (error || !pickup) {
-    throw new Error('Erreur lors de la création de la demande de pickup.');
+    throw new Error(error?.message ?? 'Erreur lors de la création de la demande de pickup.');
   }
 
   const { data: user } = await getClient()
     .from('users')
-    .select('first_name, last_name')
+    .select('full_name')
     .eq('id', userId)
     .single();
 
-  const clientName = user ? `${user.first_name} ${user.last_name}` : 'Un client';
+  const clientName = user?.full_name || 'Un client';
 
   const { data: admins } = await getClient()
     .from('users')
@@ -61,9 +61,7 @@ export async function createPickupRequest(data: CreatePickupData, userId: string
       user_id: admin.id,
       type: 'system',
       title: pickTitle,
-      body: pickBody,
-      data: { pickup_id: pickup.id },
-      is_read: false,
+      message: pickBody,
     }));
     await getClient().from('notifications').insert(notifications);
     for (const admin of admins) {

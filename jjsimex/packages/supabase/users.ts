@@ -5,11 +5,17 @@ import { sendPushNotification } from './push';
 export async function onUserCreated(userId: string): Promise<void> {
   const supabase = getClient();
 
-  const { data: user } = await supabase
-    .from('users')
-    .select('full_name, us_suite, destination_city, destination_country')
-    .eq('id', userId)
-    .single();
+  // Retry up to 3 times with delay — the DB trigger may not have created the profile yet
+  let user: any = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data } = await supabase
+      .from('users')
+      .select('full_name, us_suite, destination_city, destination_country')
+      .eq('id', userId)
+      .single();
+    if (data) { user = data; break; }
+    await new Promise(r => setTimeout(r, 1500));
+  }
 
   if (!user) return;
 

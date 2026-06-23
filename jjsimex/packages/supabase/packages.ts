@@ -46,7 +46,7 @@ export async function trackPackage(trackingNumber: string) {
       *,
       package_status_history (
         id, status, notes, created_at,
-        users!updated_by ( first_name, last_name )
+        users!updated_by ( full_name )
       ),
       departures ( id, transport_mode, departure_date, origin, status ),
       payments ( id, status, amount, method, transaction_number )
@@ -106,7 +106,7 @@ export async function getPackageDetail(packageId: string, userId: string) {
       *,
       package_status_history (
         id, status, notes, created_at,
-        users!updated_by ( first_name, last_name )
+        users!updated_by ( full_name )
       ),
       payments ( id, status, amount, method, transaction_number, created_at ),
       departures ( id, transport_mode, departure_date, origin )
@@ -151,29 +151,26 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
       status: 'awaiting_arrival',
       category: data.category,
       description: data.description,
-      weight_estimated: data.weight_estimated,
-      weight_real: 0,
-      weight_billed: 0,
+      real_weight_lbs: data.weight_estimated,
+      billed_weight_lbs: 0,
       declared_value: data.declared_value,
       insurance_amount: 0,
       transport_mode: data.transport_mode,
       destination_country: data.destination_country,
       destination_city: data.destination_city,
-      destination_address: data.destination_address,
-      receiver_first_name: data.receiver_first_name,
-      receiver_last_name: data.receiver_last_name,
-      receiver_phone: data.receiver_phone,
+      recipient_address: data.destination_address,
+      recipient_first_name: data.receiver_first_name,
+      recipient_last_name: data.receiver_last_name,
+      recipient_phone: data.receiver_phone,
       client_photo_1_url: data.client_photo_1_url ?? null,
       client_photo_2_url: data.client_photo_2_url ?? null,
       quantity: data.quantity ?? 1,
-      shipping_cost: 0,
-      is_paid: false,
     })
     .select('id, request_number, status, created_at')
     .single();
 
   if (error || !pkg) {
-    throw new Error('Erreur lors de la création de la demande. Réessayez.');
+    throw new Error(error?.message ?? 'Erreur lors de la création de la demande.');
   }
 
   // Notification in-app pour le client
@@ -312,7 +309,7 @@ async function insertPackage(
       is_paid: false,
       notes: data.notes,
     })
-    .select('*, users!client_id(first_name, last_name, email, whatsapp)')
+    .select('*, users!client_id(full_name, email, phone_whatsapp)')
     .single();
 
   if (error || !pkg) {
@@ -332,12 +329,10 @@ async function insertPackage(
   const recvBody = `Votre colis ${pkg.tracking_number} est arrivé dans notre entrepôt Miami.`;
   await getClient().from('notifications').insert({
     user_id: data.client_id,
-    type: 'colis_received',
+    type: 'package',
     title: recvTitle,
-    body: recvBody,
-    data: { package_id: pkg.id, tracking_number: pkg.tracking_number },
-    is_read: false,
-    package_id: pkg.id,
+    message: recvBody,
+    action_url: `/colis/${pkg.id}`,
   });
   sendPushNotification(data.client_id, recvTitle, recvBody, { package_id: pkg.id }).catch(() => {});
 
@@ -357,7 +352,7 @@ export async function updatePackageStatus(
     .from('packages')
     .select(`
       *,
-      users!client_id ( id, first_name, email ),
+      users!client_id ( id, full_name, email ),
       departures ( origin ),
       branches!branch_id ( name, address, opening_hours, city )
     `)
@@ -393,7 +388,7 @@ export async function updatePackageStatus(
     notes: note,
   });
 
-  const client = (pkg as { users?: { id: string; first_name: string; email: string } }).users;
+  const client = (pkg as { users?: { id: string; full_name: string; email: string } }).users;
   if (!client) return pkg;
 
   // Messages push selon statut
@@ -421,23 +416,14 @@ export async function updatePackageStatus(
     },
   };
 
-  const notifTypes: Record<string, string> = {
-    in_transit: 'colis_transit',
-    arrived: 'colis_arrived',
-    ready_pickup: 'colis_ready',
-    delivered: 'colis_delivered',
-  };
-
   const msg = pushMessages[newStatus];
   if (msg) {
     await getClient().from('notifications').insert({
       user_id: client.id,
-      type: notifTypes[newStatus] ?? 'colis_transit',
+      type: 'package',
       title: msg.title,
-      body: msg.body,
-      data: { package_id: packageId, tracking_number: pkg.tracking_number },
-      is_read: false,
-      package_id: packageId,
+      message: msg.body,
+      action_url: `/colis/${packageId}`,
     });
     sendPushNotification(client.id, msg.title, msg.body, { package_id: packageId }).catch(() => {});
   }
@@ -456,8 +442,8 @@ export async function getAllPackages(filters: PackageFilters = {}) {
     .from('packages')
     .select(
       `id, tracking_number, status, transport_mode, destination_country, destination_city,
-       weight_billed, shipping_cost, is_paid, created_at,
-       users!client_id ( id, first_name, last_name, email, whatsapp )`,
+       billed_weight_lbs, shipping_rate, total_price, created_at,
+       users!client_id ( id, full_name, email, phone_whatsapp )`,
       { count: 'exact' },
     )
     .order('created_at', { ascending: false })
