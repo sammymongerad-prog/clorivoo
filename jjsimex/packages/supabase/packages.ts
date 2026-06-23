@@ -441,19 +441,19 @@ export async function getAllPackages(filters: PackageFilters = {}) {
 // ─── ADMIN : Assigner à un départ ─────────────────────────────────────────────
 
 export async function assignToDeparture(packageId: string, departureId: string) {
-  // Récupérer le colis
-  const { data: pkg } = await getClient()
+  const supabase = getClient();
+
+  const { data: pkg } = await supabase
     .from('packages')
-    .select('weight_billed, destination_country')
+    .select('billed_weight_lbs, destination_country')
     .eq('id', packageId)
     .single();
 
   if (!pkg) throw new Error('Colis introuvable.');
 
-  // Vérifier capacité du départ
-  const { data: departure } = await getClient()
+  const { data: departure } = await supabase
     .from('departures')
-    .select('capacity_lbs, current_weight, destination_country, status')
+    .select('capacity_lbs, used_capacity_lbs, status')
     .eq('id', departureId)
     .single();
 
@@ -463,25 +463,23 @@ export async function assignToDeparture(packageId: string, departureId: string) 
     throw new Error('Ce départ est déjà parti. Choisissez un autre.');
   }
 
-  const available = departure.capacity_lbs - departure.current_weight;
-  if (pkg.weight_billed > available) {
+  const available = departure.capacity_lbs - departure.used_capacity_lbs;
+  if (pkg.billed_weight_lbs > available) {
     throw new Error(
-      `Capacité insuffisante pour ce départ. Choisissez un autre. (Disponible: ${available.toFixed(1)} lbs)`,
+      `Capacité insuffisante. Disponible: ${available.toFixed(1)} lbs, colis: ${pkg.billed_weight_lbs} lbs.`,
     );
   }
 
-  // Assigner le colis
-  const { error } = await getClient()
+  const { error } = await supabase
     .from('packages')
     .update({ departure_id: departureId })
     .eq('id', packageId);
 
   if (error) throw new Error('Erreur lors de l\'assignation.');
 
-  // Mettre à jour le poids utilisé
-  await getClient()
+  await supabase
     .from('departures')
-    .update({ current_weight: departure.current_weight + pkg.weight_billed })
+    .update({ used_capacity_lbs: departure.used_capacity_lbs + pkg.billed_weight_lbs })
     .eq('id', departureId);
 
   return { success: true };

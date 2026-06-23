@@ -1,159 +1,122 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
+  View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity,
+  TextInput, Modal, Alert, RefreshControl, ActivityIndicator,
+  KeyboardAvoidingView, Platform, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { BackButton } from '@/components/layout/BackButton';
-import { useToast } from '@/components/ui/Toast';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type TransportType = 'avion' | 'bateau';
-
-type DepartureStatus = 'upcoming' | 'active' | 'completed';
+type DepartureStatus = 'open' | 'closed' | 'departed' | 'arrived';
+type TabKey = 'upcoming' | 'active' | 'completed';
 
 interface Departure {
   id: string;
-  transport_type: TransportType;
-  route: string;
+  type: 'air' | 'sea';
   departure_date: string;
-  max_capacity_lbs: number;
-  current_weight_lbs: number;
+  origin: string;
+  destinations: string[];
   status: DepartureStatus;
-  packages?: { count: number }[];
+  capacity_lbs: number;
+  used_capacity_lbs: number;
+  notes: string | null;
+  created_at: string;
+  package_count: number;
 }
-
-type TabKey = 'upcoming' | 'active' | 'completed';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'upcoming', label: 'À venir' },
   { key: 'active', label: 'En cours' },
-  { key: 'completed', label: 'Terminés' },
+  { key: 'completed', label: 'Complétés' },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function capacityColor(pct: number): string {
-  if (pct < 70) return '#16A34A';
-  if (pct < 90) return '#F97316';
-  return '#DC2626';
-}
-
-function statusLabel(pct: number): string {
-  if (pct >= 100) return 'Complet';
-  if (pct >= 70) return 'Bientôt complet';
-  return 'Places disponibles';
-}
-
-function statusBadgeColor(pct: number): string {
-  if (pct >= 100) return '#DC2626';
-  if (pct >= 70) return '#F97316';
-  return '#16A34A';
-}
-
-function topBorderColor(dep: Departure): string {
-  const pct = dep.max_capacity_lbs > 0
-    ? (dep.current_weight_lbs / dep.max_capacity_lbs) * 100
-    : 0;
-  if (dep.status === 'active') return '#F97316';
-  if (pct < 70) return '#16A34A';
-  return '#DC2626';
-}
-
-function formatDate(dateStr: string): string {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-}
-
-// ─── DepartureCard ────────────────────────────────────────────────────────────
-
-interface DepartureCardProps {
-  departure: Departure;
-  activeTab: TabKey;
-  onManagePackages: (dep: Departure) => void;
-  onClose: (dep: Departure) => void;
-}
-
-function DepartureCard({ departure, activeTab, onManagePackages, onClose }: DepartureCardProps) {
-  const pct = departure.max_capacity_lbs > 0
-    ? Math.min(100, (departure.current_weight_lbs / departure.max_capacity_lbs) * 100)
-    : 0;
+function DepartureCard({ dep, onClose, onMarkDeparted, onMarkArrived, onNotify }: {
+  dep: Departure;
+  onClose: (id: string) => void;
+  onMarkDeparted: (id: string) => void;
+  onMarkArrived: (id: string) => void;
+  onNotify: (id: string) => void;
+}) {
+  const pct = dep.capacity_lbs > 0 ? Math.round((dep.used_capacity_lbs / dep.capacity_lbs) * 100) : 0;
+  const barColor = pct >= 90 ? '#EF4444' : pct >= 70 ? '#F97316' : '#22C55E';
+  const dateStr = new Date(dep.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <View style={[styles.card, { borderTopColor: topBorderColor(departure), borderTopWidth: 3 }]}>
-      {/* Header row */}
-      <View style={styles.cardHeader}>
-        <Text style={styles.transportIcon}>
-          {departure.transport_type === 'avion' ? '✈️' : '🚢'}
-        </Text>
-        <View style={styles.cardHeaderText}>
-          <Text style={styles.routeText}>{departure.route}</Text>
-          <Text style={styles.dateText}>{formatDate(departure.departure_date)}</Text>
+    <View style={styles.card}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 20 }}>{dep.type === 'air' ? '✈️' : '🚢'}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusBadgeColor(pct) + '22', borderColor: statusBadgeColor(pct) }]}>
-          <Text style={[styles.statusBadgeText, { color: statusBadgeColor(pct) }]}>
-            {statusLabel(pct)}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF' }} numberOfLines={1}>
+            {dep.type === 'air' ? 'Vol' : 'Bateau'} {dep.origin} → {dep.destinations.join(', ')}
+          </Text>
+          <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{dateStr}</Text>
+        </View>
+        <View style={{
+          backgroundColor: dep.status === 'open' ? 'rgba(34,197,94,0.14)' : dep.status === 'departed' ? 'rgba(59,130,246,0.14)' : dep.status === 'arrived' ? 'rgba(168,85,247,0.14)' : 'rgba(245,158,11,0.14)',
+          borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4,
+        }}>
+          <Text style={{
+            fontSize: 11, fontWeight: '700',
+            color: dep.status === 'open' ? '#22C55E' : dep.status === 'departed' ? '#3B82F6' : dep.status === 'arrived' ? '#A855F7' : '#F59E0B',
+          }}>
+            {dep.status === 'open' ? 'Ouvert' : dep.status === 'closed' ? 'Fermé' : dep.status === 'departed' ? 'En transit' : 'Arrivé'}
           </Text>
         </View>
       </View>
 
-      {/* Weight stats */}
-      <View style={styles.weightRow}>
-        <Text style={styles.weightLabel}>Poids</Text>
-        <Text style={styles.weightValue}>
-          {departure.current_weight_lbs} / {departure.max_capacity_lbs} lbs
-        </Text>
+      {/* Capacity */}
+      <View style={{ marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 11, color: '#6B7280' }}>Capacité</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFF' }}>{dep.used_capacity_lbs}/{dep.capacity_lbs} lbs ({pct}%)</Text>
+        </View>
+        <View style={{ height: 6, borderRadius: 3, backgroundColor: '#2A2A2A', overflow: 'hidden', marginTop: 6 }}>
+          <View style={{ height: '100%', width: `${Math.min(pct, 100)}%`, backgroundColor: barColor, borderRadius: 3 }} />
+        </View>
       </View>
 
-      {/* Progress bar */}
-      <View style={styles.progressBg}>
-        <View
-          style={[
-            styles.progressFill,
-            { width: `${pct}%` as any, backgroundColor: capacityColor(pct) },
-          ]}
-        />
+      {/* Stats */}
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+        <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 10, padding: 10 }}>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#F97316' }}>{dep.package_count}</Text>
+          <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Colis</Text>
+        </View>
+        <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 10, padding: 10 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFF' }}>{dep.destinations.join(', ')}</Text>
+          <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Destinations</Text>
+        </View>
       </View>
-      <Text style={[styles.pctText, { color: capacityColor(pct) }]}>
-        {pct.toFixed(0)}% de capacité utilisée
-      </Text>
 
-      {/* Action buttons */}
-      <View style={styles.cardActions}>
-        <TouchableOpacity
-          style={styles.manageBtn}
-          onPress={() => onManagePackages(departure)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.manageBtnText}>Gérer les colis</Text>
-        </TouchableOpacity>
-
-        {activeTab === 'upcoming' && (
-          <TouchableOpacity
-            style={styles.closeBtn}
-            onPress={() => onClose(departure)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.closeBtnText}>Clôturer</Text>
+      {/* Actions */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {dep.status === 'open' && (
+          <>
+            <TouchableOpacity onPress={() => onNotify(dep.id)} activeOpacity={0.8}
+              style={{ flex: 1, minWidth: '45%', height: 40, backgroundColor: '#22C55E', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#052E14', fontSize: 12, fontWeight: '700' }}>Notifier</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onClose(dep.id)} activeOpacity={0.8}
+              style={{ flex: 1, minWidth: '45%', height: 40, backgroundColor: '#2D0A0A', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '700' }}>Fermer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onMarkDeparted(dep.id)} activeOpacity={0.8}
+              style={{ flex: 1, minWidth: '45%', height: 40, backgroundColor: 'rgba(59,130,246,0.14)', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#3B82F6', fontSize: 12, fontWeight: '700' }}>Marquer parti</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        {dep.status === 'closed' && (
+          <TouchableOpacity onPress={() => onMarkDeparted(dep.id)} activeOpacity={0.8}
+            style={{ flex: 1, height: 40, backgroundColor: '#3B82F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700' }}>Marquer parti</Text>
+          </TouchableOpacity>
+        )}
+        {dep.status === 'departed' && (
+          <TouchableOpacity onPress={() => onMarkArrived(dep.id)} activeOpacity={0.8}
+            style={{ flex: 1, height: 42, backgroundColor: '#A855F7', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700' }}>Marquer arrivé</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -161,38 +124,49 @@ function DepartureCard({ departure, activeTab, onManagePackages, onClose }: Depa
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-
 export default function DepartsScreen() {
   const router = useRouter();
-  const { showToast } = useToast();
-
   const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-
-  // New departure form state
-  const [transportType, setTransportType] = useState<TransportType>('avion');
-  const [route, setRoute] = useState('');
-  const [departureDate, setDepartureDate] = useState('');
-  const [maxCapacity, setMaxCapacity] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // ── Data fetching ──────────────────────────────────────────────────────────
+  // Create form
+  const [newType, setNewType] = useState<'air' | 'sea'>('air');
+  const [newDest, setNewDest] = useState('Port-au-Prince, Cap-Haïtien');
+  const [newDate, setNewDate] = useState('');
+  const [newCapacity, setNewCapacity] = useState('500');
 
   const fetchDepartures = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('departures')
-        .select('*, packages(count)')
+        .select('*')
         .order('departure_date', { ascending: true });
 
-      if (error) throw error;
-      setDepartures((data as Departure[]) ?? []);
-    } catch (err: any) {
-      showToast('Erreur lors du chargement des départs', 'error');
+      const deps = (data ?? []) as Departure[];
+
+      if (deps.length > 0) {
+        const ids = deps.map(d => d.id);
+        const { data: pkgs } = await supabase
+          .from('packages')
+          .select('departure_id')
+          .in('departure_id', ids);
+
+        const countMap: Record<string, number> = {};
+        for (const p of pkgs ?? []) {
+          countMap[p.departure_id] = (countMap[p.departure_id] ?? 0) + 1;
+        }
+        for (const d of deps) {
+          d.package_count = countMap[d.id] ?? 0;
+        }
+      }
+
+      setDepartures(deps);
+    } catch {
+      Alert.alert('Erreur', 'Impossible de charger les départs.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -201,266 +175,189 @@ export default function DepartsScreen() {
 
   useEffect(() => {
     fetchDepartures();
+    const ch = supabase
+      .channel('screen_departures_rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'departures' }, () => fetchDepartures())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, [fetchDepartures]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchDepartures();
-  }, [fetchDepartures]);
+  const filtered = departures.filter(d => {
+    if (activeTab === 'upcoming') return d.status === 'open' || d.status === 'closed';
+    if (activeTab === 'active') return d.status === 'departed';
+    return d.status === 'arrived';
+  });
 
-  // ── Filtering ──────────────────────────────────────────────────────────────
-
-  const statusMap: Record<TabKey, DepartureStatus> = {
-    upcoming: 'upcoming',
-    active: 'active',
-    completed: 'completed',
-  };
-
-  const filtered = departures.filter(d => d.status === statusMap[activeTab]);
-
-  // ── Actions ────────────────────────────────────────────────────────────────
-
-  const handleManagePackages = (dep: Departure) => {
-    router.push({ pathname: '/colis', params: { departure_id: dep.id } } as any);
-  };
-
-  const handleClose = (dep: Departure) => {
-    Alert.alert(
-      'Clôturer le départ',
-      `Voulez-vous clôturer le départ ${dep.route} du ${formatDate(dep.departure_date)} ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Clôturer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('departures')
-                .update({ status: 'completed' })
-                .eq('id', dep.id);
-              if (error) throw error;
-              showToast('Départ clôturé avec succès', 'success');
-              fetchDepartures();
-            } catch {
-              showToast('Erreur lors de la clôture', 'error');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // ── Create departure ───────────────────────────────────────────────────────
-
-  const handleCreate = async () => {
-    if (!route.trim() || !departureDate.trim() || !maxCapacity.trim()) {
-      showToast('Veuillez remplir tous les champs', 'error');
+  async function handleCreate() {
+    if (!newDate.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer une date.');
       return;
     }
 
-    // Parse date: DD/MM/YYYY → YYYY-MM-DD
-    const parts = departureDate.split('/');
-    let isoDate = departureDate;
-    if (parts.length === 3) {
-      isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-    }
+    let isoDate = newDate;
+    const parts = newDate.split('/');
+    if (parts.length === 3) isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
 
     setCreating(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const { error } = await supabase.from('departures').insert({
-        transport_type: transportType,
-        route: route.trim(),
+        type: newType,
         departure_date: isoDate,
-        max_capacity_lbs: parseFloat(maxCapacity),
-        current_weight_lbs: 0,
-        status: 'upcoming',
+        origin: 'Miami, FL',
+        destinations: newDest.split(',').map(s => s.trim()).filter(Boolean),
+        capacity_lbs: parseFloat(newCapacity) || (newType === 'air' ? 500 : 8000),
+        used_capacity_lbs: 0,
+        status: 'open',
+        created_by: session?.user?.id ?? null,
       });
       if (error) throw error;
-      showToast('Départ créé avec succès', 'success');
       setModalVisible(false);
-      setRoute('');
-      setDepartureDate('');
-      setMaxCapacity('');
-      setTransportType('avion');
+      setNewDate('');
       fetchDepartures();
-    } catch (err: any) {
-      showToast('Erreur lors de la création', 'error');
-    } finally {
-      setCreating(false);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message);
     }
-  };
+    setCreating(false);
+  }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  function handleClose(depId: string) {
+    Alert.alert('Fermer départ', 'Plus aucun colis ne pourra être ajouté.', [
+      { text: 'Annuler' },
+      { text: 'Fermer', style: 'destructive', onPress: async () => {
+        await supabase.from('departures').update({ status: 'closed' }).eq('id', depId);
+        fetchDepartures();
+      }},
+    ]);
+  }
 
-  const renderEmpty = () => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyIcon}>{activeTab === 'upcoming' ? '📅' : activeTab === 'active' ? '✈️' : '✅'}</Text>
-      <Text style={styles.emptyText}>Aucun départ {TABS.find(t => t.key === activeTab)?.label.toLowerCase()}</Text>
-    </View>
-  );
+  function handleMarkDeparted(depId: string) {
+    Alert.alert('Marquer parti', 'Tous les colis passeront en transit.', [
+      { text: 'Annuler' },
+      { text: 'Confirmer', onPress: async () => {
+        await supabase.from('departures').update({ status: 'departed' }).eq('id', depId);
+        await supabase.from('packages').update({ status: 'in_transit' }).eq('departure_id', depId).in('status', ['received_usa']);
+        fetchDepartures();
+      }},
+    ]);
+  }
+
+  function handleMarkArrived(depId: string) {
+    Alert.alert('Marquer arrivé', 'Tous les colis passeront en arrivé.', [
+      { text: 'Annuler' },
+      { text: 'Confirmer', onPress: async () => {
+        await supabase.from('departures').update({ status: 'arrived' }).eq('id', depId);
+        await supabase.from('packages').update({ status: 'arrived' }).eq('departure_id', depId).eq('status', 'in_transit');
+        fetchDepartures();
+      }},
+    ]);
+  }
+
+  async function handleNotify(depId: string) {
+    const dep = departures.find(d => d.id === depId);
+    if (!dep) return;
+
+    const { data: packages } = await supabase.from('packages').select('client_id').eq('departure_id', depId);
+    if (!packages || packages.length === 0) {
+      Alert.alert('Info', 'Aucun colis assigné.');
+      return;
+    }
+
+    const uniqueClients = [...new Set(packages.map(p => p.client_id))];
+    const typeLabel = dep.type === 'air' ? 'Vol' : 'Bateau';
+    const title = `${typeLabel} prévu`;
+    const message = `Votre colis est prévu sur le ${typeLabel.toLowerCase()} ${dep.origin} → ${dep.destinations.join(', ')}.`;
+
+    await supabase.from('notifications').insert(
+      uniqueClients.map(cid => ({ user_id: cid, type: 'package' as const, title, message }))
+    );
+    Alert.alert('Envoyé', `${uniqueClients.length} client(s) notifié(s).`);
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <BackButton />
         <Text style={styles.headerTitle}>Gestion Départs</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)} activeOpacity={0.7}>
           <Text style={styles.addBtnText}>+</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Tab bar */}
       <View style={styles.tabBar}>
         {TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
+          <TouchableOpacity key={tab.key}
             style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key)}
-            activeOpacity={0.7}
-          >
+            onPress={() => setActiveTab(tab.key)} activeOpacity={0.7}>
             <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-              {tab.label}
+              {tab.label} ({activeTab === tab.key ? filtered.length : departures.filter(d => {
+                if (tab.key === 'upcoming') return d.status === 'open' || d.status === 'closed';
+                if (tab.key === 'active') return d.status === 'departed';
+                return d.status === 'arrived';
+              }).length})
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* List */}
       {loading ? (
         <ActivityIndicator color="#F97316" size="large" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{ padding: 16, gap: 14 }}
           renderItem={({ item }) => (
-            <DepartureCard
-              departure={item}
-              activeTab={activeTab}
-              onManagePackages={handleManagePackages}
-              onClose={handleClose}
-            />
+            <DepartureCard dep={item} onClose={handleClose} onMarkDeparted={handleMarkDeparted} onMarkArrived={handleMarkArrived} onNotify={handleNotify} />
           )}
-          ListEmptyComponent={renderEmpty}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#F97316"
-            />
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', padding: 40 }}>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>{activeTab === 'upcoming' ? '📅' : activeTab === 'active' ? '✈️' : '✅'}</Text>
+              <Text style={{ color: '#6B7280', fontSize: 14 }}>Aucun départ</Text>
+            </View>
           }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDepartures(); }} tintColor="#F97316" />}
         />
       )}
 
-      {/* FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.fabText}>＋ Nouveau départ</Text>
+      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
+        <Text style={styles.fabText}>+ Nouveau départ</Text>
       </TouchableOpacity>
 
-      {/* Create Modal */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setModalVisible(false)}
-      >
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalSheetWrapper}
-          >
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ justifyContent: 'flex-end', flex: 1 }}>
             <Pressable onPress={() => {}} style={styles.modalSheet}>
-              <View style={styles.modalHandle} />
-              <Text style={styles.modalTitle}>Nouveau départ</Text>
+              <View style={{ width: 36, height: 4, backgroundColor: '#2A2A2A', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFF', marginBottom: 20 }}>Nouveau départ</Text>
 
-              {/* Transport type selector */}
               <Text style={styles.fieldLabel}>Type de transport</Text>
-              <View style={styles.transportSelector}>
-                <TouchableOpacity
-                  style={[styles.transportOption, transportType === 'avion' && styles.transportOptionActive]}
-                  onPress={() => setTransportType('avion')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.transportOptionIcon}>✈️</Text>
-                  <Text style={[styles.transportOptionText, transportType === 'avion' && styles.transportOptionTextActive]}>
-                    Avion
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.transportOption, transportType === 'bateau' && styles.transportOptionActive]}
-                  onPress={() => setTransportType('bateau')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.transportOptionIcon}>🚢</Text>
-                  <Text style={[styles.transportOptionText, transportType === 'bateau' && styles.transportOptionTextActive]}>
-                    Bateau
-                  </Text>
-                </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                {(['air', 'sea'] as const).map(m => (
+                  <TouchableOpacity key={m} onPress={() => { setNewType(m); setNewCapacity(m === 'air' ? '500' : '8000'); }} activeOpacity={0.7}
+                    style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: newType === m ? 'rgba(249,115,22,0.12)' : '#141414',
+                      borderColor: newType === m ? '#F97316' : '#2A2A2A' }}>
+                    <Text style={{ color: newType === m ? '#F97316' : '#9CA3AF', fontWeight: '600' }}>
+                      {m === 'air' ? '✈️ Avion' : '🚢 Bateau'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
 
-              {/* Route */}
-              <Text style={styles.fieldLabel}>Route</Text>
-              <TextInput
-                style={styles.input}
-                value={route}
-                onChangeText={setRoute}
-                placeholder="Miami → Port-au-Prince"
-                placeholderTextColor="#4B5563"
-                selectionColor="#F97316"
-              />
+              <Text style={styles.fieldLabel}>Destinations</Text>
+              <TextInput style={styles.input} value={newDest} onChangeText={setNewDest} placeholderTextColor="#4B5563" />
 
-              {/* Date */}
-              <Text style={styles.fieldLabel}>Date de départ</Text>
-              <TextInput
-                style={styles.input}
-                value={departureDate}
-                onChangeText={setDepartureDate}
-                placeholder="JJ/MM/AAAA"
-                placeholderTextColor="#4B5563"
-                keyboardType="numeric"
-                selectionColor="#F97316"
-              />
+              <Text style={styles.fieldLabel}>Date (JJ/MM/AAAA ou AAAA-MM-JJ)</Text>
+              <TextInput style={styles.input} value={newDate} onChangeText={setNewDate} placeholder="15/07/2026" placeholderTextColor="#4B5563" keyboardType="numeric" />
 
-              {/* Capacity */}
-              <Text style={styles.fieldLabel}>Capacité maximale (lbs)</Text>
-              <TextInput
-                style={styles.input}
-                value={maxCapacity}
-                onChangeText={setMaxCapacity}
-                placeholder="500"
-                placeholderTextColor="#4B5563"
-                keyboardType="numeric"
-                selectionColor="#F97316"
-              />
+              <Text style={styles.fieldLabel}>Capacité (lbs)</Text>
+              <TextInput style={styles.input} value={newCapacity} onChangeText={setNewCapacity} keyboardType="numeric" placeholderTextColor="#4B5563" />
 
-              <TouchableOpacity
-                style={[styles.createBtn, creating && styles.createBtnDisabled]}
-                onPress={handleCreate}
-                disabled={creating}
-                activeOpacity={0.8}
-              >
-                {creating ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.createBtnText}>Créer le départ</Text>
-                )}
+              <TouchableOpacity style={[styles.createBtn, creating && { opacity: 0.6 }]} onPress={handleCreate} disabled={creating} activeOpacity={0.8}>
+                {creating ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.createBtnText}>Créer le départ</Text>}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setModalVisible(false)}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)} activeOpacity={0.7}>
                 <Text style={styles.cancelBtnText}>Annuler</Text>
               </TouchableOpacity>
             </Pressable>
@@ -471,157 +368,26 @@ export default function DepartsScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D0D0D' },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A1A',
-  },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', flex: 1, textAlign: 'center', marginHorizontal: 8 },
-  addBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center',
-  },
-  addBtnText: { fontSize: 22, color: '#FFFFFF', fontWeight: '700', lineHeight: 26 },
-
-  // Tabs
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  tab: {
-    flex: 1, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: '#1A1A1A', alignItems: 'center',
-    borderWidth: 1, borderColor: '#2A2A2A',
-  },
-  tabActive: { backgroundColor: '#F97316', borderColor: '#F97316' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#9CA3AF' },
-  tabTextActive: { color: '#FFFFFF' },
-
-  // List
-  listContent: { padding: 16, paddingBottom: 100 },
-
-  // Card
-  card: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    padding: 16,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
-  transportIcon: { fontSize: 24 },
-  cardHeaderText: { flex: 1 },
-  routeText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 },
-  dateText: { fontSize: 12, color: '#9CA3AF' },
-
-  statusBadge: {
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 8, borderWidth: 1,
-  },
-  statusBadgeText: { fontSize: 11, fontWeight: '700' },
-
-  // Weight
-  weightRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  weightLabel: { fontSize: 12, color: '#9CA3AF' },
-  weightValue: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
-
-  // Progress
-  progressBg: {
-    height: 6, backgroundColor: '#2A2A2A', borderRadius: 3,
-    overflow: 'hidden', marginBottom: 4,
-  },
-  progressFill: { height: '100%', borderRadius: 3 },
-  pctText: { fontSize: 11, fontWeight: '600', marginBottom: 12 },
-
-  // Card actions
-  cardActions: { flexDirection: 'row', gap: 8 },
-  manageBtn: {
-    flex: 1, paddingVertical: 10, borderRadius: 10,
-    backgroundColor: '#F9731622', borderWidth: 1, borderColor: '#F97316',
-    alignItems: 'center',
-  },
-  manageBtnText: { fontSize: 13, fontWeight: '700', color: '#F97316' },
-  closeBtn: {
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
-    backgroundColor: '#DC262622', borderWidth: 1, borderColor: '#DC2626',
-    alignItems: 'center',
-  },
-  closeBtnText: { fontSize: 13, fontWeight: '700', color: '#DC2626' },
-
-  // FAB
-  fab: {
-    position: 'absolute', bottom: 24, left: 16, right: 16,
-    backgroundColor: '#F97316', borderRadius: 14,
-    paddingVertical: 14, alignItems: 'center',
-    shadowColor: '#F97316', shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
-  fabText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-
-  // Empty state
-  emptyState: { alignItems: 'center', paddingVertical: 60 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
-
-  // Modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalSheetWrapper: { justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: '#1A1A1A',
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40,
-  },
-  modalHandle: {
-    width: 40, height: 4, backgroundColor: '#3A3A3A',
-    borderRadius: 2, alignSelf: 'center', marginBottom: 20,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 20 },
-
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#9CA3AF', marginBottom: 6, textTransform: 'uppercase' },
-
-  transportSelector: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  transportOption: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: '#252525', borderWidth: 1, borderColor: '#3A3A3A',
-  },
-  transportOptionActive: { borderColor: '#F97316', backgroundColor: '#F9731622' },
-  transportOptionIcon: { fontSize: 20 },
-  transportOptionText: { fontSize: 14, fontWeight: '600', color: '#9CA3AF' },
-  transportOptionTextActive: { color: '#F97316' },
-
-  input: {
-    backgroundColor: '#252525', borderWidth: 1, borderColor: '#3A3A3A',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 14, color: '#FFFFFF', marginBottom: 16,
-  },
-
-  createBtn: {
-    backgroundColor: '#F97316', borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center', marginBottom: 10,
-  },
-  createBtnDisabled: { opacity: 0.6 },
-  createBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-
-  cancelBtn: {
-    borderRadius: 12, paddingVertical: 12, alignItems: 'center',
-    borderWidth: 1, borderColor: '#3A3A3A',
-  },
-  cancelBtnText: { fontSize: 14, fontWeight: '600', color: '#9CA3AF' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+  addBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center' },
+  addBtnText: { fontSize: 22, color: '#FFF', fontWeight: '700', marginTop: -2 },
+  tabBar: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A' },
+  tabActive: { backgroundColor: 'rgba(249,115,22,0.12)', borderColor: '#F97316' },
+  tabText: { fontSize: 13, fontWeight: '500', color: '#9CA3AF' },
+  tabTextActive: { color: '#F97316', fontWeight: '600' },
+  card: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#222', borderRadius: 16, padding: 16 },
+  fab: { position: 'absolute', bottom: 24, right: 20, backgroundColor: '#F97316', borderRadius: 14, paddingHorizontal: 20, paddingVertical: 14, shadowColor: '#F97316', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  fabText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: '#1A1A1A', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  fieldLabel: { fontSize: 13, color: '#9CA3AF', marginBottom: 6 },
+  input: { height: 48, backgroundColor: '#141414', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 10, color: '#FFF', paddingHorizontal: 14, fontSize: 14, marginBottom: 14 },
+  createBtn: { height: 50, backgroundColor: '#F97316', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  createBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  cancelBtn: { height: 44, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  cancelBtnText: { color: '#9CA3AF', fontSize: 14, fontWeight: '500' },
 });

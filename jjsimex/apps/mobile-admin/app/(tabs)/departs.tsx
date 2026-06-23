@@ -1,60 +1,193 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Alert } from 'react-native';
+import { getClient } from '@jjsimex/supabase/client';
 
 type Tab = 'avenir' | 'cours' | 'done';
+type DepartureStatus = 'open' | 'closed' | 'departed' | 'arrived';
 
-const DEPARTS_AVENIR = [
-  {
-    id: '1', icon: '✈️', titre: 'Vol Miami → Port-au-Prince', date: 'Départ: 18 juin 2025',
-    capLabel: '847 / 1,000 kg', capPct: 84.7, warnLabel: '⚠️ 85% plein',
-    warnBg: 'rgba(249,115,22,0.12)', warnColor: '#F97316',
-    colis: 847, clients: 124, dest1n: 612, dest1v: 'PAP', dest2n: 235, dest2v: 'Cap-Haïtien',
-    countLabel: '3 jours', countBg: 'rgba(249,115,22,0.14)', countColor: '#F97316',
-    barColor: '#F97316',
-  },
-  {
-    id: '2', icon: '🚢', titre: 'Cargo Miami → Santo Domingo', date: 'Départ: 25 juin 2025',
-    capLabel: '2,340 / 5,000 kg', capPct: 46.8, warnLabel: '✓ Places disponibles',
-    warnBg: 'rgba(34,197,94,0.12)', warnColor: '#22C55E',
-    colis: 456, clients: 78, dest1n: 456, dest1v: 'Santo Dom.', dest2n: 0, dest2v: '',
-    countLabel: '10 jours', countBg: 'rgba(34,197,94,0.14)', countColor: '#22C55E',
-    barColor: '#22C55E',
-  },
-];
-
-const DEPART_EN_COURS = {
-  icon: '✈️', titre: 'Vol Miami → Port-au-Prince', date: 'Parti le 11 juin 2025',
-  position: 'Au-dessus de Cuba', eta: 'Arrivée prévue: 11 juin 18:30',
-  colis: 923, clients: 147,
-};
-
-const DEPARTS_DONE = [
-  { id: 'd1', icon: '✈️', titre: 'Vol Miami → PAP', date: '5 juin 2025', colis: 1047, clients: 162 },
-  { id: 'd2', icon: '🚢', titre: 'Cargo Miami → RD', date: '1 juin 2025', colis: 2340, clients: 89 },
-  { id: 'd3', icon: '✈️', titre: 'Vol Miami → PAP', date: '28 mai 2025', colis: 891, clients: 130 },
-];
-
-function NavItem({ icon, label, active }: { icon: string; label: string; active?: boolean }) {
-  return (
-    <View style={{ alignItems: 'center', gap: 5, width: 56 }}>
-      <Text style={{ fontSize: 22, color: active ? '#F97316' : '#666666' }}>{icon}</Text>
-      <Text style={{ fontSize: 10, fontWeight: '600', color: active ? '#F97316' : '#666666' }}>{label}</Text>
-    </View>
-  );
+interface Departure {
+  id: string;
+  type: 'air' | 'sea';
+  departure_date: string;
+  origin: string;
+  destinations: string[];
+  status: DepartureStatus;
+  capacity_lbs: number;
+  used_capacity_lbs: number;
+  notes: string | null;
+  created_at: string;
+  package_count: number;
 }
 
 export default function DepartsAdminScreen() {
+  const supabase = getClient();
   const [tab, setTab] = useState<Tab>('avenir');
+  const [departures, setDepartures] = useState<Departure[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showSheet, setShowSheet] = useState(false);
-  const [newMode, setNewMode] = useState<'avion' | 'bateau'>('avion');
-  const [newDest, setNewDest] = useState('Port-au-Prince');
+  const [newMode, setNewMode] = useState<'air' | 'sea'>('air');
+  const [newDest, setNewDest] = useState('Port-au-Prince, Cap-Haïtien');
   const [newDate, setNewDate] = useState('');
+  const [newCapacity, setNewCapacity] = useState('500');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const loadDepartures = useCallback(async () => {
+    const { data } = await supabase
+      .from('departures')
+      .select('*')
+      .order('departure_date', { ascending: true });
+
+    const deps = (data ?? []) as Departure[];
+
+    if (deps.length > 0) {
+      const ids = deps.map(d => d.id);
+      const { data: pkgs } = await supabase
+        .from('packages')
+        .select('departure_id')
+        .in('departure_id', ids);
+
+      const countMap: Record<string, number> = {};
+      for (const p of pkgs ?? []) {
+        countMap[p.departure_id] = (countMap[p.departure_id] ?? 0) + 1;
+      }
+      for (const d of deps) {
+        d.package_count = countMap[d.id] ?? 0;
+      }
+    }
+
+    setDepartures(deps);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadDepartures();
+    const ch = supabase
+      .channel('mob_departures_rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'departures' }, () => loadDepartures())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [loadDepartures]);
+
+  const upcoming = departures.filter(d => d.status === 'open' || d.status === 'closed');
+  const active = departures.filter(d => d.status === 'departed');
+  const completed = departures.filter(d => d.status === 'arrived');
 
   const TABS = [
-    { key: 'avenir' as Tab, label: `À venir (${DEPARTS_AVENIR.length})` },
-    { key: 'cours' as Tab, label: 'En cours (1)' },
-    { key: 'done' as Tab, label: `Complétés (${DEPARTS_DONE.length})` },
+    { key: 'avenir' as Tab, label: `À venir (${upcoming.length})` },
+    { key: 'cours' as Tab, label: `En cours (${active.length})` },
+    { key: 'done' as Tab, label: `Complétés (${completed.length})` },
   ];
+
+  const current = tab === 'avenir' ? upcoming : tab === 'cours' ? active : completed;
+
+  async function handleCreate() {
+    if (!newDate) { Alert.alert('Erreur', 'Veuillez entrer une date de départ.'); return; }
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase.from('departures').insert({
+        type: newMode,
+        departure_date: newDate,
+        origin: 'Miami, FL',
+        destinations: newDest.split(',').map(s => s.trim()).filter(Boolean),
+        capacity_lbs: parseFloat(newCapacity) || (newMode === 'air' ? 500 : 8000),
+        used_capacity_lbs: 0,
+        status: 'open',
+        created_by: session?.user?.id ?? null,
+      });
+      if (error) throw error;
+      setShowSheet(false);
+      setNewDate('');
+      loadDepartures();
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message);
+    }
+    setActionLoading(false);
+  }
+
+  async function handleClose(depId: string) {
+    Alert.alert('Fermer départ', 'Aucun colis supplémentaire ne pourra être ajouté.', [
+      { text: 'Annuler' },
+      { text: 'Fermer', style: 'destructive', onPress: async () => {
+        await supabase.from('departures').update({ status: 'closed' }).eq('id', depId);
+        loadDepartures();
+      }},
+    ]);
+  }
+
+  async function handleMarkDeparted(depId: string) {
+    Alert.alert('Marquer parti', 'Tous les colis passeront en transit.', [
+      { text: 'Annuler' },
+      { text: 'Confirmer', onPress: async () => {
+        await supabase.from('departures').update({ status: 'departed' }).eq('id', depId);
+        await supabase.from('packages').update({ status: 'in_transit' }).eq('departure_id', depId).in('status', ['received_usa']);
+        loadDepartures();
+      }},
+    ]);
+  }
+
+  async function handleMarkArrived(depId: string) {
+    Alert.alert('Marquer arrivé', 'Tous les colis passeront en arrivé.', [
+      { text: 'Annuler' },
+      { text: 'Confirmer', onPress: async () => {
+        await supabase.from('departures').update({ status: 'arrived' }).eq('id', depId);
+        await supabase.from('packages').update({ status: 'arrived' }).eq('departure_id', depId).eq('status', 'in_transit');
+        loadDepartures();
+      }},
+    ]);
+  }
+
+  async function handleNotify(depId: string) {
+    const dep = departures.find(d => d.id === depId);
+    if (!dep) return;
+
+    const { data: packages } = await supabase
+      .from('packages')
+      .select('client_id')
+      .eq('departure_id', depId);
+
+    if (!packages || packages.length === 0) {
+      Alert.alert('Info', 'Aucun colis assigné à ce départ.');
+      return;
+    }
+
+    const uniqueClients = [...new Set(packages.map(p => p.client_id))];
+    const typeLabel = dep.type === 'air' ? 'Vol' : 'Bateau';
+    const destLabel = dep.destinations.join(', ');
+    const title = `${typeLabel} prévu`;
+    const message = `Votre colis est prévu sur le ${typeLabel.toLowerCase()} ${dep.origin} → ${destLabel}.`;
+
+    await supabase.from('notifications').insert(
+      uniqueClients.map(cid => ({ user_id: cid, type: 'package' as const, title, message }))
+    );
+
+    Alert.alert('Envoyé', `${uniqueClients.length} client(s) notifié(s).`);
+  }
+
+  function capPct(d: Departure) {
+    return d.capacity_lbs > 0 ? Math.round((d.used_capacity_lbs / d.capacity_lbs) * 100) : 0;
+  }
+
+  function capColor(pct: number) {
+    if (pct >= 90) return '#EF4444';
+    if (pct >= 70) return '#F97316';
+    return '#22C55E';
+  }
+
+  function daysUntil(d: string) {
+    const diff = Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+    if (diff <= 0) return "Aujourd'hui";
+    if (diff === 1) return 'Demain';
+    return `${diff} jours`;
+  }
+
+  if (loading) {
+    return (
+      <View style={[S.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Chargement...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={S.container}>
@@ -81,172 +214,113 @@ export default function DepartsAdminScreen() {
           </View>
         </ScrollView>
 
-        {/* Tab À VENIR */}
-        {tab === 'avenir' && (
-          <View style={{ gap: 14, paddingHorizontal: 22, marginTop: 16 }}>
-            {DEPARTS_AVENIR.map(d => (
-              <View key={d.id} style={S.card}>
+        {/* Cards */}
+        <View style={{ gap: 14, paddingHorizontal: 22, marginTop: 16 }}>
+          {current.length === 0 && (
+            <View style={[S.card, { padding: 32, alignItems: 'center' }]}>
+              <Text style={{ color: '#6B7280', fontSize: 14 }}>Aucun départ dans cette catégorie</Text>
+            </View>
+          )}
+          {current.map(dep => {
+            const pct = capPct(dep);
+            const cc = capColor(pct);
+            return (
+              <View key={dep.id} style={S.card}>
                 {/* Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, paddingBottom: 0 }}>
                   <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 20 }}>{d.icon}</Text>
+                    <Text style={{ fontSize: 20 }}>{dep.type === 'air' ? '✈️' : '🚢'}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }} numberOfLines={1}>{d.titre}</Text>
-                    <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{d.date}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }} numberOfLines={1}>
+                      {dep.type === 'air' ? 'Vol' : 'Bateau'} {dep.origin} → {dep.destinations.join(', ')}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
+                      {new Date(dep.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </Text>
                   </View>
-                  <View style={{ backgroundColor: d.countBg, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
-                    <Text style={{ color: d.countColor, fontSize: 11, fontWeight: '700' }}>{d.countLabel}</Text>
-                  </View>
+                  {dep.status === 'open' && (
+                    <View style={{ backgroundColor: 'rgba(249,115,22,0.14)', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
+                      <Text style={{ color: '#F97316', fontSize: 11, fontWeight: '700' }}>{daysUntil(dep.departure_date)}</Text>
+                    </View>
+                  )}
+                  {dep.status === 'departed' && (
+                    <View style={{ backgroundColor: 'rgba(59,130,246,0.14)', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
+                      <Text style={{ color: '#3B82F6', fontSize: 11, fontWeight: '700' }}>En transit</Text>
+                    </View>
+                  )}
+                  {dep.status === 'arrived' && (
+                    <View style={{ backgroundColor: 'rgba(34,197,94,0.14)', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
+                      <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>Arrivé</Text>
+                    </View>
+                  )}
                 </View>
+
                 <View style={{ height: 1, backgroundColor: '#2A2A2A', marginHorizontal: 16, marginTop: 14 }} />
 
-                {/* Capacité */}
+                {/* Capacity */}
                 <View style={{ padding: 14, paddingBottom: 0 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text style={{ fontSize: 11, color: '#6B7280' }}>Capacité</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>{d.capLabel}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+                      {dep.used_capacity_lbs} / {dep.capacity_lbs} lbs ({pct}%)
+                    </Text>
                   </View>
                   <View style={{ height: 8, borderRadius: 4, backgroundColor: '#2A2A2A', overflow: 'hidden', marginTop: 9 }}>
-                    <View style={{ height: '100%', width: `${d.capPct}%`, backgroundColor: d.barColor, borderRadius: 4 }} />
-                  </View>
-                  <View style={{ marginTop: 9 }}>
-                    <View style={{ backgroundColor: d.warnBg, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start' }}>
-                      <Text style={{ color: d.warnColor, fontSize: 11, fontWeight: '600' }}>{d.warnLabel}</Text>
-                    </View>
+                    <View style={{ height: '100%', width: `${Math.min(pct, 100)}%`, backgroundColor: cc, borderRadius: 4 }} />
                   </View>
                 </View>
 
-                {/* Stats 2x2 */}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, padding: 14, paddingBottom: 0 }}>
-                  {[
-                    [String(d.colis), 'Colis assignés'],
-                    [String(d.clients), 'Clients'],
-                    [String(d.dest1n), d.dest1v],
-                    ...(d.dest2v ? [[String(d.dest2n), d.dest2v]] : []),
-                  ].map(([val, lbl]) => (
-                    <View key={lbl} style={{ flex: 1, minWidth: '45%', backgroundColor: '#2A2A2A', borderRadius: 12, padding: 11 }}>
-                      <Text style={{ fontSize: 17, fontWeight: '800', color: '#F97316' }}>{val}</Text>
-                      <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{lbl}</Text>
-                    </View>
-                  ))}
+                {/* Stats */}
+                <View style={{ flexDirection: 'row', gap: 9, padding: 14, paddingBottom: 0 }}>
+                  <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 12, padding: 11 }}>
+                    <Text style={{ fontSize: 17, fontWeight: '800', color: '#F97316' }}>{dep.package_count}</Text>
+                    <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Colis</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 12, padding: 11 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>{dep.destinations.join(', ')}</Text>
+                    <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Destinations</Text>
+                  </View>
                 </View>
 
-                {/* Status badges */}
-                <View style={{ flexDirection: 'row', gap: 9, padding: 12, paddingBottom: 0 }}>
-                  {['Documents', 'Douane OK'].map(lbl => (
-                    <View key={lbl} style={{ backgroundColor: 'rgba(34,197,94,0.12)', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ color: '#22C55E', fontSize: 11 }}>✓</Text>
-                      <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '600' }}>{lbl}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Actions 2x2 */}
+                {/* Actions */}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, padding: 14 }}>
-                  <TouchableOpacity activeOpacity={0.8} style={{ flex: 1, minWidth: '45%', height: 42, backgroundColor: '#2A2A2A', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>Voir colis</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity activeOpacity={0.8} style={{ flex: 1, minWidth: '45%', height: 42, backgroundColor: '#F97316', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: '#0D0D0D', fontSize: 12, fontWeight: '700' }}>Ajouter colis</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity activeOpacity={0.8} style={{ flex: 1, minWidth: '45%', height: 42, backgroundColor: '#22C55E', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: '#052E14', fontSize: 12, fontWeight: '700' }}>Notifier clients</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity activeOpacity={0.8}
-                    onPress={() => Alert.alert('Fermer départ', 'Confirmer la fermeture de ce départ ?')}
-                    style={{ flex: 1, minWidth: '45%', height: 42, backgroundColor: '#2D0A0A', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '700' }}>Fermer départ</Text>
-                  </TouchableOpacity>
+                  {dep.status === 'open' && (
+                    <>
+                      <TouchableOpacity onPress={() => handleNotify(dep.id)} activeOpacity={0.8}
+                        style={{ flex: 1, minWidth: '45%', height: 42, backgroundColor: '#22C55E', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#052E14', fontSize: 12, fontWeight: '700' }}>Notifier clients</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleClose(dep.id)} activeOpacity={0.8}
+                        style={{ flex: 1, minWidth: '45%', height: 42, backgroundColor: '#2D0A0A', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '700' }}>Fermer départ</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleMarkDeparted(dep.id)} activeOpacity={0.8}
+                        style={{ flex: 1, minWidth: '45%', height: 42, backgroundColor: 'rgba(59,130,246,0.14)', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#3B82F6', fontSize: 12, fontWeight: '700' }}>Marquer parti</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {dep.status === 'closed' && (
+                    <TouchableOpacity onPress={() => handleMarkDeparted(dep.id)} activeOpacity={0.8}
+                      style={{ flex: 1, height: 42, backgroundColor: '#3B82F6', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Marquer parti</Text>
+                    </TouchableOpacity>
+                  )}
+                  {dep.status === 'departed' && (
+                    <TouchableOpacity onPress={() => handleMarkArrived(dep.id)} activeOpacity={0.8}
+                      style={{ flex: 1, height: 44, backgroundColor: '#A855F7', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Marquer arrivé</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
-            ))}
-          </View>
-        )}
-
-        {/* Tab EN COURS */}
-        {tab === 'cours' && (
-          <View style={{ marginHorizontal: 22, marginTop: 16 }}>
-            <View style={{ backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#1F1F1F', borderRadius: 20, padding: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: '#1E1B4B', alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 20 }}>{DEPART_EN_COURS.icon}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>{DEPART_EN_COURS.titre}</Text>
-                  <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{DEPART_EN_COURS.date}</Text>
-                </View>
-                <View style={{ backgroundColor: '#1E1B4B', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
-                  <Text style={{ color: '#A5B4FC', fontSize: 11, fontWeight: '700' }}>🔵 En vol</Text>
-                </View>
-              </View>
-              <View style={{ marginTop: 14, backgroundColor: '#141414', borderRadius: 12, padding: 12 }}>
-                <Text style={{ fontSize: 12, color: '#9CA3AF' }}>📍 Position : {DEPART_EN_COURS.position}</Text>
-                <Text style={{ fontSize: 12, color: '#22C55E', marginTop: 6 }}>🕐 {DEPART_EN_COURS.eta}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 9, marginTop: 12 }}>
-                <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 12, padding: 11 }}>
-                  <Text style={{ fontSize: 17, fontWeight: '800', color: '#F97316' }}>{DEPART_EN_COURS.colis}</Text>
-                  <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Colis à bord</Text>
-                </View>
-                <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 12, padding: 11 }}>
-                  <Text style={{ fontSize: 17, fontWeight: '800', color: '#FFFFFF' }}>{DEPART_EN_COURS.clients}</Text>
-                  <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Clients notifiés</Text>
-                </View>
-              </View>
-              <TouchableOpacity activeOpacity={0.8}
-                style={{ marginTop: 12, height: 44, backgroundColor: '#22C55E', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#052E14', fontSize: 13, fontWeight: '700' }}>Marquer comme arrivé</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Tab COMPLÉTÉS */}
-        {tab === 'done' && (
-          <View style={{ gap: 12, paddingHorizontal: 22, marginTop: 16 }}>
-            {DEPARTS_DONE.map(d => (
-              <View key={d.id} style={[S.card, { padding: 14 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(34,197,94,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 20 }}>{d.icon}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{d.titre}</Text>
-                    <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{d.date}</Text>
-                  </View>
-                  <View style={{ backgroundColor: 'rgba(34,197,94,0.14)', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
-                    <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>✓ Livré</Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 9, marginTop: 12 }}>
-                  <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 10, padding: 10 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#F97316' }}>{d.colis}</Text>
-                    <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Colis livrés</Text>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: '#2A2A2A', borderRadius: 10, padding: 10 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>{d.clients}</Text>
-                    <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Clients</Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
+            );
+          })}
+        </View>
       </ScrollView>
 
-      {/* Bottom nav */}
-      <View style={S.bottomNav}>
-        <NavItem icon="⬛" label="Dashboard" />
-        <NavItem icon="📦" label="Colis" />
-        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center', marginTop: -22, borderWidth: 4, borderColor: '#111111', shadowColor: '#F97316', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 10 }}>
-          <Text style={{ fontSize: 22, color: '#0D0D0D' }}>📷</Text>
-        </View>
-        <NavItem icon="👥" label="Clients" />
-        <NavItem icon="⚙️" label="Gestion" active />
-      </View>
-
-      {/* Sheet création */}
+      {/* Create Modal */}
       <Modal visible={showSheet} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: '#1A1A1A', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 }}>
@@ -255,28 +329,34 @@ export default function DepartsAdminScreen() {
 
             <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 8 }}>Mode de transport</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 18 }}>
-              {(['avion', 'bateau'] as const).map(m => (
-                <TouchableOpacity key={m} onPress={() => setNewMode(m)} activeOpacity={0.8}
+              {(['air', 'sea'] as const).map(m => (
+                <TouchableOpacity key={m} onPress={() => { setNewMode(m); setNewCapacity(m === 'air' ? '500' : '8000'); }} activeOpacity={0.8}
                   style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
                     backgroundColor: newMode === m ? 'rgba(249,115,22,0.12)' : '#141414',
                     borderColor: newMode === m ? '#F97316' : '#2A2A2A' }}>
                   <Text style={{ color: newMode === m ? '#F97316' : '#9CA3AF', fontWeight: '600' }}>
-                    {m === 'avion' ? '✈️ Avion' : '🚢 Bateau'}
+                    {m === 'air' ? '✈️ Avion' : '🚢 Bateau'}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 8 }}>Destination</Text>
+            <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 8 }}>Destinations</Text>
             <TextInput
               style={{ height: 48, backgroundColor: '#141414', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 10, color: '#FFFFFF', paddingHorizontal: 14, fontSize: 14, marginBottom: 18 }}
               value={newDest} onChangeText={setNewDest} placeholderTextColor="#5B6470"
             />
 
-            <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 8 }}>Date de départ</Text>
+            <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 8 }}>Date de départ (AAAA-MM-JJ)</Text>
+            <TextInput
+              style={{ height: 48, backgroundColor: '#141414', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 10, color: '#FFFFFF', paddingHorizontal: 14, fontSize: 14, marginBottom: 18 }}
+              value={newDate} onChangeText={setNewDate} placeholder="2026-07-15" placeholderTextColor="#5B6470"
+            />
+
+            <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 8 }}>Capacité (lbs)</Text>
             <TextInput
               style={{ height: 48, backgroundColor: '#141414', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 10, color: '#FFFFFF', paddingHorizontal: 14, fontSize: 14, marginBottom: 24 }}
-              value={newDate} onChangeText={setNewDate} placeholder="JJ/MM/AAAA" placeholderTextColor="#5B6470"
+              value={newCapacity} onChangeText={setNewCapacity} keyboardType="numeric" placeholderTextColor="#5B6470"
             />
 
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -284,9 +364,9 @@ export default function DepartsAdminScreen() {
                 style={{ flex: 1, height: 50, backgroundColor: '#2A2A2A', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Annuler</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setShowSheet(false); Alert.alert('Départ créé', 'Le nouveau départ a été ajouté.'); }} activeOpacity={0.9}
-                style={{ flex: 1.4, height: 50, backgroundColor: '#F97316', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#0D0D0D', fontWeight: '700' }}>Créer le départ</Text>
+              <TouchableOpacity onPress={handleCreate} disabled={actionLoading} activeOpacity={0.9}
+                style={{ flex: 1.4, height: 50, backgroundColor: '#F97316', borderRadius: 12, alignItems: 'center', justifyContent: 'center', opacity: actionLoading ? 0.6 : 1 }}>
+                <Text style={{ color: '#0D0D0D', fontWeight: '700' }}>{actionLoading ? 'Création...' : 'Créer le départ'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -301,5 +381,4 @@ const S = StyleSheet.create({
   tab: { height: 38, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 20, paddingHorizontal: 16, justifyContent: 'center' },
   tabActive: { backgroundColor: 'rgba(249,115,22,0.12)', borderColor: '#F97316' },
   card: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#1F1F1F', borderRadius: 20 },
-  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 84, backgroundColor: '#111111', borderTopWidth: 1, borderTopColor: '#2A2A2A', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around', paddingTop: 12 },
 });
