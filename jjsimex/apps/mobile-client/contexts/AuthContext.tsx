@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { registerForPushNotifications, unregisterPushNotifications } from '@jjsimex/ui/notifications';
 
 interface UserProfile {
   id: string;
@@ -50,8 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else setLoading(false);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+        registerForPushNotifications(session.user.id).catch(() => {});
+      } else {
+        setLoading(false);
+      }
     }).catch(() => setLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -93,6 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
       return { error: "Votre compte a été suspendu. Contactez JJ's IMEX au +1 (305) 600-9364." };
     }
+
+    registerForPushNotifications(data.user.id).catch(() => {});
 
     return { error: null, role: prof?.role };
   }
@@ -138,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
+    if (user) unregisterPushNotifications(user.id).catch(() => {});
     await supabase.auth.signOut();
   }
 

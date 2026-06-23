@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
 import { getAllPayments, confirmPayment, refusePayment, getPaymentStats, type Payment, type PaymentStats } from '@jjsimex/supabase/payments';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const S = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D0D0D' },
@@ -78,6 +79,11 @@ export default function PaiementsTab() {
 
   useEffect(() => {
     loadData();
+    const ch = supabase
+      .channel('admin-payments-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   async function loadData() {
