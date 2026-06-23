@@ -247,8 +247,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (session) {
         const { data } = await supabase.from('users').select('id, full_name, role').eq('id', session.user.id).single();
         if (data) setUser(data as AdminUser);
-      } else {
-        setUser({ id: '', full_name: 'Admin Dev', role: 'super_admin' });
       }
     })();
   }, []);

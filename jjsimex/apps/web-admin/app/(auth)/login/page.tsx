@@ -4,6 +4,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   identifiants_invalides: 'Email ou mot de passe incorrect.',
   compte_suspendu: 'Votre compte a été suspendu. Contactez JJ\'s IMEX au +1 (305) 600-9364.',
   acces_refuse: 'Accès refusé. Ce portail est réservé aux administrateurs.',
+  acces_non_autorise: 'Accès refusé. Ce portail est réservé aux administrateurs.',
+  compte_bloque: 'Votre compte a été bloqué. Contactez JJ\'s IMEX au +1 (305) 600-9364.',
   profil_introuvable: 'Profil introuvable. Contactez le support.',
   erreur_connexion: 'Une erreur est survenue. Réessayez.',
 };
