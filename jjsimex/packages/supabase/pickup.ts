@@ -59,7 +59,7 @@ export async function createPickupRequest(data: CreatePickupData, userId: string
   if (admins) {
     const notifications = admins.map((admin) => ({
       user_id: admin.id,
-      type: 'pickup_request',
+      type: 'system',
       title: pickTitle,
       body: pickBody,
       data: { pickup_id: pickup.id },
@@ -76,7 +76,7 @@ export async function createPickupRequest(data: CreatePickupData, userId: string
   const pickConfMsg = `Votre pickup à ${data.pickup_address} le ${data.pickup_date} est en attente de confirmation.`;
   await getClient().from('notifications').insert({
     user_id: userId,
-    type: 'pickup_request',
+    type: 'system',
     title: pickConfTitle,
     message: pickConfMsg,
     action_url: `/pickup/${pickup.id}`,
@@ -103,7 +103,7 @@ export async function confirmPickup(requestId: string, adminId: string): Promise
   const confMsg = `Votre pickup du ${updated.pickup_date} à ${updated.pickup_address} est confirmé.`;
   await supabase.from('notifications').insert({
     user_id: updated.client_id,
-    type: 'pickup_request',
+    type: 'system',
     title: confTitle,
     message: confMsg,
     action_url: `/pickup/${requestId}`,
@@ -130,7 +130,7 @@ export async function completePickup(requestId: string, adminId: string): Promis
   const collMsg = `Vos colis ont été collectés à ${updated.pickup_address}. Ils seront traités sous peu.`;
   await supabase.from('notifications').insert({
     user_id: updated.client_id,
-    type: 'pickup_request',
+    type: 'system',
     title: collTitle,
     message: collMsg,
     action_url: `/pickup/${requestId}`,

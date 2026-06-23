@@ -545,7 +545,7 @@ export async function assignToDeparture(packageId: string, departureId: string) 
       await supabase.from('notifications').insert(
         admins.map(a => ({
           user_id: a.id,
-          type: 'departure',
+          type: 'system',
           title: capTitle,
           message: capMsg,
           action_url: `/dashboard/departs`,

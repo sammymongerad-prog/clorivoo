@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { registerForPushNotifications, unregisterPushNotifications } from '@jjsimex/ui/notifications';
+import { onUserCreated } from '@jjsimex/supabase/users';
 
 interface UserProfile {
   id: string;
@@ -105,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(data: SignUpData) {
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
@@ -123,9 +124,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('already registered')) {
         return { error: 'Un compte existe déjà avec cet email.' };
       }
-      // Affiche le vrai message pour diagnostiquer
       return { error: `Erreur: ${error.message}` };
     }
+
+    if (authData?.user?.id) {
+      onUserCreated(authData.user.id).catch(() => {});
+    }
+
     return { error: null };
   }
 

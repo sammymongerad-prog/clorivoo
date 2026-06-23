@@ -1,5 +1,6 @@
 import { getClient } from './client';
 import { sendPushNotification } from './push';
+import { checkLoyaltyLevel } from './users';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -255,6 +256,9 @@ export async function confirmPayment(
     .from('users')
     .update({ total_spent: newTotal })
     .eq('id', payment.user_id);
+
+  // #21: Check loyalty level after spending update
+  checkLoyaltyLevel(payment.user_id).catch(() => {});
 
   // Récupérer infos client et colis
   const { data: client } = await supabase
