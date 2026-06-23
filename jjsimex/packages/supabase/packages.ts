@@ -1,4 +1,5 @@
 import { getClient } from './client';
+import { sendPushNotification } from './push';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -176,12 +177,15 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
   }
 
   // Notification in-app pour le client
+  const shipTitle = 'Demande créée';
+  const shipMsg = `Votre demande ${pkg.request_number} a été créée. Ajoutez votre numéro de tracking quand disponible.`;
   await getClient().from('notifications').insert({
     user_id: data.client_id,
-    title: 'Demande créée',
-    message: `Votre demande ${pkg.request_number} a été créée. Ajoutez votre numéro de tracking quand disponible.`,
+    title: shipTitle,
+    message: shipMsg,
     type: 'package',
   });
+  sendPushNotification(data.client_id, shipTitle, shipMsg).catch(() => {});
 
   return pkg;
 }
@@ -282,18 +286,19 @@ async function insertPackage(
     notes: 'Colis reçu dans notre entrepôt de Miami.',
   });
 
-  // Créer notification in-app
+  // Créer notification in-app + push
+  const recvTitle = 'Colis reçu ✅';
+  const recvBody = `Votre colis ${pkg.tracking_number} est arrivé dans notre entrepôt Miami.`;
   await getClient().from('notifications').insert({
     user_id: data.client_id,
     type: 'colis_received',
-    title: 'Colis reçu ✅',
-    body: `Votre colis ${pkg.tracking_number} est arrivé dans notre entrepôt Miami.`,
+    title: recvTitle,
+    body: recvBody,
     data: { package_id: pkg.id, tracking_number: pkg.tracking_number },
     is_read: false,
     package_id: pkg.id,
   });
-
-  const client = (pkg as { users?: { first_name: string; last_name: string; email: string } }).users;
+  sendPushNotification(data.client_id, recvTitle, recvBody, { package_id: pkg.id }).catch(() => {});
 
   return pkg;
 }
@@ -378,7 +383,6 @@ export async function updatePackageStatus(
 
   const msg = pushMessages[newStatus];
   if (msg) {
-    // Notification in-app
     await getClient().from('notifications').insert({
       user_id: client.id,
       type: notifTypes[newStatus] ?? 'colis_transit',
@@ -388,7 +392,7 @@ export async function updatePackageStatus(
       is_read: false,
       package_id: packageId,
     });
-
+    sendPushNotification(client.id, msg.title, msg.body, { package_id: packageId }).catch(() => {});
   }
 
   return pkg;
@@ -683,12 +687,15 @@ export async function markPackageAsReceived(
   });
 
   // Step 5: Send notification to the client
+  const markTitle = 'Colis reçu à Miami !';
+  const markMsg = `Votre colis ${pkgData.request_number} (tracking: ${trackingNumber}) a été reçu dans notre entrepôt. Poids vérifié: ${realWeight} lbs.`;
   await supabase.from('notifications').insert({
     user_id: pkgData.client_id,
-    title: 'Colis reçu à Miami !',
-    message: `Votre colis ${pkgData.request_number} (tracking: ${trackingNumber}) a été reçu dans notre entrepôt. Poids vérifié: ${realWeight} lbs.`,
+    title: markTitle,
+    message: markMsg,
     type: 'package',
   });
+  sendPushNotification(pkgData.client_id, markTitle, markMsg).catch(() => {});
 
   return { tracking_number: trackingNumber };
 }

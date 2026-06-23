@@ -1,4 +1,5 @@
 import { getClient } from './client';
+import { sendPushNotification } from './push';
 
 export interface CreatePickupData {
   pickup_address: string;
@@ -53,16 +54,21 @@ export async function createPickupRequest(data: CreatePickupData, userId: string
     .select('id')
     .in('role', ['admin', 'super_admin', 'employee']);
 
+  const pickTitle = 'Nouvelle demande de pickup 🚚';
+  const pickBody = `${clientName} demande un pickup à ${data.pickup_address} le ${data.pickup_date}.`;
   if (admins) {
     const notifications = admins.map((admin) => ({
       user_id: admin.id,
       type: 'pickup_request',
-      title: 'Nouvelle demande de pickup 🚚',
-      body: `${clientName} demande un pickup à ${data.pickup_address} le ${data.pickup_date}.`,
+      title: pickTitle,
+      body: pickBody,
       data: { pickup_id: pickup.id },
       is_read: false,
     }));
     await getClient().from('notifications').insert(notifications);
+    for (const admin of admins) {
+      sendPushNotification(admin.id, pickTitle, pickBody).catch(() => {});
+    }
   }
 
   return pickup as PickupRequest;

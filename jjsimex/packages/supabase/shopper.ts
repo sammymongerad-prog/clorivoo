@@ -1,4 +1,5 @@
 import { getClient } from './client';
+import { sendPushNotification } from './push';
 import { calculateShipping } from './shipping';
 import type { TransportMode, DestinationCountry } from './shipping';
 
@@ -114,17 +115,21 @@ export async function createShopperRequest(
     .select('id, expo_push_token')
     .in('role', ['admin', 'super_admin']);
 
-  // 1. Notification in-app admin
+  const shopTitle = 'Nouvelle demande Personal Shopper';
+  const shopMsg = `${client?.full_name ?? 'Client'} — ${data.merchant} — ${request_number}`;
   if (admins && admins.length > 0) {
     await supabase.from('notifications').insert(
       admins.map(admin => ({
         user_id: admin.id,
         type: 'personal_shopper',
-        title: 'Nouvelle demande Personal Shopper',
-        message: `${client?.full_name ?? 'Client'} — ${data.merchant} — ${request_number}`,
+        title: shopTitle,
+        message: shopMsg,
         action_url: `/dashboard/shopper?id=${request.id}`,
       }))
     );
+    for (const admin of admins) {
+      sendPushNotification(admin.id, shopTitle, shopMsg).catch(() => {});
+    }
   }
 
   return request as ShopperRequest;
@@ -219,14 +224,16 @@ export async function sendQuote(
     .eq('id', request.client_id)
     .single();
 
-  // 1. Notification in-app client
+  const quoteTitle = 'Votre devis est prêt !';
+  const quoteMsg = `PS-${request.request_number}: $${total_price.toFixed(2)}`;
   await supabase.from('notifications').insert({
     user_id: request.client_id,
     type: 'personal_shopper',
-    title: 'Votre devis est prêt !',
-    message: `PS-${request.request_number}: $${total_price.toFixed(2)}`,
+    title: quoteTitle,
+    message: quoteMsg,
     action_url: `/shopper/${request_id}`,
   });
+  sendPushNotification(request.client_id, quoteTitle, quoteMsg).catch(() => {});
 
   return updated as ShopperRequest;
 }
@@ -259,17 +266,21 @@ export async function confirmRequest(request_id: string, user_id: string): Promi
     .eq('id', user_id)
     .single();
 
-  // Notification admin in-app
+  const confShopTitle = 'Commande confirmée ✅';
+  const confShopMsg = `${updated.request_number} — ${client?.full_name ?? 'Client'}\nProcéder à l'achat maintenant.`;
   if (admins && admins.length > 0) {
     await supabase.from('notifications').insert(
       admins.map(admin => ({
         user_id: admin.id,
         type: 'personal_shopper',
-        title: 'Commande confirmée ✅',
-        message: `${updated.request_number} — ${client?.full_name ?? 'Client'}\nProcéder à l'achat maintenant.`,
+        title: confShopTitle,
+        message: confShopMsg,
         action_url: `/dashboard/shopper?id=${request_id}`,
       }))
     );
+    for (const admin of admins) {
+      sendPushNotification(admin.id, confShopTitle, confShopMsg).catch(() => {});
+    }
   }
 
   return updated as ShopperRequest;
@@ -297,14 +308,16 @@ export async function markAsPurchased(request_id: string, admin_id: string): Pro
     .eq('id', updated.client_id)
     .single();
 
-  // Notification client in-app
+  const purchTitle = 'Commande achetée !';
+  const purchMsg = `${updated.request_number} a été acheté. Expédition en cours.`;
   await supabase.from('notifications').insert({
     user_id: updated.client_id,
     type: 'personal_shopper',
-    title: 'Commande achetée !',
-    message: `${updated.request_number} a été acheté. Expédition en cours.`,
+    title: purchTitle,
+    message: purchMsg,
     action_url: `/shopper/${request_id}`,
   });
+  sendPushNotification(updated.client_id, purchTitle, purchMsg).catch(() => {});
 
   return updated as ShopperRequest;
 }
@@ -364,14 +377,16 @@ export async function markAsShipped(
     .eq('id', shopper.client_id)
     .single();
 
-  // Notification client in-app
+  const shipShopTitle = 'Commande expédiée !';
+  const shipShopMsg = `${updated.request_number} est en route. Suivi: ${tracking_number}`;
   await supabase.from('notifications').insert({
     user_id: shopper.client_id,
     type: 'personal_shopper',
-    title: 'Commande expédiée !',
-    message: `${updated.request_number} est en route. Suivi: ${tracking_number}`,
+    title: shipShopTitle,
+    message: shipShopMsg,
     action_url: `/colis/${pkg?.id}`,
   });
+  sendPushNotification(shopper.client_id, shipShopTitle, shipShopMsg).catch(() => {});
 
   return updated as ShopperRequest;
 }
@@ -402,14 +417,15 @@ export async function cancelRequest(
       .eq('id', updated.client_id)
       .single();
 
-    if (client?.email) {
-      await supabase.from('notifications').insert({
-        user_id: updated.client_id,
-        type: 'personal_shopper',
-        title: 'Demande annulée',
-        message: `${updated.request_number}: ${reason}`,
-      });
-    }
+    const cancelTitle = 'Demande annulée';
+    const cancelMsg = `${updated.request_number}: ${reason}`;
+    await supabase.from('notifications').insert({
+      user_id: updated.client_id,
+      type: 'personal_shopper',
+      title: cancelTitle,
+      message: cancelMsg,
+    });
+    sendPushNotification(updated.client_id, cancelTitle, cancelMsg).catch(() => {});
   }
 
   return updated as ShopperRequest;

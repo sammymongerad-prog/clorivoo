@@ -1,4 +1,5 @@
 import { getClient } from './client';
+import { sendPushNotification } from './push';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,16 +129,21 @@ export async function createPayment(
     .select('id')
     .in('role', ['admin', 'super_admin']);
 
+  const payAdminTitle = 'Nouveau paiement en attente 💳';
+  const payAdminMsg = `${client?.full_name ?? 'Client'} — $${data.amount.toFixed(2)} via ${methodLabel[data.method]}`;
   if (admins && admins.length > 0) {
     await supabase.from('notifications').insert(
       admins.map(admin => ({
         user_id: admin.id,
         type: 'payment',
-        title: 'Nouveau paiement en attente 💳',
-        message: `${client?.full_name ?? 'Client'} — $${data.amount.toFixed(2)} via ${methodLabel[data.method]}`,
+        title: payAdminTitle,
+        message: payAdminMsg,
         action_url: `/dashboard/paiements?id=${payment.id}`,
       }))
     );
+    for (const admin of admins) {
+      sendPushNotification(admin.id, payAdminTitle, payAdminMsg).catch(() => {});
+    }
   }
 
   return payment as Payment;
@@ -251,14 +257,16 @@ export async function confirmPayment(
     .eq('id', payment.package_id)
     .single();
 
-  // 1. Notification in-app client
+  const confTitle = 'Paiement confirmé ✅';
+  const confMsg = `Votre paiement de $${payment.amount.toFixed(2)} a été confirmé.`;
   await supabase.from('notifications').insert({
     user_id: payment.user_id,
     type: 'payment',
-    title: 'Paiement confirmé ✅',
-    message: `Votre paiement de $${payment.amount.toFixed(2)} a été confirmé.`,
+    title: confTitle,
+    message: confMsg,
     action_url: `/colis/${payment.package_id}`,
   });
+  sendPushNotification(payment.user_id, confTitle, confMsg).catch(() => {});
 
   return updated as Payment;
 }
@@ -299,14 +307,16 @@ export async function refusePayment(
     .eq('id', payment.user_id)
     .single();
 
-  // 1. Notification in-app client
+  const refTitle = 'Paiement non confirmé ❌';
+  const refMsg = `Votre paiement n'a pas pu être confirmé. Contactez-nous.`;
   await supabase.from('notifications').insert({
     user_id: payment.user_id,
     type: 'payment',
-    title: 'Paiement non confirmé ❌',
-    message: `Votre paiement n'a pas pu être confirmé. Contactez-nous.`,
+    title: refTitle,
+    message: refMsg,
     action_url: '/colis',
   });
+  sendPushNotification(payment.user_id, refTitle, refMsg).catch(() => {});
 
   return updated as Payment;
 }
@@ -360,14 +370,16 @@ export async function refundPayment(
     .eq('id', payment.user_id)
     .single();
 
-  // 1. Notification in-app client
+  const rembTitle = 'Remboursement effectué 💰';
+  const rembMsg = `Un remboursement de $${payment.amount.toFixed(2)} a été effectué.`;
   await supabase.from('notifications').insert({
     user_id: payment.user_id,
     type: 'payment',
-    title: 'Remboursement effectué 💰',
-    message: `Un remboursement de $${payment.amount.toFixed(2)} a été effectué.`,
+    title: rembTitle,
+    message: rembMsg,
     action_url: '/paiements',
   });
+  sendPushNotification(payment.user_id, rembTitle, rembMsg).catch(() => {});
 
   return updated as Payment;
 }
