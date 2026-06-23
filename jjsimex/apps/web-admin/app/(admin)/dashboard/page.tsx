@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { KPICard } from '@/components/ui/KPICard';
@@ -46,59 +46,67 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month');
 
-  useEffect(() => {
+  const loadDashboard = useCallback(async (showLoader = true) => {
     const supabase = createClient();
-    (async () => {
-      setLoading(true);
-      const since = getDateRange(period);
+    if (showLoader) setLoading(true);
+    const since = getDateRange(period);
 
-      const [pkgRes, payRes, recentRes, depRes] = await Promise.all([
-        supabase.from('packages').select('id, total_price, destination_country, transport_mode, status, created_at').gte('created_at', since),
-        supabase.from('payments').select('id, amount, status').gte('created_at', since),
-        supabase.from('packages').select('id, tracking_number, client_id, destination_city, destination_country, billed_weight_lbs, transport_mode, status, created_at, users!packages_client_id_fkey(full_name)').order('created_at', { ascending: false }).limit(8),
-        supabase.from('departures').select('*').in('status', ['open', 'closed']).order('departure_date', { ascending: true }).limit(4),
-      ]);
+    const [pkgRes, payRes, recentRes, depRes] = await Promise.all([
+      supabase.from('packages').select('id, total_price, destination_country, transport_mode, status, created_at').gte('created_at', since),
+      supabase.from('payments').select('id, amount, status').gte('created_at', since),
+      supabase.from('packages').select('id, tracking_number, client_id, destination_city, destination_country, billed_weight_lbs, transport_mode, status, created_at, users!packages_client_id_fkey(full_name)').order('created_at', { ascending: false }).limit(8),
+      supabase.from('departures').select('*').in('status', ['open', 'closed']).order('departure_date', { ascending: true }).limit(4),
+    ]);
 
-      const packages = pkgRes.data ?? [];
-      const payments = payRes.data ?? [];
-      const recentPackages = recentRes.data ?? [];
-      const departures = depRes.data ?? [];
+    const packages = pkgRes.data ?? [];
+    const payments = payRes.data ?? [];
+    const recentPackages = recentRes.data ?? [];
+    const departures = depRes.data ?? [];
 
-      const totalPackages = packages.length;
-      const totalRevenue = packages.reduce((s: number, p: any) => s + Number(p.total_price || 0), 0);
-      const confirmedPayments = payments.filter((p: any) => p.status === 'confirmed').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-      const pendingCount = packages.filter((p: any) => p.status === 'received_usa').length;
+    const totalPackages = packages.length;
+    const totalRevenue = packages.reduce((s: number, p: any) => s + Number(p.total_price || 0), 0);
+    const confirmedPayments = payments.filter((p: any) => p.status === 'confirmed').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+    const pendingCount = packages.filter((p: any) => p.status === 'received_usa').length;
 
-      const byCountry: Record<string, number> = {};
-      const airCount = packages.filter((p: any) => p.transport_mode === 'air').length;
-      const seaCount = packages.filter((p: any) => p.transport_mode === 'sea').length;
-      packages.forEach((p: any) => {
-        const c = p.destination_country || 'unknown';
-        byCountry[c] = (byCountry[c] || 0) + 1;
+    const byCountry: Record<string, number> = {};
+    const airCount = packages.filter((p: any) => p.transport_mode === 'air').length;
+    const seaCount = packages.filter((p: any) => p.transport_mode === 'sea').length;
+    packages.forEach((p: any) => {
+      const c = p.destination_country || 'unknown';
+      byCountry[c] = (byCountry[c] || 0) + 1;
+    });
+
+    // Build chart data for last 6 months
+    const now = new Date();
+    const chartData = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - (5 - i));
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      const monthPkgs = packages.filter((p: any) => {
+        const pd = new Date(p.created_at);
+        return pd.getMonth() === m && pd.getFullYear() === y;
       });
+      return {
+        month: MONTH_LABELS[m],
+        revenue: Math.round(monthPkgs.reduce((s: number, p: any) => s + Number(p.total_price || 0), 0)),
+        packages: monthPkgs.length,
+      };
+    });
 
-      // Build chart data for last 6 months
-      const now = new Date();
-      const chartData = Array.from({ length: 6 }, (_, i) => {
-        const d = new Date(now);
-        d.setMonth(d.getMonth() - (5 - i));
-        const m = d.getMonth();
-        const y = d.getFullYear();
-        const monthPkgs = packages.filter((p: any) => {
-          const pd = new Date(p.created_at);
-          return pd.getMonth() === m && pd.getFullYear() === y;
-        });
-        return {
-          month: MONTH_LABELS[m],
-          revenue: Math.round(monthPkgs.reduce((s: number, p: any) => s + Number(p.total_price || 0), 0)),
-          packages: monthPkgs.length,
-        };
-      });
-
-      setData({ totalPackages, totalRevenue, confirmedPayments, pendingCount, byCountry, airCount, seaCount, recentPackages, chartData, nextDepartures: departures });
-      setLoading(false);
-    })();
+    setData({ totalPackages, totalRevenue, confirmedPayments, pendingCount, byCountry, airCount, seaCount, recentPackages, chartData, nextDepartures: departures });
+    setLoading(false);
   }, [period]);
+
+  useEffect(() => {
+    loadDashboard();
+    const supabase = createClient();
+    const ch = supabase.channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'packages' }, () => loadDashboard(false))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => loadDashboard(false))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [loadDashboard]);
 
   const fmt = (n: number) => n.toLocaleString('fr-FR');
   const fmtUSD = (n: number) => `$${n.toLocaleString('fr-FR', { minimumFractionDigits: 0 })}`;

@@ -164,6 +164,7 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
       receiver_phone: data.receiver_phone,
       client_photo_1_url: data.client_photo_1_url ?? null,
       client_photo_2_url: data.client_photo_2_url ?? null,
+      quantity: data.quantity ?? 1,
       shipping_cost: 0,
       is_paid: false,
     })
@@ -173,6 +174,14 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
   if (error || !pkg) {
     throw new Error('Erreur lors de la création de la demande. Réessayez.');
   }
+
+  // Notification in-app pour le client
+  await getClient().from('notifications').insert({
+    user_id: data.client_id,
+    title: 'Demande créée',
+    message: `Votre demande ${pkg.request_number} a été créée. Ajoutez votre numéro de tracking quand disponible.`,
+    type: 'package',
+  });
 
   return pkg;
 }

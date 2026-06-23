@@ -98,6 +98,15 @@ export default function ColisScreen() {
         renderItem={({ item }) => (
           <View style={{ marginHorizontal: 20, marginBottom: 12 }}>
             <PackageCard pkg={item} onPress={() => router.push(`/colis/${item.id}`)} />
+            {item.status === 'awaiting_arrival' && !item.carrier_tracking_number && (
+              <TouchableOpacity
+                style={styles.addTrackingBtn}
+                onPress={() => router.push(`/screens/add-carrier-tracking?packageId=${item.id}&requestNumber=${item.request_number ?? item.tracking_number}`)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.addTrackingText}>Ajouter mon tracking</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       />
@@ -120,4 +129,6 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 8 },
   emptyText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 20 },
+  addTrackingBtn: { marginTop: 8, marginHorizontal: 0, backgroundColor: '#F97316', borderRadius: 10, paddingVertical: 10, alignItems: 'center' as const },
+  addTrackingText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' as const },
 });

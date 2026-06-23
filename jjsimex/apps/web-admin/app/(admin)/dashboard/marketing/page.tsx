@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { sendBulkNotification } from '@jjsimex/supabase/push';
 import { sendEmail } from '@jjsimex/emails';
 import { createClient } from '@supabase/supabase-js';
@@ -10,47 +10,15 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-const campaigns = [
-  {
-    id: 1,
-    name: 'Promo Vol juin -10%',
-    type: 'WhatsApp',
-    typeColor: '#22C55E',
-    typeBg: 'rgba(34,197,94,0.15)',
-    targets: 3200,
-    sent: 3200,
-    openRate: 72,
-    startDate: '01 juin 2026',
-    endDate: '30 juin 2026',
-    status: 'Actif',
-  },
-  {
-    id: 2,
-    name: 'Rappel colis en attente',
-    type: 'Push',
-    typeColor: '#F97316',
-    typeBg: 'rgba(249,115,22,0.15)',
-    targets: 1850,
-    sent: 1240,
-    openRate: 58,
-    startDate: '10 juin 2026',
-    endDate: '20 juin 2026',
-    status: 'Planifié',
-  },
-  {
-    id: 3,
-    name: 'Bienvenue nouveaux clients',
-    type: 'Email',
-    typeColor: '#60A5FA',
-    typeBg: 'rgba(96,165,250,0.15)',
-    targets: 3400,
-    sent: 3400,
-    openRate: 81,
-    startDate: '01 mai 2026',
-    endDate: '31 mai 2026',
-    status: 'Terminé',
-  },
-];
+interface CampaignLog {
+  id: string;
+  title: string;
+  message: string;
+  target: string;
+  channel: string;
+  sent_count: number;
+  created_at: string;
+}
 
 const topReferrers = [
   { initials: 'JM', name: 'Jean-Marie L.', count: 12, color: '#F97316' },
@@ -125,6 +93,17 @@ export default function MarketingPage() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
   const [toast, setToast] = useState('');
+  const [campaigns, setCampaigns] = useState<CampaignLog[]>([]);
+
+  const loadCampaigns = useCallback(async () => {
+    const { data } = await supabase
+      .from('bulk_notifications_log')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (data) setCampaigns(data);
+  }, []);
+
+  useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -181,9 +160,21 @@ export default function MarketingPage() {
         }
       }
 
+      // Persist to bulk_notifications_log
+      const { data: me } = await supabase.auth.getUser();
+      await supabase.from('bulk_notifications_log').insert({
+        title: form.title,
+        message: form.body,
+        target: form.target,
+        channel: [form.sendPush && 'push', form.sendEmailFlag && 'email'].filter(Boolean).join('+'),
+        sent_count: pushResult.sent,
+        created_by: me?.user?.id ?? null,
+      });
+
       setResult(pushResult);
       setShowModal(false);
       setForm(defaultForm);
+      await loadCampaigns();
       showToast(`Campagne envoyée ! Push: ${pushResult.sent} reçus`);
     } catch (err) {
       console.error(err);
@@ -278,8 +269,14 @@ export default function MarketingPage() {
             Campagnes actives
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {campaigns.length === 0 && (
+              <p style={{ color: '#9CA3AF', fontSize: '14px' }}>Aucune campagne envoyée pour le moment.</p>
+            )}
             {campaigns.map((c) => {
-              const s = statusStyle(c.status);
+              const channelColor = c.channel.includes('push') ? '#F97316' : '#60A5FA';
+              const channelBg = c.channel.includes('push') ? 'rgba(249,115,22,0.15)' : 'rgba(96,165,250,0.15)';
+              const targetLabel = c.target === 'all' ? 'Tous' : c.target === 'haiti' ? 'Haiti' : 'RD';
+              const dateStr = new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
               return (
                 <div
                   key={c.id}
@@ -301,34 +298,39 @@ export default function MarketingPage() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <p style={{ fontWeight: '700', fontSize: '15px', margin: 0 }}>
-                        {c.name}
+                        {c.title}
                       </p>
                       <span
                         style={{
-                          backgroundColor: c.typeBg,
-                          color: c.typeColor,
+                          backgroundColor: channelBg,
+                          color: channelColor,
                           padding: '2px 8px',
                           borderRadius: '999px',
                           fontSize: '11px',
                           fontWeight: '600',
                         }}
                       >
-                        {c.type}
+                        {c.channel}
                       </span>
                     </div>
                     <span
                       style={{
-                        backgroundColor: s.bg,
-                        color: s.color,
+                        backgroundColor: 'rgba(156,163,175,0.15)',
+                        color: '#9CA3AF',
                         padding: '3px 10px',
                         borderRadius: '999px',
                         fontSize: '12px',
                         fontWeight: '600',
                       }}
                     >
-                      {c.status}
+                      {targetLabel}
                     </span>
                   </div>
+
+                  {/* Message preview */}
+                  <p style={{ color: '#9CA3AF', fontSize: '13px', margin: '0 0 12px 0', lineHeight: '1.4' }}>
+                    {c.message.length > 120 ? c.message.slice(0, 120) + '...' : c.message}
+                  </p>
 
                   {/* Counts */}
                   <div
@@ -340,90 +342,18 @@ export default function MarketingPage() {
                   >
                     <div>
                       <p style={{ color: '#9CA3AF', fontSize: '12px', margin: '0 0 2px 0' }}>
-                        Clients ciblés
-                      </p>
-                      <p style={{ fontWeight: '600', fontSize: '15px', margin: 0 }}>
-                        {c.targets.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ color: '#9CA3AF', fontSize: '12px', margin: '0 0 2px 0' }}>
                         Messages envoyés
                       </p>
                       <p style={{ fontWeight: '600', fontSize: '15px', margin: 0 }}>
-                        {c.sent.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ color: '#9CA3AF', fontSize: '12px', margin: '0 0 2px 0' }}>
-                        Taux d'ouverture
-                      </p>
-                      <p style={{ fontWeight: '600', fontSize: '15px', margin: 0 }}>
-                        {c.openRate}%
+                        {c.sent_count.toLocaleString()}
                       </p>
                     </div>
                   </div>
 
-                  {/* Progress Bar */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <div
-                      style={{
-                        height: '6px',
-                        backgroundColor: '#2A2A2A',
-                        borderRadius: '999px',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${c.openRate}%`,
-                          backgroundColor: '#F97316',
-                          borderRadius: '999px',
-                          transition: 'width 0.4s',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Dates */}
-                  <p style={{ color: '#9CA3AF', fontSize: '12px', margin: '0 0 14px 0' }}>
-                    📅 {c.startDate} → {c.endDate}
+                  {/* Date */}
+                  <p style={{ color: '#9CA3AF', fontSize: '12px', margin: 0 }}>
+                    {dateStr}
                   </p>
-
-                  {/* Buttons */}
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      style={{
-                        flex: 1,
-                        backgroundColor: 'transparent',
-                        border: '1px solid #F97316',
-                        color: '#F97316',
-                        borderRadius: '6px',
-                        padding: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Voir rapport
-                    </button>
-                    <button
-                      style={{
-                        flex: 1,
-                        backgroundColor: '#2A2A2A',
-                        border: '1px solid #2A2A2A',
-                        color: '#fff',
-                        borderRadius: '6px',
-                        padding: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Modifier
-                    </button>
-                  </div>
                 </div>
               );
             })}
