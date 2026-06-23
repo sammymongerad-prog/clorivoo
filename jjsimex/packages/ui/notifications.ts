@@ -1,6 +1,15 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
+let Notifications: typeof import('expo-notifications') | null = null;
+let Device: typeof import('expo-device') | null = null;
+let Constants: typeof import('expo-constants')['default'] | null = null;
+
+try {
+  Notifications = require('expo-notifications');
+  Device = require('expo-device');
+  Constants = require('expo-constants').default ?? require('expo-constants');
+} catch {
+  // Native modules not available (Expo Go) — push features disabled
+}
+
 import { createClient } from '@supabase/supabase-js';
 
 // ─── Client ───────────────────────────────────────────────────────────────────
@@ -22,13 +31,14 @@ export interface NotificationData {
   [key: string]: any;
 }
 
-export type NotificationHandler = (notification: Notifications.Notification) => void;
-export type NotificationTapHandler = (response: Notifications.NotificationResponse) => void;
+export type NotificationHandler = (notification: any) => void;
+export type NotificationTapHandler = (response: any) => void;
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 export async function configureNotifications() {
-  // Configurer le channel Android
+  if (!Notifications || !Device) return;
+
   if (Device.osName === 'Android') {
     await Notifications.setNotificationChannelAsync('jjsimex', {
       name: "JJ's IMEX",
@@ -41,29 +51,23 @@ export async function configureNotifications() {
     });
   }
 
-  // Définir les options par défaut
   Notifications.setNotificationHandler({
-    handleNotification: async (notification) => {
-      return {
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-      };
-    },
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
   });
 }
 
 // ─── registerForPushNotifications ──────────────────────────────────────────
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
-  try {
-    // Vérifier si c'est un device physique
-    if (!Device.isDevice) {
-      console.log('Les notifications push ne fonctionnent que sur un appareil physique');
-      return null;
-    }
+  if (!Notifications || !Device || !Constants) return null;
 
-    // Demander les permissions
+  try {
+    if (!Device.isDevice) return null;
+
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -72,40 +76,20 @@ export async function registerForPushNotifications(userId: string): Promise<stri
       finalStatus = status;
     }
 
-    if (finalStatus !== 'granted') {
-      console.log('Permission refusée pour les notifications push');
-      return null;
-    }
+    if (finalStatus !== 'granted') return null;
 
-    // Obtenir le token Expo
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) {
-      console.log('EAS projectId non configuré');
-      return null;
-    }
+    if (!projectId) return null;
 
     const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    console.log('Expo Push Token:', token);
 
-    // Sauvegarder le token dans Supabase
     const supabase = getClient();
     const platform = Device.osName === 'iOS' ? 'ios' : 'android';
 
-    const { error } = await supabase.from('push_tokens').upsert(
-      {
-        user_id: userId,
-        token,
-        platform,
-        is_active: true,
-      },
+    await supabase.from('push_tokens').upsert(
+      { user_id: userId, token, platform, is_active: true },
       { onConflict: 'token' },
     );
-
-    if (error) {
-      console.error('Erreur sauvegarde token:', error);
-    } else {
-      console.log('Token push enregistré avec succès');
-    }
 
     return token;
   } catch (error) {
@@ -117,81 +101,56 @@ export async function registerForPushNotifications(userId: string): Promise<stri
 // ─── handleNotificationReceived ────────────────────────────────────────────
 
 export function handleNotificationReceived(handler: NotificationHandler): () => void {
-  const subscription = Notifications.addNotificationReceivedListener((notification) => {
-    handler(notification);
-  });
-
+  if (!Notifications) return () => {};
+  const subscription = Notifications.addNotificationReceivedListener(handler);
   return () => subscription.remove();
 }
 
 // ─── handleNotificationTapped ──────────────────────────────────────────────
 
-export function handleNotificationTapped(
-  handler: (data: NotificationData) => void,
-): () => void {
+export function handleNotificationTapped(handler: (data: NotificationData) => void): () => void {
+  if (!Notifications) return () => {};
   const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as NotificationData;
-    handler(data);
+    handler(response.notification.request.content.data as NotificationData);
   });
-
   return () => subscription.remove();
 }
 
 // ─── updateBadgeCount ─────────────────────────────────────────────────────
 
 export async function updateBadgeCount(count: number): Promise<void> {
+  if (!Notifications || !Device) return;
   try {
     if (Device.osName === 'iOS') {
       await Notifications.setBadgeCountAsync(count);
-    } else if (Device.osName === 'Android') {
-      // Sur Android, le badge est géré via le channel
-      // et les notifications individuelles
     }
-  } catch (error) {
-    console.error('Erreur mise à jour badge:', error);
-  }
+  } catch {}
 }
 
-// ─── Utilitaires ──────────────────────────────────────────────────────────
+// ─── unregisterPushNotifications ──────────────────────────────────────────
 
 export async function unregisterPushNotifications(userId: string): Promise<void> {
   try {
     const supabase = getClient();
-    const { data: tokens } = await supabase
+    await supabase
       .from('push_tokens')
-      .select('token')
+      .update({ is_active: false })
       .eq('user_id', userId);
-
-    if (tokens && tokens.length > 0) {
-      await supabase
-        .from('push_tokens')
-        .update({ is_active: false })
-        .eq('user_id', userId);
-    }
-  } catch (error) {
-    console.error('Erreur désenregistrement notifications:', error);
-  }
+  } catch {}
 }
 
-// ─── Afficher notification locale (debug) ──────────────────────────────────
+// ─── Notification locale (debug) ──────────────────────────────────────────
 
 export async function sendLocalNotification(
   title: string,
   body: string,
   data?: NotificationData,
 ): Promise<void> {
+  if (!Notifications) return;
   try {
     await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data: data || {},
-        sound: 'default',
-        badge: 1,
-      },
+      content: { title, body, data: data || {}, sound: 'default', badge: 1 },
       trigger: { seconds: 1 },
     });
-  } catch (error) {
-    console.error('Erreur notification locale:', error);
-  }
+  } catch {}
 }
