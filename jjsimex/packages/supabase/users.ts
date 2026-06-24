@@ -1,9 +1,10 @@
 import { getClient } from './client';
 import { sendPushNotification } from './push';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // #22 + A7: Post-signup welcome + admin alert
-export async function onUserCreated(userId: string): Promise<void> {
-  const supabase = getClient();
+export async function onUserCreated(userId: string, client?: SupabaseClient): Promise<void> {
+  const supabase = client ?? getClient();
 
   // Retry up to 3 times with delay — the DB trigger may not have created the profile yet
   let user: any = null;
@@ -28,7 +29,27 @@ export async function onUserCreated(userId: string): Promise<void> {
     title: welcomeTitle,
     message: welcomeMsg,
   });
-  sendPushNotification(userId, welcomeTitle, welcomeMsg).catch(() => {});
+
+  // Send push — try service-role path first, fall back to direct Expo Push API
+  try {
+    await sendPushNotification(userId, welcomeTitle, welcomeMsg);
+  } catch {
+    // Service role not available (mobile) — send directly via push token
+    const { data: tokens } = await supabase
+      .from('push_tokens')
+      .select('token')
+      .eq('user_id', userId)
+      .eq('is_active', true);
+    if (tokens && tokens.length > 0) {
+      fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tokens.map(t => ({
+          to: t.token, title: welcomeTitle, body: welcomeMsg, sound: 'default', badge: 1, channelId: 'jjsimex',
+        }))),
+      }).catch(() => {});
+    }
+  }
 
   const { data: admins } = await supabase
     .from('users')

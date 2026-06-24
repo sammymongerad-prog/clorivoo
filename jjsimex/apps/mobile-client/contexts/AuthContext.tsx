@@ -128,7 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (authData?.user?.id) {
-      onUserCreated(authData.user.id).catch(() => {});
+      registerForPushNotifications(authData.user.id).catch(() => {});
+      onUserCreated(authData.user.id, supabase).catch(() => {});
     }
 
     return { error: null };
