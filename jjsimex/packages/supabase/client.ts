@@ -11,6 +11,10 @@ const FALLBACK_URL = 'https://rrjrnckyoqhevzoafnut.supabase.co';
 const FALLBACK_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyanJuY2t5b3FoZXZ6b2FmbnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMDgzMTAsImV4cCI6MjA5Njg4NDMxMH0.9BqfBMJWmDFCJXbIgsLDd_SqmO8hOucP5QhVVJu2a-k';
 
+export function setClient(client: ReturnType<typeof createSupabaseClient>) {
+  _client = client;
+}
+
 export function getClient() {
   if (_client) return _client;
   const url =

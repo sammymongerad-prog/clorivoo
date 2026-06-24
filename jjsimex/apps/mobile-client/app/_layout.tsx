@@ -5,9 +5,12 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { configureNotifications } from '@jjsimex/ui/notifications';
+import { setClient } from '@jjsimex/supabase/client';
+import { supabase } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 configureNotifications();
+setClient(supabase);
 
 // Capte les erreurs JS globales (async) pour les afficher à l'écran
 const _errors: string[] = [];
