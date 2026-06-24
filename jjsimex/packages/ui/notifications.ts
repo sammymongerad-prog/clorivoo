@@ -89,11 +89,13 @@ export async function registerForPushNotifications(userId: string, supabaseClien
     const supabase = supabaseClient ?? getClient();
     const platform = Device.osName === 'iOS' ? 'ios' : 'android';
 
-    const { error: upsertError } = await supabase.from('push_tokens').upsert(
+    // Delete any existing row for this token (may belong to a previous user)
+    await supabase.from('push_tokens').delete().eq('token', token);
+    // Insert fresh row for current user
+    const { error: insertError } = await supabase.from('push_tokens').insert(
       { user_id: userId, token, platform, is_active: true },
-      { onConflict: 'token' },
     );
-    if (upsertError) console.error('Push token upsert error:', upsertError);
+    if (insertError) console.error('Push token insert error:', insertError);
 
     return token;
   } catch (error) {
