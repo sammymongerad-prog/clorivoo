@@ -78,18 +78,22 @@ export async function registerForPushNotifications(userId: string, supabaseClien
 
     if (finalStatus !== 'granted') return null;
 
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) return null;
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId ??
+      '2295bfc8-8b70-4363-bbca-b986a77a880f';
 
     const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    console.log('Push token obtained:', token);
 
     const supabase = supabaseClient ?? getClient();
     const platform = Device.osName === 'iOS' ? 'ios' : 'android';
 
-    await supabase.from('push_tokens').upsert(
+    const { error: upsertError } = await supabase.from('push_tokens').upsert(
       { user_id: userId, token, platform, is_active: true },
       { onConflict: 'token' },
     );
+    if (upsertError) console.error('Push token upsert error:', upsertError);
 
     return token;
   } catch (error) {
