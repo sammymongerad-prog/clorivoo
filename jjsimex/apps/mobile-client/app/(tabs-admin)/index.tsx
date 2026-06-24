@@ -58,7 +58,7 @@ export default function AdminDashboard() {
         getActiveBranches(),
       ]);
       setStats(statsData);
-      setRecentPkgs(pkgsRes ?? []);
+      setRecentPkgs(pkgsRes?.packages?.slice(0, 4) ?? []);
       setDepartures(depsData);
       setBranches(branchesData);
       setPendingCount(statsData?.by_status?.awaiting_arrival ?? 0);

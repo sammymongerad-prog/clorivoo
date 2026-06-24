@@ -46,7 +46,7 @@ export default function AdminDashboard() {
       ]);
       setPkgStats(ps as PeriodStats);
       setPayStats(pays as PayStats);
-      setRecentPkgs(Array.isArray(pkgs) ? pkgs.slice(0, 4) : (pkgs as Pkg[]).slice(0, 4));
+      setRecentPkgs((pkgs as any)?.packages?.slice(0, 4) ?? []);
     } catch {}
   }, [period]);
 
