@@ -30,24 +30,26 @@ export async function onUserCreated(userId: string, client?: SupabaseClient): Pr
     message: welcomeMsg,
   });
 
-  // Send push — try service-role path first, fall back to direct Expo Push API
-  try {
-    await sendPushNotification(userId, welcomeTitle, welcomeMsg);
-  } catch {
-    // Service role not available (mobile) — send directly via push token
-    const { data: tokens } = await supabase
-      .from('push_tokens')
-      .select('token')
-      .eq('user_id', userId)
-      .eq('is_active', true);
-    if (tokens && tokens.length > 0) {
-      fetch('https://exp.host/--/api/v2/push/send', {
+  // Send push directly via Expo Push API (mobile client doesn't have service role key)
+  const { data: tokens, error: tokenErr } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+  console.log('Welcome push — tokens found:', tokens?.length ?? 0, tokenErr ? `error: ${tokenErr.message}` : '');
+  if (tokens && tokens.length > 0) {
+    try {
+      const pushRes = await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(tokens.map(t => ({
           to: t.token, title: welcomeTitle, body: welcomeMsg, sound: 'default', badge: 1, channelId: 'jjsimex',
         }))),
-      }).catch(() => {});
+      });
+      const pushResult = await pushRes.json();
+      console.log('Welcome push — result:', JSON.stringify(pushResult));
+    } catch (pushErr) {
+      console.error('Welcome push — fetch error:', pushErr);
     }
   }
 
