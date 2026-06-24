@@ -73,10 +73,10 @@ export default function AdminScanner() {
   function notifyWhatsApp() {
     if (!pkg) return;
     const u = Array.isArray(pkg.users) ? pkg.users[0] : pkg.users;
-    const phone = u?.whatsapp || WA_NUMBER;
+    const phone = u?.phone_whatsapp || WA_NUMBER;
     const label = STATUS_MAP[currentStatus]?.label ?? currentStatus;
     const msg = encodeURIComponent(
-      `Bonjour${u?.first_name ? ' ' + u.first_name : ''},\n\nVotre colis ${pkg.tracking_number} a été mis à jour :\n📦 Statut : ${label}\n\nMerci de votre confiance !\nJJ's IMEX`
+      `Bonjour${u?.full_name ? ' ' + u.full_name : ''},\n\nVotre colis ${pkg.tracking_number} a été mis à jour :\n📦 Statut : ${label}\n\nMerci de votre confiance !\nJJ's IMEX`
     );
     Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}?text=${msg}`);
   }
@@ -84,7 +84,7 @@ export default function AdminScanner() {
   function clientName() {
     if (!pkg) return '—';
     const u = Array.isArray(pkg.users) ? pkg.users[0] : pkg.users;
-    return u?.first_name ? `${u.first_name} ${u.last_name ?? ''}`.trim() : '—';
+    return u?.full_name ?? '—';
   }
 
   const badge = STATUS_MAP[currentStatus] ?? STATUS_MAP.awaiting_arrival;

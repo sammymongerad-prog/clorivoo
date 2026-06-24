@@ -31,7 +31,7 @@ export interface ShopperRequest {
   transport_mode: TransportMode;
   estimated_price: number | null;
   final_price: number | null;
-  shipping_cost: number | null;
+  shipping_rate: number | null;
   total_price: number | null;
   status: ShopperStatus;
   notes: string | null;
@@ -211,15 +211,15 @@ export async function sendQuote(
     user_id: request.client_id,
   });
 
-  const shipping_cost = shipping.final_price;
-  const total_price = final_price + shipping_cost;
+  const shipping_rate = shipping.final_price;
+  const total_price = final_price + shipping_rate;
 
   // Mettre à jour
   const { data: updated, error: updateError } = await supabase
     .from('personal_shopper')
     .update({
       final_price,
-      shipping_cost,
+      shipping_rate,
       total_price,
       status: 'quoted',
       handled_by: admin_id,

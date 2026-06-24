@@ -12,14 +12,13 @@ export type FidelityLevel = 'bronze' | 'silver' | 'gold';
 export interface User {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
-  whatsapp: string;
+  full_name: string;
+  phone_whatsapp: string;
   role: UserRole;
   destination_country: DestinationCountry;
   destination_city: string;
-  suite_code: string; // Ex: JJI-JEAN123
-  fidelity_level: FidelityLevel;
+  us_suite: string;
+  loyalty_level: FidelityLevel;
   total_spent: number;
   is_active: boolean;
   is_verified: boolean;
@@ -52,12 +51,12 @@ export interface Colis {
   weight_estimated?: number;
   carrier_name?: string;
   carrier_tracking_number?: string;
-  receiver_first_name?: string;
-  receiver_last_name?: string;
-  receiver_phone?: string;
+  recipient_first_name?: string;
+  recipient_last_name?: string;
+  recipient_phone?: string;
   transport_mode: TransportMode;
-  weight_real: number;       // lbs
-  weight_billed: number;     // lbs
+  real_weight_lbs: number;
+  billed_weight_lbs: number;
   dimensions?: {
     length: number;
     width: number;
@@ -70,8 +69,8 @@ export interface Colis {
   destination_city: string;
   destination_address: string;
   departure_id?: string;
-  shipping_cost: number;
-  is_paid: boolean;
+  shipping_rate: number;
+  total_price: number;
   notes?: string;
   admin_notes?: string;
   received_at?: string;
@@ -194,10 +193,7 @@ export interface Notification {
   user_id: string;
   type: NotificationType;
   title: string;
-  body: string;
-  data?: Record<string, unknown>;
-  is_read: boolean;
-  colis_id?: string;
+  message: string;
   created_at: string;
 }
 

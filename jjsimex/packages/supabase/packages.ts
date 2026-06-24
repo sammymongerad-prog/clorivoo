@@ -76,7 +76,7 @@ export async function getMyPackages(
 
   let query = getClient()
     .from('packages')
-    .select('id, tracking_number, status, transport_mode, destination_city, destination_country, weight_billed, shipping_cost, is_paid, created_at, received_at, shipped_at, arrived_at, delivered_at', { count: 'exact' })
+    .select('id, tracking_number, status, transport_mode, destination_city, destination_country, billed_weight_lbs, shipping_rate, total_price, created_at, received_at, shipped_at, arrived_at, delivered_at', { count: 'exact' })
     .eq('client_id', userId)
     .order('created_at', { ascending: false })
     .range(from, from + pageSize - 1);
@@ -135,9 +135,9 @@ export interface CreateShipmentRequest {
   destination_country: 'haiti' | 'dominican_republic';
   destination_city: string;
   destination_address: string;
-  receiver_first_name: string;
-  receiver_last_name: string;
-  receiver_phone: string;
+  recipient_first_name: string;
+  recipient_last_name: string;
+  recipient_phone: string;
   quantity?: number;
   client_photo_1_url?: string;
   client_photo_2_url?: string;
@@ -159,9 +159,9 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
       destination_country: data.destination_country,
       destination_city: data.destination_city,
       recipient_address: data.destination_address,
-      recipient_first_name: data.receiver_first_name,
-      recipient_last_name: data.receiver_last_name,
-      recipient_phone: data.receiver_phone,
+      recipient_first_name: data.recipient_first_name,
+      recipient_last_name: data.recipient_last_name,
+      recipient_phone: data.recipient_phone,
       client_photo_1_url: data.client_photo_1_url ?? null,
       client_photo_2_url: data.client_photo_2_url ?? null,
       quantity: data.quantity ?? 1,
@@ -296,17 +296,17 @@ async function insertPackage(
     .insert({
       client_id: data.client_id,
       transport_mode: data.transport_mode,
-      weight_real: data.weight_real,
+      real_weight_lbs: data.weight_real,
       weight_volumetric: weightVolumetric,
-      weight_billed: weightBilled,
+      billed_weight_lbs: weightBilled,
       declared_value: data.declared_value,
       insurance_amount: data.insurance_amount ?? 0,
       destination_country: data.destination_country,
       destination_city: data.destination_city,
       destination_address: data.destination_address,
-      shipping_cost: shippingCost,
+      shipping_rate: shippingCost,
+      total_price: shippingCost,
       status: 'received_usa',
-      is_paid: false,
       notes: data.notes,
     })
     .select('*, users!client_id(full_name, email, phone_whatsapp)')
@@ -554,9 +554,9 @@ export async function scanPackage(trackingNumber: string) {
     .select(`
       id, tracking_number, status, transport_mode,
       destination_country, destination_city, destination_address,
-      weight_real, weight_billed, shipping_cost, is_paid,
+      real_weight_lbs, billed_weight_lbs, shipping_rate, total_price,
       received_at, shipped_at, arrived_at, delivered_at,
-      users!client_id ( id, first_name, last_name, whatsapp, email )
+      users!client_id ( id, full_name, phone_whatsapp, email )
     `)
     .eq('tracking_number', trackingNumber.toUpperCase())
     .single();
@@ -635,11 +635,11 @@ export async function getPackageStats(period: 'week' | 'month' | 'year' = 'month
   const [current, previous] = await Promise.all([
     getClient()
       .from('packages')
-      .select('status, destination_country, transport_mode, shipping_cost')
+      .select('status, destination_country, transport_mode, shipping_rate')
       .gte('created_at', periodStart.toISOString()),
     getClient()
       .from('packages')
-      .select('status, shipping_cost')
+      .select('status, shipping_rate')
       .gte('created_at', prevStart.toISOString())
       .lt('created_at', periodStart.toISOString()),
   ]);
@@ -656,10 +656,10 @@ export async function getPackageStats(period: 'week' | 'month' | 'year' = 'month
     byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
     byCountry[p.destination_country] = (byCountry[p.destination_country] ?? 0) + 1;
     byTransport[p.transport_mode] = (byTransport[p.transport_mode] ?? 0) + 1;
-    totalRevenue += p.shipping_cost ?? 0;
+    totalRevenue += p.shipping_rate ?? 0;
   }
 
-  const prevRevenue = prevPackages.reduce((sum, p) => sum + (p.shipping_cost ?? 0), 0);
+  const prevRevenue = prevPackages.reduce((sum, p) => sum + (p.shipping_rate ?? 0), 0);
   const revenueGrowth =
     prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0;
   const countGrowth =

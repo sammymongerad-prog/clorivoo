@@ -11,10 +11,9 @@ const AVATAR_COLORS = ['#F97316', '#22C55E', '#3B82F6', '#A855F7', '#06B6D4', '#
 
 interface Client {
   id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   email: string;
-  phone?: string;
+  phone_whatsapp?: string;
   status: string;
   created_at: string;
   package_count?: number;
@@ -49,13 +48,13 @@ export default function ClientsPage() {
     setLoading(true);
     let query = supabase
       .from('users')
-      .select('id, first_name, last_name, email, phone, status, created_at', { count: 'exact' })
+      .select('id, full_name, email, phone_whatsapp, status, created_at', { count: 'exact' })
       .eq('role', 'client')
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
     if (search) {
-      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
     }
     if (statusFilter !== 'tous') {
       query = query.eq('status', statusFilter);
@@ -109,7 +108,10 @@ export default function ClientsPage() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const avatarColor = (id: string) => AVATAR_COLORS[id.charCodeAt(0) % AVATAR_COLORS.length];
-  const initials = (c: Client) => `${c.first_name[0] ?? ''}${c.last_name[0] ?? ''}`.toUpperCase();
+  const initials = (c: Client) => {
+    const parts = (c.full_name ?? '').split(' ');
+    return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
+  };
   const fmt = (n: number) => n.toLocaleString('fr-FR');
   const fmtDate = (s: string) => new Date(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -173,11 +175,11 @@ export default function ClientsPage() {
                 {initials(client)}
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{client.first_name} {client.last_name}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{client.full_name}</div>
                 <div style={{ fontSize: 12, color: '#9CA3AF' }}>{client.email}</div>
               </div>
             </div>
-            <div style={{ fontSize: 13, color: '#fff' }}>{client.phone ?? '—'}</div>
+            <div style={{ fontSize: 13, color: '#fff' }}>{client.phone_whatsapp ?? '—'}</div>
             <div><StatusBadge status={client.status} /></div>
             <div style={{ fontSize: 12, color: '#9CA3AF' }}>{fmtDate(client.created_at)}</div>
             <div>
@@ -205,7 +207,7 @@ export default function ClientsPage() {
       </div>
 
       {/* Client detail modal */}
-      <Modal open={!!selectedClient} onClose={() => setSelectedClient(null)} title={selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name}` : ''} maxWidth={700}>
+      <Modal open={!!selectedClient} onClose={() => setSelectedClient(null)} title={selectedClient ? selectedClient.full_name : ''} maxWidth={700}>
         {selectedClient && (
           <div>
             {/* Tabs */}
@@ -227,10 +229,9 @@ export default function ClientsPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       {[
-                        { label: 'Prénom', value: selectedClient.first_name },
-                        { label: 'Nom', value: selectedClient.last_name },
+                        { label: 'Nom complet', value: selectedClient.full_name },
                         { label: 'Email', value: selectedClient.email },
-                        { label: 'Téléphone', value: selectedClient.phone ?? '—' },
+                        { label: 'WhatsApp', value: selectedClient.phone_whatsapp ?? '—' },
                         { label: 'Statut', value: selectedClient.status },
                         { label: 'Inscrit le', value: fmtDate(selectedClient.created_at) },
                       ].map(row => (
