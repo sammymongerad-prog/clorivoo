@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
-        registerForPushNotifications(session.user.id).catch(() => {});
+        registerForPushNotifications(session.user.id, supabase).catch(() => {});
       } else {
         setLoading(false);
       }
@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: "Votre compte a été suspendu. Contactez JJ's IMEX au +1 (305) 600-9364." };
     }
 
-    registerForPushNotifications(data.user.id).catch(() => {});
+    registerForPushNotifications(data.user.id, supabase).catch(() => {});
 
     return { error: null, role: prof?.role };
   }
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (authData?.user?.id) {
-      registerForPushNotifications(authData.user.id).catch(() => {});
+      registerForPushNotifications(authData.user.id, supabase).catch(() => {});
       onUserCreated(authData.user.id, supabase).catch(() => {});
     }
 

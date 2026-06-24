@@ -62,7 +62,7 @@ export async function configureNotifications() {
 
 // ─── registerForPushNotifications ──────────────────────────────────────────
 
-export async function registerForPushNotifications(userId: string): Promise<string | null> {
+export async function registerForPushNotifications(userId: string, supabaseClient?: any): Promise<string | null> {
   if (!Notifications || !Device || !Constants) return null;
 
   try {
@@ -83,7 +83,7 @@ export async function registerForPushNotifications(userId: string): Promise<stri
 
     const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
-    const supabase = getClient();
+    const supabase = supabaseClient ?? getClient();
     const platform = Device.osName === 'iOS' ? 'ios' : 'android';
 
     await supabase.from('push_tokens').upsert(
