@@ -25,7 +25,16 @@ module.exports = ({ config }) => ({
   splash: {
     backgroundColor: '#0D0D0D',
   },
-  plugins: ['expo-router'],
+  plugins: [
+    'expo-router',
+    [
+      'expo-notifications',
+      {
+        icon: './assets/icon.png',
+        color: '#F97316',
+      },
+    ],
+  ],
   scheme: 'jjsimex',
   extra: {
     eas: {
