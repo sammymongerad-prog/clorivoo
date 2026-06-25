@@ -10,7 +10,6 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { BackButton } from '@/components/layout/BackButton';
 import { useToast } from '@/components/ui/Toast';
@@ -112,7 +111,6 @@ const statStyles = StyleSheet.create({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function ProfilAdminScreen() {
-  const router = useRouter();
   const { showToast } = useToast();
   const authContext = useContext(AuthContext);
 
@@ -228,13 +226,7 @@ export default function ProfilAdminScreen() {
       <View style={styles.header}>
         <View style={{ width: 40 }} />
         <Text style={styles.headerTitle}>Mon Profil Admin</Text>
-        <TouchableOpacity
-          style={styles.settingsBtn}
-          onPress={() => router.push('/screens/parametres' as any)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.settingsIcon}>⚙️</Text>
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -266,20 +258,7 @@ export default function ProfilAdminScreen() {
           </View>
         </View>
 
-        {/* Section 1: Mon compte */}
-        <Section title="Mon compte">
-          <Row icon="👤" label="Informations personnelles" onPress={() => {}} />
-          <Row icon="🔑" label="Changer le mot de passe" onPress={() => {}} />
-          <Row icon="🛡️" label="Authentification 2FA" onPress={() => {}} last />
-        </Section>
-
-        {/* Section 2: Activité */}
-        <Section title="Activité">
-          <Row icon="📋" label="Historique des actions" onPress={() => {}} />
-          <Row icon="📊" label="Statistiques personnelles" onPress={() => {}} last />
-        </Section>
-
-        {/* Section 3: Notifications admin */}
+{/* Section 3: Notifications admin */}
         <Section title="Notifications admin">
           <Row
             icon="💬"
@@ -320,26 +299,23 @@ export default function ProfilAdminScreen() {
           />
         </Section>
 
-        {/* Section 4: Accès & Sécurité */}
-        <Section title="Accès & Sécurité">
+        {/* Section: Accès */}
+        <Section title="Accès">
           <Row
             icon="🎖️"
             label="Niveau d'accès"
+            last
             right={
               <View style={[styles.accessBadge]}>
                 <Text style={styles.accessBadgeText}>{roleLabel}</Text>
               </View>
             }
           />
-          <Row icon="📱" label="Sessions actives" onPress={() => {}} />
-          <Row icon="📜" label="Journal d'audit" onPress={() => {}} last />
         </Section>
 
         {/* Section 5: Paramètres système (super_admin only) */}
         {isSuperAdmin && (
           <Section title="Paramètres système">
-            <Row icon="💱" label="Taux de change" onPress={() => {}} />
-            <Row icon="🏷️" label="Tarifs & Grilles" onPress={() => {}} />
             <Row
               icon="🚧"
               label="Mode maintenance"
@@ -359,12 +335,6 @@ export default function ProfilAdminScreen() {
             />
           </Section>
         )}
-
-        {/* Section 6: Assistance */}
-        <Section title="Assistance">
-          <Row icon="🛠️" label="Support technique" onPress={() => {}} />
-          <Row icon="📚" label="Documentation" onPress={() => {}} last />
-        </Section>
 
         {/* Sign out button */}
         <TouchableOpacity
@@ -398,13 +368,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1A1A1A',
   },
   headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', flex: 1, textAlign: 'center' },
-  settingsBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  settingsIcon: { fontSize: 18 },
-
   // Scroll
   scrollContent: { padding: 16, paddingBottom: 48 },
 

@@ -274,8 +274,6 @@ export default function ProfilClient() {
 
   const handleMenuPress = () => {
     Alert.alert('Actions', '', [
-      { text: 'Voir les fichiers', onPress: () => {} },
-      { text: 'Exporter', onPress: () => {} },
       { text: 'Annuler', style: 'cancel' },
     ]);
   };

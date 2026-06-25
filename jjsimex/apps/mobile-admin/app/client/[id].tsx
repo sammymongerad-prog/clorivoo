@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { blockUser } from '@jjsimex/supabase/users';
+import { AuthContext } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 
 const COLIS_RECENTS = [
   { id: 'JJI-2025-00847', desc: 'Chaussures Nike', statut: 'En transit', statutColor: '#F97316', date: '10 juin 2025', montant: '$22.80' },
@@ -20,7 +23,28 @@ function NavItem({ icon, label, active }: { icon: string; label: string; active?
 export default function ProfilClientAdminScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const authContext = useContext(AuthContext);
+  const { showToast } = useToast();
   const [tab, setTab] = useState<'colis' | 'paiements' | 'notes'>('colis');
+
+  const handleBlockClient = () => {
+    Alert.alert('Bloquer', 'Bloquer ce client ?', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Bloquer',
+        style: 'destructive',
+        onPress: async () => {
+          if (!id || !authContext?.profile?.id) return;
+          try {
+            await blockUser(id, authContext.profile.id);
+            showToast('Client bloqué', 'success');
+          } catch {
+            showToast('Erreur lors du blocage', 'error');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={S.container}>
