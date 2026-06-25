@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Clipboard, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Clipboard, Alert, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 
 const MIAMI_ROWS = [
@@ -39,7 +39,9 @@ export default function AdressesUSScreen() {
   }
 
   function openWhatsApp() {
-    Alert.alert('WhatsApp', 'Ouvrir WhatsApp pour partager votre adresse ?');
+    const address = MIAMI_ROWS.map(r => `${r.label}: ${r.value}`).join('\n');
+    const message = encodeURIComponent(`Mon adresse US :\n${address}`);
+    Linking.openURL(`https://wa.me/?text=${message}`);
   }
 
   return (
@@ -125,7 +127,10 @@ export default function AdressesUSScreen() {
               </View>
             ))}
           </View>
-          <TouchableOpacity onPress={() => Alert.alert('Boston', 'Définir Boston comme adresse principale ?')} activeOpacity={0.8}
+          <TouchableOpacity onPress={() => {
+              const full = BOSTON_ROWS.map(r => `${r.label}: ${r.value}`).join('\n');
+              Clipboard.setString(full);
+            }} activeOpacity={0.8}
             style={{ marginTop: 14, height: 42, backgroundColor: '#2A2A2A', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>Tout copier</Text>
           </TouchableOpacity>

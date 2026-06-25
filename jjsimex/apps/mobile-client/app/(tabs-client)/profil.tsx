@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -95,7 +95,7 @@ export default function ProfilScreen() {
         {/* Mon compte */}
         <Text style={S.sectionTitle}>Mon compte</Text>
         <View style={S.section}>
-          <MenuItem icon="👤" label="Mes informations personnelles" sub="Nom, email, téléphone" />
+          <MenuItem icon="👤" label="Mes informations personnelles" sub="Nom, email, téléphone" onPress={() => router.push('/screens/edit-profile')} />
           <Sep /><MenuItem icon="📦" label="Historique des colis" sub="Toutes mes expéditions" onPress={() => router.push('/(tabs-client)/colis')} />
           <Sep /><MenuItem icon="🛒" label="Personal Shopper" sub="Commandes en cours" onPress={() => router.push('/screens/personal-shopper')} />
           <Sep /><MenuItem icon="📍" label="Mes adresses US" sub="Miami + Boston" onPress={() => router.push('/screens/adresses-us')} />
@@ -144,10 +144,10 @@ export default function ProfilScreen() {
         {/* Support */}
         <Text style={S.sectionTitle}>Support</Text>
         <View style={S.section}>
-          <MenuItem icon="💚" label="Contacter via WhatsApp" sub="+1 (305) 600-9364" iconBg="rgba(34,197,94,0.12)" />
-          <Sep /><MenuItem icon="❓" label="Centre d'aide & FAQ" sub="Réponses à vos questions" />
-          <Sep /><MenuItem icon="⭐" label="Noter l'application" sub="Donnez-nous votre avis" />
-          <Sep /><MenuItem icon="📢" label="Parrainage" sub="Invitez vos amis, gagnez des points" />
+          <MenuItem icon="💚" label="Contacter via WhatsApp" sub="+1 (305) 600-9364" iconBg="rgba(34,197,94,0.12)" onPress={() => Linking.openURL('https://wa.me/13056009364')} />
+          <Sep /><MenuItem icon="❓" label="Centre d'aide & FAQ" sub="Réponses à vos questions" onPress={() => router.push('/screens/faq')} />
+          <Sep /><MenuItem icon="⭐" label="Noter l'application" sub="Donnez-nous votre avis" onPress={() => Linking.openURL('https://play.google.com/store/apps/details?id=com.jjsimex.client')} />
+          <Sep /><MenuItem icon="📢" label="Parrainage" sub="Invitez vos amis, gagnez des points" onPress={() => router.push('/screens/referral')} />
         </View>
 
         {/* Déconnexion */}
