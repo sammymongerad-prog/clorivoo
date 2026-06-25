@@ -227,7 +227,7 @@ export async function notifyDepartureClients(departureId: string): Promise<numbe
 
   // Push notifications
   for (const clientId of uniqueClients) {
-    sendPushNotification(clientId, title, message).catch(() => {});
+    sendPushNotification(clientId, title, message).catch(e => console.error('Push error:', e));
   }
 
   return uniqueClients.length;

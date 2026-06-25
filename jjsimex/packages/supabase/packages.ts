@@ -182,7 +182,7 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
     message: shipMsg,
     type: 'package',
   });
-  sendPushNotification(data.client_id, shipTitle, shipMsg).catch(() => {});
+  sendPushNotification(data.client_id, shipTitle, shipMsg).catch(e => console.error('Push error:', e));
 
   // Notification admins
   const { data: admins } = await getClient()
@@ -197,7 +197,7 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
       admins.map(a => ({ user_id: a.id, type: 'package' as const, title: adminTitle, message: adminMsg }))
     );
     for (const a of admins) {
-      sendPushNotification(a.id, adminTitle, adminMsg).catch(() => {});
+      sendPushNotification(a.id, adminTitle, adminMsg).catch(e => console.error('Push error:', e));
     }
   }
 
@@ -244,7 +244,7 @@ export async function addCarrierTracking(
       admins.map(a => ({ user_id: a.id, type: 'package' as const, title: trackTitle, message: trackMsg }))
     );
     for (const a of admins) {
-      sendPushNotification(a.id, trackTitle, trackMsg).catch(() => {});
+      sendPushNotification(a.id, trackTitle, trackMsg).catch(e => console.error('Push error:', e));
     }
   }
 
@@ -334,7 +334,7 @@ async function insertPackage(
     message: recvBody,
     action_url: `/colis/${pkg.id}`,
   });
-  sendPushNotification(data.client_id, recvTitle, recvBody, { package_id: pkg.id }).catch(() => {});
+  sendPushNotification(data.client_id, recvTitle, recvBody, { package_id: pkg.id }).catch(e => console.error('Push error:', e));
 
   return pkg;
 }
@@ -425,7 +425,7 @@ export async function updatePackageStatus(
       message: msg.body,
       action_url: `/colis/${packageId}`,
     });
-    sendPushNotification(client.id, msg.title, msg.body, { package_id: packageId }).catch(() => {});
+    sendPushNotification(client.id, msg.title, msg.body, { package_id: packageId }).catch(e => console.error('Push error:', e));
   }
 
   return pkg;
@@ -538,7 +538,7 @@ export async function assignToDeparture(packageId: string, departureId: string) 
         }))
       );
       for (const a of admins) {
-        sendPushNotification(a.id, capTitle, capMsg).catch(() => {});
+        sendPushNotification(a.id, capTitle, capMsg).catch(e => console.error('Push error:', e));
       }
     }
   }
@@ -754,7 +754,7 @@ export async function markPackageAsReceived(
     message: markMsg,
     type: 'package',
   });
-  sendPushNotification(pkgData.client_id, markTitle, markMsg).catch(() => {});
+  sendPushNotification(pkgData.client_id, markTitle, markMsg).catch(e => console.error('Push error:', e));
 
   return { tracking_number: trackingNumber };
 }

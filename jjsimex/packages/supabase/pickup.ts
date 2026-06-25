@@ -65,7 +65,7 @@ export async function createPickupRequest(data: CreatePickupData, userId: string
     }));
     await getClient().from('notifications').insert(notifications);
     for (const admin of admins) {
-      sendPushNotification(admin.id, pickTitle, pickBody).catch(() => {});
+      sendPushNotification(admin.id, pickTitle, pickBody).catch(e => console.error('Push error:', e));
     }
   }
 
@@ -79,7 +79,7 @@ export async function createPickupRequest(data: CreatePickupData, userId: string
     message: pickConfMsg,
     action_url: `/pickup/${pickup.id}`,
   });
-  sendPushNotification(userId, pickConfTitle, pickConfMsg).catch(() => {});
+  sendPushNotification(userId, pickConfTitle, pickConfMsg).catch(e => console.error('Push error:', e));
 
   return pickup as PickupRequest;
 }
@@ -106,7 +106,7 @@ export async function confirmPickup(requestId: string, adminId: string): Promise
     message: confMsg,
     action_url: `/pickup/${requestId}`,
   });
-  sendPushNotification(updated.client_id, confTitle, confMsg).catch(() => {});
+  sendPushNotification(updated.client_id, confTitle, confMsg).catch(e => console.error('Push error:', e));
 
   return updated as PickupRequest;
 }
@@ -133,7 +133,7 @@ export async function completePickup(requestId: string, adminId: string): Promis
     message: collMsg,
     action_url: `/pickup/${requestId}`,
   });
-  sendPushNotification(updated.client_id, collTitle, collMsg).catch(() => {});
+  sendPushNotification(updated.client_id, collTitle, collMsg).catch(e => console.error('Push error:', e));
 
   return updated as PickupRequest;
 }

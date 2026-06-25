@@ -1,18 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-let _adminClient: SupabaseClient | null = null;
-
-function getAdminClient(): SupabaseClient {
-  if (!_adminClient) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error('Missing Supabase env vars for push notifications');
-    }
-    _adminClient = createClient(url, key);
-  }
-  return _adminClient;
-}
+import { getClient } from './client';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -31,7 +17,7 @@ export async function sendPushNotification(
   message: string,
   data?: Record<string, unknown>,
 ): Promise<void> {
-  const { data: tokens } = await getAdminClient()
+  const { data: tokens } = await getClient()
     .from('push_tokens')
     .select('id, token')
     .eq('user_id', userId)
@@ -46,6 +32,7 @@ export async function sendPushNotification(
     data,
     sound: 'default',
     badge: 1,
+    channelId: 'jjsimex',
   }));
 
   try {
@@ -66,14 +53,14 @@ export async function sendPushNotification(
         }
       });
       if (expired.length > 0) {
-        await getAdminClient()
+        await getClient()
           .from('push_tokens')
           .update({ is_active: false })
           .in('token', expired);
       }
     }
-  } catch {
-    // Push non critique — ne pas bloquer le flux principal
+  } catch (err) {
+    console.error('sendPushNotification error:', err);
   }
 }
 
@@ -83,14 +70,14 @@ export async function sendPushToAll(
   target?: 'haiti' | 'dominican_republic' | 'all',
   data?: Record<string, unknown>,
 ): Promise<void> {
-  let query = getAdminClient()
+  let query = getClient()
     .from('push_tokens')
     .select('token, user_id')
     .eq('is_active', true);
 
   if (target && target !== 'all') {
     // Joindre avec users pour filtrer par pays
-    const { data: users } = await getAdminClient()
+    const { data: users } = await getClient()
       .from('users')
       .select('id')
       .eq('destination_country', target);
@@ -117,6 +104,7 @@ export async function sendPushToAll(
       data,
       sound: 'default',
       badge: 1,
+      channelId: 'jjsimex',
     }));
 
     try {
@@ -137,14 +125,14 @@ export async function sendPushToAll(
           }
         });
         if (expired.length > 0) {
-          await getAdminClient()
+          await getClient()
             .from('push_tokens')
             .update({ is_active: false })
             .in('token', expired);
         }
       }
-    } catch {
-      // Non critique
+    } catch (err) {
+      console.error('sendPushToAll batch error:', err);
     }
   }
 }
@@ -157,7 +145,7 @@ export async function sendBulkNotification(
   target?: 'haiti' | 'dr' | 'all',
   data?: Record<string, unknown>,
 ): Promise<{ sent: number; failed: number }> {
-  let query = getAdminClient()
+  let query = getClient()
     .from('push_tokens')
     .select('token')
     .eq('is_active', true);
@@ -168,7 +156,7 @@ export async function sendBulkNotification(
     const country = countryMap[target];
 
     if (country) {
-      const { data: users } = await getAdminClient()
+      const { data: users } = await getClient()
         .from('users')
         .select('id')
         .eq('destination_country', country);
@@ -224,7 +212,7 @@ export async function sendBulkNotification(
           }
         });
         if (expired.length > 0) {
-          await getAdminClient()
+          await getClient()
             .from('push_tokens')
             .update({ is_active: false })
             .in('token', expired);

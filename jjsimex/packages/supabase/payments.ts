@@ -143,7 +143,7 @@ export async function createPayment(
       }))
     );
     for (const admin of admins) {
-      sendPushNotification(admin.id, payAdminTitle, payAdminMsg).catch(() => {});
+      sendPushNotification(admin.id, payAdminTitle, payAdminMsg).catch(e => console.error('Push error:', e));
     }
   }
 
@@ -157,7 +157,7 @@ export async function createPayment(
     message: payClientMsg,
     action_url: `/colis/${data.package_id}`,
   });
-  sendPushNotification(user_id, payClientTitle, payClientMsg).catch(() => {});
+  sendPushNotification(user_id, payClientTitle, payClientMsg).catch(e => console.error('Push error:', e));
 
   return payment as Payment;
 }
@@ -258,7 +258,7 @@ export async function confirmPayment(
     .eq('id', payment.user_id);
 
   // #21: Check loyalty level after spending update
-  checkLoyaltyLevel(payment.user_id).catch(() => {});
+  checkLoyaltyLevel(payment.user_id).catch(e => console.error('Push error:', e));
 
   // Récupérer infos client et colis
   const { data: client } = await supabase
@@ -282,7 +282,7 @@ export async function confirmPayment(
     message: confMsg,
     action_url: `/colis/${payment.package_id}`,
   });
-  sendPushNotification(payment.user_id, confTitle, confMsg).catch(() => {});
+  sendPushNotification(payment.user_id, confTitle, confMsg).catch(e => console.error('Push error:', e));
 
   return updated as Payment;
 }
@@ -332,7 +332,7 @@ export async function refusePayment(
     message: refMsg,
     action_url: '/colis',
   });
-  sendPushNotification(payment.user_id, refTitle, refMsg).catch(() => {});
+  sendPushNotification(payment.user_id, refTitle, refMsg).catch(e => console.error('Push error:', e));
 
   return updated as Payment;
 }
@@ -395,7 +395,7 @@ export async function refundPayment(
     message: rembMsg,
     action_url: '/paiements',
   });
-  sendPushNotification(payment.user_id, rembTitle, rembMsg).catch(() => {});
+  sendPushNotification(payment.user_id, rembTitle, rembMsg).catch(e => console.error('Push error:', e));
 
   return updated as Payment;
 }

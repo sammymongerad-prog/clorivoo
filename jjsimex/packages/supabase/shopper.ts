@@ -125,7 +125,7 @@ export async function createShopperRequest(
     message: clientConfMsg,
     action_url: `/shopper/${request.id}`,
   });
-  sendPushNotification(user_id, clientConfTitle, clientConfMsg).catch(() => {});
+  sendPushNotification(user_id, clientConfTitle, clientConfMsg).catch(e => console.error('Push error:', e));
 
   // Notification admins
   const shopTitle = 'Nouvelle demande Personal Shopper';
@@ -141,7 +141,7 @@ export async function createShopperRequest(
       }))
     );
     for (const admin of admins) {
-      sendPushNotification(admin.id, shopTitle, shopMsg).catch(() => {});
+      sendPushNotification(admin.id, shopTitle, shopMsg).catch(e => console.error('Push error:', e));
     }
   }
 
@@ -246,7 +246,7 @@ export async function sendQuote(
     message: quoteMsg,
     action_url: `/shopper/${request_id}`,
   });
-  sendPushNotification(request.client_id, quoteTitle, quoteMsg).catch(() => {});
+  sendPushNotification(request.client_id, quoteTitle, quoteMsg).catch(e => console.error('Push error:', e));
 
   return updated as ShopperRequest;
 }
@@ -292,7 +292,7 @@ export async function confirmRequest(request_id: string, user_id: string): Promi
       }))
     );
     for (const admin of admins) {
-      sendPushNotification(admin.id, confShopTitle, confShopMsg).catch(() => {});
+      sendPushNotification(admin.id, confShopTitle, confShopMsg).catch(e => console.error('Push error:', e));
     }
   }
 
@@ -330,7 +330,7 @@ export async function markAsPurchased(request_id: string, admin_id: string): Pro
     message: purchMsg,
     action_url: `/shopper/${request_id}`,
   });
-  sendPushNotification(updated.client_id, purchTitle, purchMsg).catch(() => {});
+  sendPushNotification(updated.client_id, purchTitle, purchMsg).catch(e => console.error('Push error:', e));
 
   return updated as ShopperRequest;
 }
@@ -399,7 +399,7 @@ export async function markAsShipped(
     message: shipShopMsg,
     action_url: `/colis/${pkg?.id}`,
   });
-  sendPushNotification(shopper.client_id, shipShopTitle, shipShopMsg).catch(() => {});
+  sendPushNotification(shopper.client_id, shipShopTitle, shipShopMsg).catch(e => console.error('Push error:', e));
 
   return updated as ShopperRequest;
 }
@@ -438,7 +438,7 @@ export async function cancelRequest(
       title: cancelTitle,
       message: cancelMsg,
     });
-    sendPushNotification(updated.client_id, cancelTitle, cancelMsg).catch(() => {});
+    sendPushNotification(updated.client_id, cancelTitle, cancelMsg).catch(e => console.error('Push error:', e));
   }
 
   return updated as ShopperRequest;

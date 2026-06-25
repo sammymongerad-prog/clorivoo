@@ -71,7 +71,7 @@ export async function onUserCreated(userId: string, client?: SupabaseClient): Pr
       }))
     );
     for (const a of admins) {
-      sendPushNotification(a.id, adminTitle, adminMsg).catch(() => {});
+      sendPushNotification(a.id, adminTitle, adminMsg).catch(e => console.error('Push error:', e));
     }
   }
 }
@@ -124,7 +124,7 @@ export async function checkLoyaltyLevel(userId: string): Promise<void> {
     title,
     message: msg,
   });
-  sendPushNotification(userId, title, msg).catch(() => {});
+  sendPushNotification(userId, title, msg).catch(e => console.error('Push error:', e));
 }
 
 // A8: Block/unblock user with notification
@@ -146,7 +146,7 @@ export async function blockUser(userId: string, adminId: string): Promise<void> 
     title,
     message: msg,
   });
-  sendPushNotification(userId, title, msg).catch(() => {});
+  sendPushNotification(userId, title, msg).catch(e => console.error('Push error:', e));
 }
 
 export async function unblockUser(userId: string, adminId: string): Promise<void> {
@@ -167,5 +167,5 @@ export async function unblockUser(userId: string, adminId: string): Promise<void
     title,
     message: msg,
   });
-  sendPushNotification(userId, title, msg).catch(() => {});
+  sendPushNotification(userId, title, msg).catch(e => console.error('Push error:', e));
 }
