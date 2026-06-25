@@ -413,12 +413,17 @@ export async function cancelRequest(
 ): Promise<ShopperRequest> {
   const supabase = getClient();
 
-  const { data: updated, error } = await supabase
+  const { data: me } = await supabase.from('users').select('role').eq('id', cancelled_by).single();
+  const isStaff = me?.role === 'admin' || me?.role === 'super_admin' || me?.role === 'employee';
+
+  let query = supabase
     .from('personal_shopper')
     .update({ status: 'cancelled', admin_notes: reason, handled_by: cancelled_by })
-    .eq('id', request_id)
-    .select()
-    .single();
+    .eq('id', request_id);
+
+  if (!isStaff) query = query.eq('client_id', cancelled_by);
+
+  const { data: updated, error } = await query.select().single();
 
   if (error) throw new Error(`Erreur annulation: ${error.message}`);
 
