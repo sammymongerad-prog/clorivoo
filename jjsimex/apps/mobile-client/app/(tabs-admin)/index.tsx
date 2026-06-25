@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getPackageStats, getAllPackages, subscribeToPackages } from '@jjsimex/supabase/packages';
 import { getNextDepartures } from '@jjsimex/supabase/departures';
 import { getActiveBranches } from '@jjsimex/supabase/branches';
+import { getClient } from '@jjsimex/supabase/client';
 import {
   Package, DollarSign, Users, Clock, Bell, Search,
   Plane, Ship, MapPin, ChevronRight, TrendingUp, AlertTriangle,
@@ -46,6 +47,9 @@ export default function AdminDashboard() {
   const [branches, setBranches] = useState<any[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [newClientsCount, setNewClientsCount] = useState(0);
+  const [notifCount, setNotifCount] = useState(0);
+  const [shopperAlertCount, setShopperAlertCount] = useState(0);
+  const [paymentAlertCount, setPaymentAlertCount] = useState(0);
 
   const periodMap = ['week', 'week', 'month', 'month'] as const;
 
@@ -62,6 +66,15 @@ export default function AdminDashboard() {
       setDepartures(depsData);
       setBranches(branchesData);
       setPendingCount(statsData?.by_status?.awaiting_arrival ?? 0);
+
+      const [{ count: unreadCount }, { count: shopperAlerts }, { count: paymentAlerts }] = await Promise.all([
+        getClient().from('notifications').select('*', { count: 'exact', head: true }).eq('is_read', false),
+        getClient().from('personal_shopper_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        getClient().from('payments').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      ]);
+      setNotifCount(unreadCount ?? 0);
+      setShopperAlertCount(shopperAlerts ?? 0);
+      setPaymentAlertCount(paymentAlerts ?? 0);
     } catch {}
     setLoading(false);
   }, [period]);
@@ -128,7 +141,7 @@ export default function AdminDashboard() {
           <View style={s.headerRight}>
             <TouchableOpacity style={s.headerBtn} activeOpacity={0.7}>
               <Bell size={19} color="#FFFFFF" strokeWidth={1.8} />
-              <View style={s.bellBadge}><Text style={s.bellBadgeText}>5</Text></View>
+              {notifCount > 0 && <View style={s.bellBadge}><Text style={s.bellBadgeText}>{notifCount}</Text></View>}
             </TouchableOpacity>
             <TouchableOpacity style={s.headerBtn} activeOpacity={0.7}>
               <Search size={18} color="#FFFFFF" strokeWidth={1.8} />
@@ -199,55 +212,68 @@ export default function AdminDashboard() {
         </ScrollView>
 
         {/* 4. ALERTES */}
-        <View style={s.sectionRow}>
-          <Text style={s.sectionTitle}>Alertes</Text>
-          <View style={s.alertCountBadge}><Text style={s.alertCountText}>3</Text></View>
-        </View>
-        <View style={{ paddingHorizontal: 22, gap: 10 }}>
-          {/* Alerte vol */}
-          {air && (
-            <View style={[s.alertCard, { borderLeftColor: '#EF4444' }]}>
-              <View style={s.alertRow}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.alertTitle}>Vol presque complet</Text>
-                  <Text style={s.alertSub}>{(air.used_capacity_lbs ?? air.current_weight ?? 0)} / {air.capacity_lbs} lbs restantes</Text>
-                </View>
-                <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85}>
-                  <Text style={s.alertBtnOrangeText}>Gérer →</Text>
-                </TouchableOpacity>
+        {(() => {
+          const airNearFull = air && ((air.used_capacity_lbs ?? air.current_weight ?? 0) / air.capacity_lbs) >= 0.8;
+          const totalAlerts = (shopperAlertCount > 0 ? 1 : 0) + (paymentAlertCount > 0 ? 1 : 0) + (airNearFull ? 1 : 0);
+          if (totalAlerts === 0) return null;
+          return (
+            <>
+              <View style={s.sectionRow}>
+                <Text style={s.sectionTitle}>Alertes</Text>
+                <View style={s.alertCountBadge}><Text style={s.alertCountText}>{totalAlerts}</Text></View>
               </View>
-              <View style={s.progressBg}>
-                <View style={[s.progressFill, { width: `${Math.min(((air.used_capacity_lbs ?? air.current_weight ?? 0) / air.capacity_lbs) * 100, 100)}%`, backgroundColor: ACCENT }]} />
-              </View>
-            </View>
-          )}
+              <View style={{ paddingHorizontal: 22, gap: 10 }}>
+                {/* Alerte vol */}
+                {airNearFull && (
+                  <View style={[s.alertCard, { borderLeftColor: '#EF4444' }]}>
+                    <View style={s.alertRow}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={s.alertTitle}>Vol presque complet</Text>
+                        <Text style={s.alertSub}>{(air.used_capacity_lbs ?? air.current_weight ?? 0)} / {air.capacity_lbs} lbs restantes</Text>
+                      </View>
+                      <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85}>
+                        <Text style={s.alertBtnOrangeText}>Gérer →</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={s.progressBg}>
+                      <View style={[s.progressFill, { width: `${Math.min(((air.used_capacity_lbs ?? air.current_weight ?? 0) / air.capacity_lbs) * 100, 100)}%`, backgroundColor: ACCENT }]} />
+                    </View>
+                  </View>
+                )}
 
-          {/* Alerte Personal Shopper */}
-          <View style={[s.alertCard, { borderLeftColor: ACCENT }]}>
-            <View style={s.alertRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={s.alertTitle}>Personal Shopper en attente</Text>
-                <Text style={s.alertSub}>En attente de devis depuis +2h</Text>
-              </View>
-              <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85}>
-                <Text style={s.alertBtnOrangeText}>Traiter →</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                {/* Alerte Personal Shopper */}
+                {shopperAlertCount > 0 && (
+                  <View style={[s.alertCard, { borderLeftColor: ACCENT }]}>
+                    <View style={s.alertRow}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={s.alertTitle}>Personal Shopper en attente</Text>
+                        <Text style={s.alertSub}>{shopperAlertCount} demande(s) en attente</Text>
+                      </View>
+                      <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85}>
+                        <Text style={s.alertBtnOrangeText}>Traiter →</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
-          {/* Alerte paiement */}
-          <View style={[s.alertCard, { borderLeftColor: '#EAB308' }]}>
-            <View style={s.alertRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={s.alertTitle}>Paiement non confirmé</Text>
-                <Text style={s.alertSub}>Vérification requise</Text>
+                {/* Alerte paiement */}
+                {paymentAlertCount > 0 && (
+                  <View style={[s.alertCard, { borderLeftColor: '#EAB308' }]}>
+                    <View style={s.alertRow}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={s.alertTitle}>Paiement non confirmé</Text>
+                        <Text style={s.alertSub}>{paymentAlertCount} paiement(s) à vérifier</Text>
+                      </View>
+                      <TouchableOpacity style={s.alertBtnGrey} activeOpacity={0.85}>
+                        <Text style={s.alertBtnGreyText}>Vérifier →</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
-              <TouchableOpacity style={s.alertBtnGrey} activeOpacity={0.85}>
-                <Text style={s.alertBtnGreyText}>Vérifier →</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+            </>
+          );
+        })()}
 
         {/* 5. DERNIERS COLIS */}
         <View style={s.sectionRow}>

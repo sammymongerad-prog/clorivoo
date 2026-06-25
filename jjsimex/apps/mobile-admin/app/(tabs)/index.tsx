@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllPackages, getPackageStats } from '@jjsimex/supabase/packages';
 import { getPaymentStats } from '@jjsimex/supabase/payments';
+import { getActiveBranches } from '@jjsimex/supabase/branches';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
 const { width } = Dimensions.get('window');
@@ -21,12 +22,6 @@ type PeriodStats = {
 };
 type PayStats = { total_confirmed: number; growth_percentage: number };
 
-const BRANCHES = [
-  { name: 'Delmas 31, PAP', perf: 87 },
-  { name: 'Cap-Haïtien', perf: 72 },
-  { name: 'Santiago, RD', perf: 65 },
-];
-
 export default function AdminDashboard() {
   const router = useRouter();
   const { profile } = useAuth();
@@ -34,19 +29,22 @@ export default function AdminDashboard() {
   const [pkgStats, setPkgStats] = useState<PeriodStats | null>(null);
   const [payStats, setPayStats] = useState<PayStats | null>(null);
   const [recentPkgs, setRecentPkgs] = useState<Pkg[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     const p = period === 0 ? 'week' : period === 1 ? 'week' : 'month';
     try {
-      const [ps, pays, pkgs] = await Promise.all([
+      const [ps, pays, pkgs, br] = await Promise.all([
         getPackageStats(p),
         getPaymentStats(p),
         getAllPackages({ limit: 4 } as Parameters<typeof getAllPackages>[0]),
+        getActiveBranches(),
       ]);
       setPkgStats(ps as PeriodStats);
       setPayStats(pays as PayStats);
       setRecentPkgs((pkgs as any)?.packages?.slice(0, 4) ?? []);
+      setBranches(br as any[] ?? []);
     } catch {}
   }, [period]);
 
@@ -151,22 +149,28 @@ export default function AdminDashboard() {
           ))}
         </View>
 
-        {/* BRANCHES PERFORMANCE */}
+        {/* BRANCHES */}
         <View style={{ paddingHorizontal: 20, marginBottom: 30 }}>
-          <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 12 }}>Performance succursales</Text>
-          <View style={{ backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#242424', gap: 14 }}>
-            {BRANCHES.map(b => (
-              <View key={b.name}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ fontSize: 13, color: '#FFFFFF', fontWeight: '600' }}>{b.name}</Text>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: b.perf >= 80 ? '#22C55E' : b.perf >= 65 ? '#F97316' : '#EF4444' }}>{b.perf}%</Text>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 12 }}>Succursales</Text>
+          {branches.length === 0 ? (
+            <View style={{ backgroundColor: '#1A1A1A', borderRadius: 14, padding: 20, borderWidth: 1, borderColor: '#242424', alignItems: 'center' }}>
+              <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Aucune succursale</Text>
+            </View>
+          ) : (
+            <View style={{ backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#242424', gap: 14 }}>
+              {branches.map((b: any) => (
+                <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(249,115,22,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 16 }}>📍</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, color: '#FFFFFF', fontWeight: '600' }}>{b.name}</Text>
+                    <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{b.city}, {b.country}</Text>
+                  </View>
                 </View>
-                <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3 }}>
-                  <View style={{ width: `${b.perf}%`, height: '100%', backgroundColor: b.perf >= 80 ? '#22C55E' : b.perf >= 65 ? '#F97316' : '#EF4444', borderRadius: 3 }} />
-                </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { getClient } from '@jjsimex/supabase/client';
 
 function Toggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
   return (
@@ -26,6 +27,20 @@ export default function ProfilAdminScreen() {
   const [rapport, setRapport] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [profileStats, setProfileStats] = useState({ pkgCount: 0, clientCount: 0 });
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const [{ count: pkgCount }, { count: clientCount }] = await Promise.all([
+          getClient().from('packages').select('*', { count: 'exact', head: true }),
+          getClient().from('users').select('*', { count: 'exact', head: true }).eq('role', 'client'),
+        ]);
+        setProfileStats({ pkgCount: pkgCount ?? 0, clientCount: clientCount ?? 0 });
+      } catch {}
+    }
+    loadStats();
+  }, []);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -35,24 +50,24 @@ export default function ProfilAdminScreen() {
   function handleSignOut() { setConfirmLogout(true); }
   function doLogout() { setConfirmLogout(false); signOut(); }
 
-  const firstName = profile?.first_name ?? 'Marie';
-  const lastName = profile?.last_name ?? 'Joseph';
-  const initials = `${firstName[0] ?? 'M'}${lastName[0] ?? 'J'}`.toUpperCase();
+  const firstName = profile?.first_name ?? 'Admin';
+  const lastName = profile?.last_name ?? '';
+  const initials = `${firstName[0] ?? 'A'}${lastName[0] ?? ''}`.toUpperCase();
 
   const SECTIONS = [
     {
       titre: 'Compte',
       items: [
         { icon: '👤', titre: 'Informations personnelles', sub: 'Nom, email, téléphone', onPress: () => {} },
-        { icon: '🔑', titre: 'Changer le mot de passe', sub: 'Dernière modif. il y a 3 mois', onPress: () => {} },
-        { icon: '📱', titre: 'Numéro de téléphone', sub: '+509 34 12 34 56', onPress: () => {} },
+        { icon: '🔑', titre: 'Changer le mot de passe', sub: 'Sécurité du compte', onPress: () => {} },
+        { icon: '📱', titre: 'Numéro de téléphone', sub: profile?.phone ?? 'Non renseigné', onPress: () => {} },
       ],
     },
     {
       titre: 'Succursales & Tarifs',
       items: [
         { icon: '📦', titre: 'Tarifs par kg', sub: 'Avion & bateau', onPress: () => {} },
-        { icon: '🔄', titre: 'Taux de change', sub: '1 USD = 132 HTG', onPress: () => {} },
+        { icon: '🔄', titre: 'Taux de change', sub: 'Taux actuel', onPress: () => {} },
         { icon: '✈️', titre: 'Prochains départs', sub: 'Gérer les vols & bateaux', onPress: () => {} },
       ],
     },
@@ -66,8 +81,8 @@ export default function ProfilAdminScreen() {
     {
       titre: 'Administration',
       items: [
-        { icon: '👥', titre: 'Gérer les employés', sub: '4 comptes actifs', onPress: () => {} },
-        { icon: '📍', titre: 'Succursales', sub: '23 points de retrait', onPress: () => {} },
+        { icon: '👥', titre: 'Gérer les employés', sub: 'Gérer les accès', onPress: () => {} },
+        { icon: '📍', titre: 'Succursales', sub: 'Points de retrait', onPress: () => {} },
         { icon: '🔒', titre: 'Sécurité & Logs', note: 'Accès Super Admin requis', onPress: () => {} },
         { icon: '📥', titre: 'Exporter les données', sub: 'CSV, Excel', onPress: () => {} },
         { icon: '📄', titre: 'CGU & Politique', sub: 'Dernière mise à jour: Jan 2025', onPress: () => {} },
@@ -107,10 +122,10 @@ export default function ProfilAdminScreen() {
               <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: '700' }}>✓ Vérifié</Text>
             </View>
           </View>
-          <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 12, textAlign: 'center' }}>{profile?.email ?? 'marie@jjsimex.com'}</Text>
+          <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 12, textAlign: 'center' }}>{profile?.email ?? 'Non renseigné'}</Text>
           <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 3, textAlign: 'center' }}>Toutes les succursales</Text>
           <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 18 }}>
-            {[['1,247', 'Colis traités'], ['342', 'Clients gérés'], ['4 ans', 'Ancienneté'], ['99.8%', 'Disponibilité']].map(([val, lbl]) => (
+            {[[profileStats.pkgCount.toLocaleString('fr-FR'), 'Colis traités'], [profileStats.clientCount.toLocaleString('fr-FR'), 'Clients gérés']].map(([val, lbl]) => (
               <View key={lbl} style={{ flex: 1, minWidth: '45%', backgroundColor: '#2A2A2A', borderRadius: 12, padding: 12 }}>
                 <Text style={{ fontSize: 18, fontWeight: '800', color: '#F97316' }}>{val}</Text>
                 <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{lbl}</Text>

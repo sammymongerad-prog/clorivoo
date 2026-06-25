@@ -1,32 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Dimensions, Platform, StatusBar, Linking,
+  Dimensions, Platform, StatusBar, Linking, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BackButton } from '@/components/layout/BackButton';
 import { MapPin, Send, Lightbulb, MessageCircle } from 'lucide-react-native';
+import { getActiveBranches, isBranchOpen, getClosingTime } from '@jjsimex/supabase/branches';
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#F97316';
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const WA_NUMBER = '18097851234';
 
-const BRANCHES = [
-  { name: 'Miami Warehouse', address: '15490 NW 7th Ave, Unit 207, Miami, FL 33169', nearest: true, open: true, openLabel: 'Ouvert maintenant', hours: 'Ferme à 19h00' },
-  { name: 'Miami Downtown Hub', address: '120 SW 8th St, Miami, FL 33130', nearest: false, open: true, openLabel: 'Ouvert maintenant', hours: 'Ferme à 18h00' },
-  { name: 'Boston MA', address: '438 Blue Hill Ave, Dorchester, MA 02121', nearest: false, open: false, openLabel: 'Fermé', hours: 'Ouvre à 09h00' },
-];
-
 export default function DropoffScreen() {
   const router = useRouter();
+  const [branches, setBranches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getActiveBranches().then(data => {
+      setBranches(data);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
 
   function openMaps(address: string) {
     const encoded = encodeURIComponent(address);
     Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
   }
 
-  function openWhatsApp(branch: typeof BRANCHES[0]) {
+  function openWhatsApp(branch: any) {
     const msg = encodeURIComponent(
       `Bonjour JJ's IMEX,\n\nJe souhaite déposer un colis au point de dépôt "${branch.name}" (${branch.address}).\n\nPouvez-vous me confirmer les horaires d'ouverture et les instructions de dépôt ?\n\nMerci !`
     );
@@ -56,43 +60,55 @@ export default function DropoffScreen() {
 
         {/* Branches list */}
         <View style={{ gap: 12, marginTop: 18 }}>
-          {BRANCHES.map((b, i) => (
-            <View key={i} style={[s.branchCard, b.nearest && s.branchCardNearest]}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 13 }}>
-                <View style={[s.pinIcon, b.nearest && s.pinIconNearest]}>
-                  <MapPin size={20} color={b.nearest ? '#0D0D0D' : '#9CA3AF'} strokeWidth={1.9} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={s.branchName}>{b.name}</Text>
-                    {b.nearest && (
-                      <View style={s.nearestBadge}>
-                        <Text style={s.nearestText}>LE PLUS PROCHE</Text>
-                      </View>
-                    )}
+          {loading ? (
+            <ActivityIndicator size="large" color={ACCENT} style={{ marginTop: 24 }} />
+          ) : branches.length === 0 ? (
+            <Text style={{ color: '#9CA3AF', textAlign: 'center', marginTop: 24, fontSize: 14 }}>
+              Aucun point de dépôt disponible.
+            </Text>
+          ) : branches.map((b, i) => {
+            const nearest = i === 0;
+            const open = isBranchOpen(b);
+            const openLabel = open ? 'Ouvert maintenant' : 'Fermé';
+            const hours = getClosingTime(b);
+            return (
+              <View key={b.id} style={[s.branchCard, nearest && s.branchCardNearest]}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 13 }}>
+                  <View style={[s.pinIcon, nearest && s.pinIconNearest]}>
+                    <MapPin size={20} color={nearest ? '#0D0D0D' : '#9CA3AF'} strokeWidth={1.9} />
                   </View>
-                  <Text style={s.branchAddr}>{b.address}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 }}>
-                    <View style={[s.openBadge, !b.open && s.closedBadge]}>
-                      <Text style={[s.openText, !b.open && s.closedText]}>{b.openLabel}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={s.branchName}>{b.name}</Text>
+                      {nearest && (
+                        <View style={s.nearestBadge}>
+                          <Text style={s.nearestText}>LE PLUS PROCHE</Text>
+                        </View>
+                      )}
                     </View>
-                    <Text style={s.hoursText}>{b.hours}</Text>
+                    <Text style={s.branchAddr}>{b.address}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 }}>
+                      <View style={[s.openBadge, !open && s.closedBadge]}>
+                        <Text style={[s.openText, !open && s.closedText]}>{openLabel}</Text>
+                      </View>
+                      <Text style={s.hoursText}>{hours}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 13 }}>
-                <TouchableOpacity style={s.routeBtn} onPress={() => openMaps(b.address)} activeOpacity={0.85}>
-                  <Send size={15} color={ACCENT} strokeWidth={1.9} />
-                  <Text style={s.routeBtnText}>Itinéraire</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.waBtn} onPress={() => openWhatsApp(b)} activeOpacity={0.85}>
-                  <MessageCircle size={15} color="#22C55E" strokeWidth={1.9} />
-                  <Text style={s.waBtnText}>WhatsApp</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 13 }}>
+                  <TouchableOpacity style={s.routeBtn} onPress={() => openMaps(b.address)} activeOpacity={0.85}>
+                    <Send size={15} color={ACCENT} strokeWidth={1.9} />
+                    <Text style={s.routeBtnText}>Itinéraire</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.waBtn} onPress={() => openWhatsApp(b)} activeOpacity={0.85}>
+                    <MessageCircle size={15} color="#22C55E" strokeWidth={1.9} />
+                    <Text style={s.waBtnText}>WhatsApp</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {/* Tip */}
