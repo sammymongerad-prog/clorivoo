@@ -23,6 +23,25 @@ export async function getActiveBranches(): Promise<Branch[]> {
   return (data ?? []) as Branch[];
 }
 
+export async function getAllBranches(): Promise<Branch[]> {
+  const { data } = await getClient()
+    .from('branches')
+    .select('*')
+    .order('name', { ascending: true });
+
+  return (data ?? []) as Branch[];
+}
+
+export async function toggleBranchStatus(
+  id: string,
+  isActive: boolean
+): Promise<void> {
+  await getClient()
+    .from('branches')
+    .update({ is_active: isActive })
+    .eq('id', id);
+}
+
 export function isBranchOpen(branch: Branch): boolean {
   if (!branch.opening_hours) return false;
   try {
