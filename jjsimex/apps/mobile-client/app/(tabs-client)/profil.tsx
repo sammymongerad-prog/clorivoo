@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Linking, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -42,9 +42,20 @@ export default function ProfilScreen() {
   const [toggles, setToggles] = useState<Record<ToggleKey, boolean>>({ whatsapp: true, email: true, theme: true });
   const toggle = (k: ToggleKey) => setToggles(p => ({ ...p, [k]: !p[k] }));
 
-  const firstName = profile?.first_name ?? 'Jean';
-  const lastName = profile?.last_name ?? 'Paul';
-  const initials = `${firstName[0] ?? 'J'}${lastName[0] ?? 'P'}`.toUpperCase();
+  if (!profile) {
+    return (
+      <View style={S.container}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#F97316" size="large" />
+          <Text style={{ color: '#9CA3AF', marginTop: 12, fontSize: 14 }}>Chargement du profil…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const firstName = profile.first_name ?? '';
+  const lastName = profile.last_name ?? '';
+  const initials = `${firstName[0] ?? '?'}${lastName[0] ?? '?'}`.toUpperCase();
 
   function handleSignOut() {
     Alert.alert('Déconnexion', 'Voulez-vous vraiment vous déconnecter ?', [
@@ -75,12 +86,12 @@ export default function ProfilScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#14532D', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', marginTop: 6 }}>
                 <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '600' }}>✓ Client vérifié</Text>
               </View>
-              <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 8 }}>{profile?.email ?? 'jean.paul@gmail.com'}</Text>
-              <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>{profile?.phone_whatsapp ?? '+509 34 12 34 56'}</Text>
+              <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 8 }}>{profile.email}</Text>
+              {profile.phone_whatsapp ? <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>{profile.phone_whatsapp}</Text> : null}
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20, paddingTop: 18, borderTopWidth: 1, borderTopColor: '#2A2A2A' }}>
-            {[['24', 'Colis envoyés'], ['2', 'En cours'], ['4 ans', 'Membre depuis']].map(([val, lbl], i) => (
+            {[[String(profile.total_packages ?? 0), 'Colis envoyés'], ['—', 'En cours'], [new Date(profile.created_at).getFullYear() === new Date().getFullYear() ? 'Nouveau' : `${new Date().getFullYear() - new Date(profile.created_at).getFullYear()} ans`, 'Membre depuis']].map(([val, lbl], i) => (
               <>
                 {i > 0 && <View key={`sep${i}`} style={{ width: 1, height: 34, backgroundColor: '#2A2A2A' }} />}
                 <View key={val} style={{ flex: 1, alignItems: 'center' }}>

@@ -6,7 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, RefreshCw } from 'lucide-react-native';
-import { supabase } from '@/lib/supabase';
+import { getExchangeRates, updateExchangeRate } from '@jjsimex/supabase/shipping';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -45,14 +45,7 @@ export default function AdminTaux() {
 
   async function fetchRate() {
     try {
-      const { data, error } = await supabase
-        .from('exchange_rates')
-        .select('*')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
-      if (error) throw error;
-      const r = data as ExchangeRate;
+      const r = await getExchangeRates() as ExchangeRate;
       setRate(r);
       setValues({
         usd_to_htg: String(r.usd_to_htg),
@@ -70,17 +63,13 @@ export default function AdminTaux() {
     if (!rate) return;
     setSaving(true);
     try {
-      const update: Record<string, any> = { updated_by: profile!.id, is_auto: false };
+      const rateData: Record<string, number> = {};
       for (const f of FIELDS) {
         const val = parseFloat(values[f.key] ?? '');
         if (isNaN(val) || val <= 0) throw new Error(`Valeur invalide pour ${f.label}`);
-        update[f.key] = val;
+        rateData[f.key] = val;
       }
-      const { error } = await supabase
-        .from('exchange_rates')
-        .update(update)
-        .eq('id', rate.id);
-      if (error) throw error;
+      await updateExchangeRate(rateData as any, profile!.id);
       Alert.alert('Succès', 'Taux de change mis à jour.');
       fetchRate();
     } catch (e: any) {

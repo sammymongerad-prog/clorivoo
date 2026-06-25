@@ -5,8 +5,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, DollarSign, Save } from 'lucide-react-native';
-import { supabase } from '@/lib/supabase';
+import { ArrowLeft, Save } from 'lucide-react-native';
+import { getShippingRates, updateShippingRate } from '@jjsimex/supabase/shipping';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -38,13 +38,8 @@ export default function AdminTarifs() {
 
   async function fetchRates() {
     try {
-      const { data, error } = await supabase
-        .from('shipping_rates')
-        .select('id, destination_country, destination_city, air_rate_per_lb, sea_rate_per_lb, is_active')
-        .order('destination_country')
-        .order('destination_city');
-      if (error) throw error;
-      setRates((data ?? []) as ShippingRate[]);
+      const data = await getShippingRates();
+      setRates(data as ShippingRate[]);
     } catch (e: any) {
       Alert.alert('Erreur', e.message);
     }
@@ -68,7 +63,7 @@ export default function AdminTarifs() {
     setSaving(true);
     try {
       for (const [id, changes] of entries) {
-        const update: Record<string, any> = { updated_by: profile!.id };
+        const update: { air_rate_per_lb?: number; sea_rate_per_lb?: number } = {};
         if (changes.air !== undefined) {
           const val = parseFloat(changes.air);
           if (isNaN(val) || val < 0) throw new Error(`Tarif aérien invalide pour l'entrée.`);
@@ -79,11 +74,7 @@ export default function AdminTarifs() {
           if (isNaN(val) || val < 0) throw new Error(`Tarif maritime invalide pour l'entrée.`);
           update.sea_rate_per_lb = val;
         }
-        const { error } = await supabase
-          .from('shipping_rates')
-          .update(update)
-          .eq('id', id);
-        if (error) throw error;
+        await updateShippingRate(id, update, profile!.id);
       }
       Alert.alert('Succès', 'Tarifs mis à jour avec succès.');
       setEditedRates({});
