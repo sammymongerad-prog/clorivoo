@@ -230,7 +230,7 @@ export default function AdminProfil() {
           <>
             <Text style={s.sectionTitle}>Gestion de l'app</Text>
             <View style={s.menuGroup}>
-              <TouchableOpacity style={s.menuRow} activeOpacity={0.7}>
+              <TouchableOpacity style={s.menuRow} activeOpacity={0.7} onPress={() => router.push('/screens/admin-tarifs')}>
                 <View style={s.menuIcon}><DollarSign size={18} color="#3B82F6" strokeWidth={1.8} /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.menuLabel}>Tarifs de livraison</Text>
@@ -239,7 +239,7 @@ export default function AdminProfil() {
                 <ChevronRight size={16} color="#4B5563" strokeWidth={2} />
               </TouchableOpacity>
               <View style={s.sep} />
-              <TouchableOpacity style={s.menuRow} activeOpacity={0.7}>
+              <TouchableOpacity style={s.menuRow} activeOpacity={0.7} onPress={() => router.push('/screens/admin-taux')}>
                 <View style={[s.menuIcon, { backgroundColor: 'rgba(34,197,94,0.1)' }]}><DollarSign size={18} color="#22C55E" strokeWidth={1.8} /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.menuLabel}>Taux de change</Text>
@@ -257,50 +257,18 @@ export default function AdminProfil() {
             <Text style={s.sectionTitle}>Équipe</Text>
             <TouchableOpacity
               style={s.menuRow}
-              onPress={() => { setShowTeam(!showTeam); if (!showTeam) fetchTeam(); }}
+              onPress={() => router.push('/screens/admin-equipe')}
               activeOpacity={0.7}
             >
               <View style={[s.menuIcon, { backgroundColor: 'rgba(168,85,247,0.1)' }]}>
                 <Users size={18} color="#A855F7" strokeWidth={1.8} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.menuLabel}>Gérer les membres</Text>
-                <Text style={s.menuSub}>Rôles et permissions</Text>
+                <Text style={s.menuLabel}>Gestion équipe</Text>
+                <Text style={s.menuSub}>Rôles, blocage et création de comptes</Text>
               </View>
               <ChevronRight size={16} color="#4B5563" strokeWidth={2} />
             </TouchableOpacity>
-
-            {showTeam && (
-              <View style={s.teamBlock}>
-                {team.length === 0 ? (
-                  <ActivityIndicator color={ACCENT} style={{ marginVertical: 20 }} />
-                ) : (
-                  team.map((m) => {
-                    const roleLbl: Record<string, string> = { super_admin: 'Super Admin', admin: 'Admin', employee: 'Employé', delivery: 'Livreur' };
-                    const isMe = m.id === profile!.id;
-                    return (
-                      <View key={m.id} style={s.teamMember}>
-                        <View style={[s.teamAvatar, isMe && { backgroundColor: ACCENT }]}>
-                          <Text style={s.teamAvatarText}>{(m.full_name || '?')[0].toUpperCase()}</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={s.teamName}>{m.full_name}{isMe ? ' (vous)' : ''}</Text>
-                          <Text style={s.teamEmail}>{m.email}</Text>
-                        </View>
-                        <TouchableOpacity
-                          style={s.teamRoleBadge}
-                          onPress={() => !isMe && handleChangeRole(m)}
-                          disabled={isMe}
-                          activeOpacity={isMe ? 1 : 0.7}
-                        >
-                          <Text style={s.teamRoleText}>{roleLbl[m.role] ?? m.role}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-            )}
           </>
         )}
 
