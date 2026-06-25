@@ -20,27 +20,6 @@ interface CampaignLog {
   created_at: string;
 }
 
-const topReferrers = [
-  { initials: 'JM', name: 'Jean-Marie L.', count: 12, color: '#F97316' },
-  { initials: 'CB', name: 'Claudette B.', count: 9, color: '#60A5FA' },
-  { initials: 'RF', name: 'Réginald F.', count: 7, color: '#22C55E' },
-];
-
-const scheduledNotifs = [
-  {
-    time: 'Demain, 09h00',
-    message: 'Votre colis JJS-4821 est prêt à être retiré à Miami.',
-  },
-  {
-    time: 'Jeu 19 juin, 14h00',
-    message: 'Prochain départ avion: 25 juin. Déposez vos colis avant le 22.',
-  },
-  {
-    time: 'Ven 20 juin, 10h00',
-    message: 'Offre spéciale: -5% sur tout envoi bateau ce weekend!',
-  },
-];
-
 function statusStyle(status: string) {
   if (status === 'Actif')
     return { color: '#22C55E', bg: 'rgba(34,197,94,0.15)' };
@@ -94,16 +73,32 @@ export default function MarketingPage() {
   const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
   const [toast, setToast] = useState('');
   const [campaigns, setCampaigns] = useState<CampaignLog[]>([]);
+  const [totalCampaigns, setTotalCampaigns] = useState(0);
+  const [totalSent, setTotalSent] = useState(0);
+  const [activeClients, setActiveClients] = useState(0);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
       .from('bulk_notifications_log')
       .select('*')
       .order('created_at', { ascending: false });
-    if (data) setCampaigns(data);
+    if (data) {
+      setCampaigns(data);
+      setTotalCampaigns(data.length);
+      setTotalSent(data.reduce((sum, c) => sum + (c.sent_count || 0), 0));
+    }
   }, []);
 
-  useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
+  const loadActiveClients = useCallback(async () => {
+    const { count } = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .eq('role', 'client');
+    if (count !== null) setActiveClients(count);
+  }, []);
+
+  useEffect(() => { loadCampaigns(); loadActiveClients(); }, [loadCampaigns, loadActiveClients]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -239,10 +234,10 @@ export default function MarketingPage() {
         }}
       >
         {[
-          { label: 'Campagnes actives', value: '3' },
-          { label: 'Clients ciblés', value: '8,450' },
-          { label: 'Taux ouverture', value: '68%' },
-          { label: 'Parrainages ce mois', value: '47' },
+          { label: 'Campagnes envoyées', value: totalCampaigns.toLocaleString() },
+          { label: 'Clients actifs', value: activeClients.toLocaleString() },
+          { label: 'Messages envoyés', value: totalSent.toLocaleString() },
+          { label: 'Parrainages ce mois', value: '—' },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -375,96 +370,9 @@ export default function MarketingPage() {
               Programme de parrainage
             </h2>
 
-            {/* Stats */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '8px',
-                marginBottom: '20px',
-              }}
-            >
-              {[
-                { label: 'Parrainages', value: '47' },
-                { label: 'Générés', value: '$235' },
-                { label: 'Conversion', value: '89%' },
-              ].map((s) => (
-                <div
-                  key={s.label}
-                  style={{
-                    backgroundColor: '#0D0D0D',
-                    borderRadius: '8px',
-                    padding: '10px',
-                    textAlign: 'center',
-                  }}
-                >
-                  <p style={{ fontWeight: '700', fontSize: '18px', margin: '0 0 2px 0' }}>
-                    {s.value}
-                  </p>
-                  <p style={{ color: '#9CA3AF', fontSize: '11px', margin: 0 }}>
-                    {s.label}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Leaderboard */}
-            <p style={{ color: '#9CA3AF', fontSize: '12px', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Top parrains
+            <p style={{ color: '#9CA3AF', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>
+              Aucune donnée pour le moment. Le programme de parrainage n'est pas encore connecté.
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {topReferrers.map((r, i) => (
-                <div
-                  key={r.name}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                  }}
-                >
-                  <span
-                    style={{
-                      color: '#9CA3AF',
-                      fontSize: '13px',
-                      width: '16px',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {i + 1}
-                  </span>
-                  <div
-                    style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '50%',
-                      backgroundColor: r.color,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      color: '#fff',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {r.initials}
-                  </div>
-                  <span style={{ fontSize: '14px', flex: 1 }}>{r.name}</span>
-                  <span
-                    style={{
-                      backgroundColor: 'rgba(249,115,22,0.15)',
-                      color: '#F97316',
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                    }}
-                  >
-                    {r.count} refs
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Scheduled Notifications */}
@@ -479,51 +387,9 @@ export default function MarketingPage() {
             <h2 style={{ fontSize: '15px', fontWeight: '600', margin: '0 0 16px 0' }}>
               Notifications programmées
             </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {scheduledNotifs.map((n, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '12px',
-                    backgroundColor: '#0D0D0D',
-                    borderRadius: '8px',
-                    padding: '12px',
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <p
-                      style={{
-                        color: '#F97316',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        margin: '0 0 4px 0',
-                      }}
-                    >
-                      🕐 {n.time}
-                    </p>
-                    <p style={{ color: '#9CA3AF', fontSize: '13px', margin: 0, lineHeight: '1.4' }}>
-                      {n.message}
-                    </p>
-                  </div>
-                  <button
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: '1px solid #EF4444',
-                      color: '#EF4444',
-                      borderRadius: '6px',
-                      padding: '4px 10px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                    }}
-                  >
-                    Annuler
-                  </button>
-                </div>
-              ))}
-            </div>
+            <p style={{ color: '#9CA3AF', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>
+              Aucune notification programmée pour le moment.
+            </p>
           </div>
         </div>
       </div>

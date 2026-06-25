@@ -34,17 +34,6 @@ const statusLabel: Record<string, string> = {
   refunded: 'Remboursé',
 }
 
-const transactions = [
-  { id: 'TXN-9041', client: 'Marie Joseph', email: 'marie.joseph@gmail.com', initials: 'MJ', color: '#F97316', ref: 'PAY-2025-9041', method: 'MonCash', amount: '$240.00', colis: 'CL-0892', date: '13 juin 2025 · 09:42', status: 'Reçu' },
-  { id: 'TXN-9040', client: 'Jean Pierre', email: 'jean.pierre@yahoo.com', initials: 'JP', color: '#22C55E', ref: 'PAY-2025-9040', method: 'Zelle', amount: '$180.00', colis: 'CL-0889', date: '13 juin 2025 · 08:15', status: 'Reçu' },
-  { id: 'TXN-9039', client: 'Sophia Laurent', email: 'sophia.l@gmail.com', initials: 'SL', color: '#8B5CF6', ref: 'PAY-2025-9039', method: 'MonCash', amount: '$95.00', colis: 'CL-0885', date: '12 juin 2025 · 17:30', status: 'En attente' },
-  { id: 'TXN-9038', client: 'Paul Moreau', email: 'paul.moreau@yahoo.fr', initials: 'PM', color: '#06B6D4', ref: 'PAY-2025-9038', method: 'Western Union', amount: '$320.00', colis: 'CL-0880', date: '12 juin 2025 · 14:22', status: 'Reçu' },
-  { id: 'TXN-9037', client: 'Anne Duval', email: 'anne.duval@outlook.com', initials: 'AD', color: '#EC4899', ref: 'PAY-2025-9037', method: 'Cash', amount: '$55.00', colis: 'CL-0877', date: '12 juin 2025 · 11:05', status: 'Reçu' },
-  { id: 'TXN-9036', client: 'Claude Martin', email: 'claude.martin@gmail.com', initials: 'CM', color: '#EF4444', ref: 'PAY-2025-9036', method: 'Zelle', amount: '$150.00', colis: 'CL-0871', date: '11 juin 2025 · 16:48', status: 'Remboursé' },
-  { id: 'TXN-9035', client: 'Rose Dieu', email: 'rose.dieu@hotmail.com', initials: 'RD', color: '#9CA3AF', ref: 'PAY-2025-9035', method: 'MonCash', amount: '$78.00', colis: 'CL-0868', date: '11 juin 2025 · 10:20', status: 'En attente' },
-  { id: 'TXN-9034', client: 'Yves Blanc', email: 'yves.blanc@gmail.com', initials: 'YB', color: '#F59E0B', ref: 'PAY-2025-9034', method: 'Western Union', amount: '$412.00', colis: 'CL-0863', date: '10 juin 2025 · 15:33', status: 'Reçu' },
-]
-
 export default function PaiementsPage() {
   const { user } = useAuth()
   const [payments, setPayments] = useState<Payment[]>([])
