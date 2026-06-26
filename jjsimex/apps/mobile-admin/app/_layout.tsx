@@ -122,23 +122,11 @@ function RootNavigator() {
 
       {/* Detail screens */}
       <Stack.Screen
-        name="screens/detail-colis"
-        options={{ presentation: 'card', animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
         name="screens/profil-client"
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen
-        name="screens/personal-shopper"
-        options={{ presentation: 'card', animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
         name="screens/departs"
-        options={{ presentation: 'card', animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
-        name="screens/paiements"
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen
@@ -148,10 +136,6 @@ function RootNavigator() {
       <Stack.Screen
         name="screens/profil-admin"
         options={{ presentation: 'card', animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
-        name="screens/nouveau-colis"
-        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack>
   );

@@ -1,14 +1,9 @@
 import { useEffect, useState, useContext } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { AuthContext } from '@/contexts/AuthContext';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 type Tab = 'tous' | 'colis' | 'paiements' | 'clients' | 'systeme';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
 
 interface Notification {
   id: string;

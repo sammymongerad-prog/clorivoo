@@ -2,7 +2,7 @@ import { useEffect, useState, useContext } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/contexts/AuthContext';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 const S = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D0D0D' },
@@ -21,11 +21,6 @@ const S = StyleSheet.create({
   clearButton: { height: 44, backgroundColor: '#F97316', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginBottom: 20 },
   clearButtonText: { color: '#0D0D0D', fontWeight: '700', fontSize: 14 },
 });
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
 
 interface Notification {
   id: string;
