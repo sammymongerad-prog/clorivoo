@@ -8,6 +8,10 @@ import {
   configureNotifications,
   handleNotificationTapped,
 } from '@jjsimex/ui/notifications';
+import { setClient } from '@jjsimex/supabase/client';
+import { supabase } from '@/lib/supabase';
+
+setClient(supabase);
 
 const ALLOWED_ROLES = ['admin', 'super_admin', 'employee'] as const;
 type AllowedRole = (typeof ALLOWED_ROLES)[number];
