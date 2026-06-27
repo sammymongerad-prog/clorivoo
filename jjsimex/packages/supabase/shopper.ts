@@ -31,7 +31,7 @@ export interface ShopperRequest {
   transport_mode: TransportMode;
   estimated_price: number | null;
   final_price: number | null;
-  shipping_rate: number | null;
+  shipping_cost: number | null;
   total_price: number | null;
   status: ShopperStatus;
   notes: string | null;
@@ -213,7 +213,7 @@ export async function sendQuote(
     .from('personal_shopper')
     .update({
       final_price,
-      shipping_rate,
+      shipping_cost: shipping_rate,
       total_price,
       status: 'quoted',
       handled_by: admin_id,

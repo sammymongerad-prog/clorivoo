@@ -56,16 +56,15 @@ export default function PersonalShopperScreen() {
     setSubmitting(true);
     try {
       await createShopperRequest({
-        user_id: session.user.id,
         product_url: productUrl.trim(),
         merchant: merchant.trim(),
         quantity,
         variant: variant.trim() || undefined,
         transport_mode: transport,
-        destination_country: profile?.destination_country ?? 'HT',
+        destination_country: profile?.destination_country ?? 'haiti',
         destination_city: profile?.destination_city ?? '',
         notes: notes.trim() || undefined,
-      });
+      }, session.user.id);
       show('Demande envoyée ! On vous contactera sous 24h.', 'success');
       setProductUrl(''); setMerchant(''); setQuantity(1); setVariant(''); setNotes('');
       setTab('En cours');
