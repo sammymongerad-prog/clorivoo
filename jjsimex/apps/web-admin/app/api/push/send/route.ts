@@ -22,7 +22,7 @@ async function getTokensForUsers(userIds: string[]): Promise<string[]> {
     .from('push_tokens')
     .select('token')
     .in('user_id', userIds)
-    .eq('active', true);
+    .eq('is_active', true);
 
   if (error || !data) return [];
   return data.map((row: { token: string }) => row.token).filter(Boolean);
@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
     body: messageBody,
     data: pushData ?? {},
     sound: 'default',
+    channelId: 'jjsimex',
   }));
 
   const response = await fetch(EXPO_PUSH_URL, {

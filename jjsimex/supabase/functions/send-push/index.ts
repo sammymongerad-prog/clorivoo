@@ -24,7 +24,8 @@ serve(async (req) => {
     const { data: tokens } = await supabase
       .from('push_tokens')
       .select('token')
-      .in('user_id', targetIds);
+      .in('user_id', targetIds)
+      .eq('is_active', true);
 
     if (!tokens?.length) {
       return new Response(JSON.stringify({ sent: 0 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -37,6 +38,7 @@ serve(async (req) => {
       data: data ?? {},
       sound: 'default',
       badge: 1,
+      channelId: 'jjsimex',
     }));
 
     const response = await fetch('https://exp.host/--/api/v2/push/send', {
