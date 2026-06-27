@@ -6,7 +6,7 @@ export default function EnvoyerTab() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push('/screens/create-shipment');
+    router.replace('/screens/create-shipment');
   }, []);
 
   return <View style={{ flex: 1, backgroundColor: '#0D0D0D' }} />;

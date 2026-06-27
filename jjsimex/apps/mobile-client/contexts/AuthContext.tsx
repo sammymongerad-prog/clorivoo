@@ -15,6 +15,9 @@ interface UserProfile {
   destination_country: string;
   destination_city: string;
   is_blocked: boolean;
+  total_packages: number;
+  created_at: string;
+  avatar_url: string | null;
 }
 
 interface AuthContextType {
@@ -77,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await supabase
         .from('users')
-        .select('id, full_name, email, phone_whatsapp, role, us_suite, loyalty_level, destination_country, destination_city, is_blocked')
+        .select('id, full_name, email, phone_whatsapp, role, us_suite, loyalty_level, destination_country, destination_city, is_blocked, total_packages, created_at, avatar_url')
         .eq('id', userId)
         .single();
       setProfile(data ?? null);

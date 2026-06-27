@@ -4,7 +4,7 @@ import {
   StyleSheet, ActivityIndicator, Linking, Modal, FlatList,
   Platform, StatusBar,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { createShopperRequest, getMyShopperRequests } from '@jjsimex/supabase/shopper';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -28,10 +28,11 @@ const URL_REGEX = /^https?:\/\/.+\..+/i;
 
 export default function PersonalShopperScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string }>();
   const { session, profile } = useAuth();
   const { show, ToastEl } = useToast();
 
-  const [tab, setTab] = useState<Tab>('Nouvelle demande');
+  const [tab, setTab] = useState<Tab>(params.tab === 'history' ? 'En cours' : 'Nouvelle demande');
   const [requests, setRequests] = useState<Request[]>([]);
   const [loadingReqs, setLoadingReqs] = useState(true);
   const [submitting, setSubmitting] = useState(false);

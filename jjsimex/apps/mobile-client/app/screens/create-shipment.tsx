@@ -196,7 +196,7 @@ export default function CreateShipmentScreen() {
   return (
     <View style={s.container}>
       <View style={s.header}>
-        <BackButton onPress={step > 1 && step < 5 ? () => setStep((step - 1) as Step) : undefined} />
+        <BackButton onPress={step > 1 && step < 5 ? () => setStep((step - 1) as Step) : () => router.replace('/(tabs-client)/')} />
         <Text style={s.headerTitle}>Créer un envoi</Text>
         <View style={{ width: 40 }} />
       </View>
