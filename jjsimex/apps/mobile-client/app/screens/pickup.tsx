@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
   Dimensions, Platform, StatusBar, Alert, ActivityIndicator,
+  Modal, FlatList, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +23,191 @@ const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }>
   cancelled: { bg: '#2A2A2A', color: '#9CA3AF', label: 'Annulé' },
 };
 
+const MONTHS_FR = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+];
+const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+const TIME_SLOTS = [
+  { label: '8h00', value: '08:00' },
+  { label: '9h00', value: '09:00' },
+  { label: '10h00', value: '10:00' },
+  { label: '11h00', value: '11:00' },
+  { label: '12h00', value: '12:00' },
+  { label: '13h00', value: '13:00' },
+  { label: '14h00', value: '14:00' },
+  { label: '15h00', value: '15:00' },
+  { label: '16h00', value: '16:00' },
+  { label: '17h00', value: '17:00' },
+  { label: '18h00', value: '18:00' },
+];
+
+function formatDateDisplay(iso: string): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${MONTHS_FR[m - 1]} ${y}`;
+}
+
+function getTimeLabel(value: string): string {
+  const slot = TIME_SLOTS.find((s) => s.value === value);
+  return slot ? slot.label : value;
+}
+
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfWeek(year: number, month: number): number {
+  // 0=Mon ... 6=Sun
+  const day = new Date(year, month, 1).getDay();
+  return day === 0 ? 6 : day - 1;
+}
+
+function toISO(y: number, m: number, d: number): string {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function CalendarModal({
+  visible,
+  onClose,
+  selectedDate,
+  onSelect,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  selectedDate: string;
+  onSelect: (iso: string) => void;
+}) {
+  const today = new Date();
+  const todayISO = toISO(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  useEffect(() => {
+    if (visible) {
+      if (selectedDate) {
+        const [y, m] = selectedDate.split('-').map(Number);
+        setViewYear(y);
+        setViewMonth(m - 1);
+      } else {
+        setViewYear(today.getFullYear());
+        setViewMonth(today.getMonth());
+      }
+    }
+  }, [visible]);
+
+  const days = useMemo(() => {
+    const total = getDaysInMonth(viewYear, viewMonth);
+    const firstDay = getFirstDayOfWeek(viewYear, viewMonth);
+    const cells: ({ day: number; iso: string; disabled: boolean } | null)[] = [];
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+    for (let d = 1; d <= total; d++) {
+      const iso = toISO(viewYear, viewMonth, d);
+      cells.push({ day: d, iso, disabled: iso < todayISO });
+    }
+    return cells;
+  }, [viewYear, viewMonth]);
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
+    else setViewMonth(viewMonth - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
+    else setViewMonth(viewMonth + 1);
+  }
+
+  const canGoPrev = !(viewYear === today.getFullYear() && viewMonth === today.getMonth());
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={cs.overlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={cs.card} onPress={() => {}}>
+          {/* Month nav */}
+          <View style={cs.nav}>
+            <TouchableOpacity onPress={prevMonth} disabled={!canGoPrev} style={cs.arrow}>
+              <Text style={[cs.arrowText, !canGoPrev && { opacity: 0.25 }]}>{'<'}</Text>
+            </TouchableOpacity>
+            <Text style={cs.monthLabel}>
+              {MONTHS_FR[viewMonth].charAt(0).toUpperCase() + MONTHS_FR[viewMonth].slice(1)} {viewYear}
+            </Text>
+            <TouchableOpacity onPress={nextMonth} style={cs.arrow}>
+              <Text style={cs.arrowText}>{'>'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Day headers */}
+          <View style={cs.row}>
+            {DAYS_FR.map((d) => (
+              <View key={d} style={cs.cell}>
+                <Text style={cs.dayHeader}>{d}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Day grid */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            {days.map((cell, i) => (
+              <View key={i} style={cs.cell}>
+                {cell ? (
+                  <TouchableOpacity
+                    disabled={cell.disabled}
+                    onPress={() => { onSelect(cell.iso); onClose(); }}
+                    style={[
+                      cs.dayBtn,
+                      cell.iso === selectedDate && { backgroundColor: ACCENT },
+                      cell.iso === todayISO && cell.iso !== selectedDate && { borderWidth: 1, borderColor: ACCENT },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        cs.dayText,
+                        cell.disabled && { color: '#444' },
+                        cell.iso === selectedDate && { color: '#FFFFFF', fontWeight: '700' },
+                      ]}
+                    >
+                      {cell.day}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
+const cs = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  card: {
+    width: width - 48, backgroundColor: '#1A1A1A',
+    borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#2A2A2A',
+  },
+  nav: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  arrow: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  arrowText: { fontSize: 20, color: '#FFFFFF', fontWeight: '700' },
+  monthLabel: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  row: { flexDirection: 'row' },
+  cell: { width: (width - 48 - 36) / 7, alignItems: 'center', marginBottom: 4 },
+  dayHeader: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', marginBottom: 6 },
+  dayBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dayText: { fontSize: 14, color: '#FFFFFF' },
+});
+
 export default function PickupScreen() {
   const router = useRouter();
   const { session } = useAuth();
@@ -33,6 +219,9 @@ export default function PickupScreen() {
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState<PickupRequest[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -124,29 +313,25 @@ export default function PickupScreen() {
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
             <View style={{ flex: 1 }}>
               <Text style={s.inputLabel}>Date souhaitée</Text>
-              <View style={s.inputWrap}>
+              <TouchableOpacity style={s.inputWrap} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
                 <Calendar size={16} color={ACCENT} style={s.inputIcon} />
-                <TextInput
-                  style={s.inputWithIcon}
-                  value={date}
-                  onChangeText={setDate}
-                  placeholder="2026-06-25"
-                  placeholderTextColor="#5B6470"
-                />
-              </View>
+                <View style={s.inputWithIcon} pointerEvents="none">
+                  <Text style={date ? s.pickerText : s.pickerPlaceholder}>
+                    {date ? formatDateDisplay(date) : '25 juin 2026'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.inputLabel}>Heure souhaitée</Text>
-              <View style={s.inputWrap}>
+              <TouchableOpacity style={s.inputWrap} onPress={() => setShowTimePicker(true)} activeOpacity={0.8}>
                 <Clock size={16} color={ACCENT} style={s.inputIcon} />
-                <TextInput
-                  style={s.inputWithIcon}
-                  value={time}
-                  onChangeText={setTime}
-                  placeholder="14:00"
-                  placeholderTextColor="#5B6470"
-                />
-              </View>
+                <View style={s.inputWithIcon} pointerEvents="none">
+                  <Text style={time ? s.pickerText : s.pickerPlaceholder}>
+                    {time ? getTimeLabel(time) : '14h00'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -222,9 +407,60 @@ export default function PickupScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Date picker modal */}
+      <CalendarModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        selectedDate={date}
+        onSelect={setDate}
+      />
+
+      {/* Time picker modal */}
+      <Modal visible={showTimePicker} transparent animationType="fade" onRequestClose={() => setShowTimePicker(false)}>
+        <TouchableOpacity style={ts.overlay} activeOpacity={1} onPress={() => setShowTimePicker(false)}>
+          <View style={ts.card}>
+            <Text style={ts.title}>Choisir l'heure</Text>
+            <FlatList
+              data={TIME_SLOTS}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[ts.slot, item.value === time && { backgroundColor: ACCENT }]}
+                  onPress={() => { setTime(item.value); setShowTimePicker(false); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[ts.slotText, item.value === time && { color: '#FFFFFF', fontWeight: '700' }]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              style={{ maxHeight: 340 }}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
+
+const ts = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  card: {
+    width: width - 80, backgroundColor: '#1A1A1A',
+    borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#2A2A2A',
+  },
+  title: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginBottom: 14, textAlign: 'center' },
+  slot: {
+    height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4, backgroundColor: '#111111',
+  },
+  slotText: { fontSize: 15, color: '#FFFFFF' },
+});
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D0D0D' },
@@ -258,8 +494,10 @@ const s = StyleSheet.create({
     width: '100%', height: 48, backgroundColor: '#111111',
     borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 8,
     color: '#FFFFFF', paddingLeft: 40, paddingRight: 14,
-    fontSize: 14,
+    fontSize: 14, justifyContent: 'center',
   },
+  pickerText: { color: '#FFFFFF', fontSize: 14 },
+  pickerPlaceholder: { color: '#5B6470', fontSize: 14 },
   textarea: {
     width: '100%', height: 78, backgroundColor: '#111111',
     borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 8,

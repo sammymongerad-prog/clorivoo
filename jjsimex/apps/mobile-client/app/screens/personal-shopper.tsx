@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, SafeAreaView, ActivityIndicator, Linking,
+  StyleSheet, ActivityIndicator, Linking, Modal, FlatList,
+  Platform, StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +20,12 @@ type Tab = (typeof TABS)[number];
 const ACTIVE_STATUSES = ['pending', 'quoted', 'purchased', 'shipped'];
 const DONE_STATUSES = ['delivered', 'cancelled'];
 
+const MERCHANTS = ['Amazon', 'Walmart', 'Nike', 'Adidas', 'Apple', 'Shein', 'Temu', 'eBay', 'Best Buy', 'Autre'];
+
+const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
+
+const URL_REGEX = /^https?:\/\/.+\..+/i;
+
 export default function PersonalShopperScreen() {
   const router = useRouter();
   const { session, profile } = useAuth();
@@ -31,11 +38,17 @@ export default function PersonalShopperScreen() {
 
   // Form state
   const [productUrl, setProductUrl] = useState('');
+  const [urlTouched, setUrlTouched] = useState(false);
   const [merchant, setMerchant] = useState('');
+  const [customMerchant, setCustomMerchant] = useState('');
+  const [merchantModalVisible, setMerchantModalVisible] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [variant, setVariant] = useState('');
   const [transport, setTransport] = useState<'air' | 'sea'>('air');
   const [notes, setNotes] = useState('');
+
+  const isUrlValid = URL_REGEX.test(productUrl.trim());
+  const effectiveMerchant = merchant === 'Autre' ? customMerchant : merchant;
 
   const loadRequests = useCallback(async () => {
     if (!session?.user.id) return;
@@ -49,15 +62,18 @@ export default function PersonalShopperScreen() {
   useEffect(() => { loadRequests(); }, [loadRequests]);
 
   async function handleSubmit() {
-    if (!productUrl.trim() || !merchant.trim()) {
+    if (!productUrl.trim() || !effectiveMerchant.trim()) {
       show('Veuillez remplir le lien produit et le marchand', 'error'); return;
+    }
+    if (!isUrlValid) {
+      show('Veuillez entrer un lien valide', 'error'); return;
     }
     if (!session?.user.id) return;
     setSubmitting(true);
     try {
       await createShopperRequest({
         product_url: productUrl.trim(),
-        merchant: merchant.trim(),
+        merchant: effectiveMerchant.trim(),
         quantity,
         variant: variant.trim() || undefined,
         transport_mode: transport,
@@ -66,7 +82,7 @@ export default function PersonalShopperScreen() {
         notes: notes.trim() || undefined,
       }, session.user.id);
       show('Demande envoyée ! On vous contactera sous 24h.', 'success');
-      setProductUrl(''); setMerchant(''); setQuantity(1); setVariant(''); setNotes('');
+      setProductUrl(''); setMerchant(''); setCustomMerchant(''); setQuantity(1); setVariant(''); setNotes(''); setUrlTouched(false);
       setTab('En cours');
       loadRequests();
     } catch (e: unknown) {
@@ -80,7 +96,7 @@ export default function PersonalShopperScreen() {
   const doneReqs = requests.filter((r: Request) => DONE_STATUSES.includes(r.status));
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {ToastEl}
 
       {/* Header */}
@@ -111,13 +127,67 @@ export default function PersonalShopperScreen() {
 
           <View style={styles.field}>
             <Text style={styles.label}>Lien du produit *</Text>
-            <TextInput style={styles.input} placeholder="https://amazon.com/dp/..." placeholderTextColor="#6B7280" value={productUrl} onChangeText={setProductUrl} autoCapitalize="none" keyboardType="url" />
+            <TextInput
+              style={[styles.input, urlTouched && !isUrlValid && productUrl.length > 0 && { borderColor: '#EF4444' }]}
+              placeholder="https://amazon.com/dp/..."
+              placeholderTextColor="#6B7280"
+              value={productUrl}
+              onChangeText={setProductUrl}
+              onBlur={() => setUrlTouched(true)}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+            {urlTouched && !isUrlValid && productUrl.length > 0 && (
+              <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>
+                Veuillez entrer un lien valide (ex: https://amazon.com/...)
+              </Text>
+            )}
           </View>
 
           <View style={styles.field}>
             <Text style={styles.label}>Marchand / Site *</Text>
-            <TextInput style={styles.input} placeholder="Amazon, Nike, Shein..." placeholderTextColor="#6B7280" value={merchant} onChangeText={setMerchant} />
+            <TouchableOpacity
+              style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+              onPress={() => setMerchantModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 14, color: merchant ? '#FFFFFF' : '#6B7280' }}>
+                {merchant || 'Sélectionner un marchand'}
+              </Text>
+              <Text style={{ fontSize: 14, color: '#9CA3AF' }}>▼</Text>
+            </TouchableOpacity>
+            {merchant === 'Autre' && (
+              <TextInput
+                style={[styles.input, { marginTop: 8 }]}
+                placeholder="Nom du marchand..."
+                placeholderTextColor="#6B7280"
+                value={customMerchant}
+                onChangeText={setCustomMerchant}
+              />
+            )}
           </View>
+
+          {/* Merchant Modal */}
+          <Modal visible={merchantModalVisible} transparent animationType="fade" onRequestClose={() => setMerchantModalVisible(false)}>
+            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMerchantModalVisible(false)}>
+              <View style={styles.modalContent}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 16 }}>Sélectionner un marchand</Text>
+                <FlatList
+                  data={MERCHANTS}
+                  keyExtractor={item => item}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.modalItem, merchant === item && { backgroundColor: 'rgba(249,115,22,0.15)' }]}
+                      onPress={() => { setMerchant(item); setMerchantModalVisible(false); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ fontSize: 15, color: merchant === item ? '#F97316' : '#FFFFFF' }}>{item}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </TouchableOpacity>
+          </Modal>
 
           <View style={styles.field}>
             <Text style={styles.label}>Quantité</Text>
@@ -218,19 +288,19 @@ export default function PersonalShopperScreen() {
           ))}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D0D0D' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingTop: statusBarH + 18, paddingBottom: 14 },
   title: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
   subtitle: { fontSize: 13, color: '#9CA3AF' },
-  tabsRow: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 },
-  tabBtn: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A' },
+  tabsRow: { paddingHorizontal: 22, paddingBottom: 12, paddingVertical: 4, gap: 10 },
+  tabBtn: { minWidth: 'auto' as any, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 22, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A' },
   tabBtnActive: { backgroundColor: '#F97316', borderColor: '#F97316' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#9CA3AF' },
+  tabText: { fontSize: 13, fontWeight: '700', color: '#9CA3AF' },
   tabTextActive: { color: '#0D0D0D' },
   formContainer: { padding: 20, paddingBottom: 60, gap: 16 },
   infoBox: { backgroundColor: 'rgba(249,115,22,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(249,115,22,0.2)' },
@@ -245,4 +315,7 @@ const styles = StyleSheet.create({
   btnSubmitText: { fontSize: 16, fontWeight: '700', color: '#0D0D0D' },
   reqCard: { backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#242424', marginBottom: 12 },
   reqBtn: { height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: '#1A1A1A', borderRadius: 16, padding: 20, width: '85%', maxHeight: '60%', borderWidth: 1, borderColor: '#2A2A2A' },
+  modalItem: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10 },
 });
