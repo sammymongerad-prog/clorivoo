@@ -150,14 +150,14 @@ export default function ProfilScreen() {
         Alert.alert('Permission requise', 'Veuillez autoriser l\'accès à la caméra.');
         return;
       }
-      result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [1, 1] });
+      result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, allowsEditing: true, aspect: [1, 1] });
     } else {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission requise', 'Veuillez autoriser l\'accès à la galerie.');
         return;
       }
-      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [1, 1] });
+      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, allowsEditing: true, aspect: [1, 1] });
     }
     if (!result.canceled && result.assets[0]) {
       await uploadAvatar(result.assets[0].uri);

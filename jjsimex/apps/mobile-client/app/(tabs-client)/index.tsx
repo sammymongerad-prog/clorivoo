@@ -83,15 +83,18 @@ export default function HomeScreen() {
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5,
-    onPanResponderGrant: () => {
+    onPanResponderGrant: (evt) => {
+      evt.persist();
       wasDragged.current = false;
       dragStartRef.current = { x: (dragPos.x as any)._value, y: (dragPos.y as any)._value };
     },
-    onPanResponderMove: (_, g) => {
+    onPanResponderMove: (evt, g) => {
+      evt.persist();
       if (Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5) wasDragged.current = true;
       dragPos.setValue({ x: dragStartRef.current.x + g.dx, y: dragStartRef.current.y + g.dy });
     },
-    onPanResponderRelease: () => {
+    onPanResponderRelease: (evt) => {
+      evt.persist();
       if (!wasDragged.current) {
         toggleRateTab();
       }

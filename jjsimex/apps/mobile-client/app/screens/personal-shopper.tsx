@@ -110,13 +110,13 @@ export default function PersonalShopperScreen() {
       </View>
 
       {/* Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsRow}>
+      <View style={styles.tabsRow}>
         {TABS.map(t => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabBtnActive]} activeOpacity={0.8}>
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{t}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       {tab === 'Nouvelle demande' && (
         <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -298,10 +298,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingTop: statusBarH + 18, paddingBottom: 14 },
   title: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
   subtitle: { fontSize: 13, color: '#9CA3AF' },
-  tabsRow: { paddingHorizontal: 16, paddingBottom: 12, paddingVertical: 4, gap: 8 },
-  tabBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A' },
+  tabsRow: { flexDirection: 'row' as const, paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  tabBtn: { flex: 1, paddingHorizontal: 8, paddingVertical: 10, borderRadius: 10, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', alignItems: 'center' as const, justifyContent: 'center' as const },
   tabBtnActive: { backgroundColor: '#F97316', borderColor: '#F97316' },
-  tabText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' as const },
+  tabText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' as const },
   tabTextActive: { color: '#0D0D0D' },
   formContainer: { padding: 20, paddingBottom: 60, gap: 16 },
   infoBox: { backgroundColor: 'rgba(249,115,22,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(249,115,22,0.2)' },

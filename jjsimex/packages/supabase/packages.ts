@@ -31,7 +31,7 @@ export interface CreatePackageData {
   height_in?: number;
   declared_value: number;
   insurance_amount?: number;
-  destination_country: 'haiti' | 'dominican_republic';
+  destination_country: 'haiti' | 'dr';
   destination_city: string;
   destination_address: string;
   notes?: string;
@@ -132,7 +132,7 @@ export interface CreateShipmentRequest {
   weight_estimated: number;
   declared_value: number;
   transport_mode: 'air' | 'sea';
-  destination_country: 'haiti' | 'dominican_republic';
+  destination_country: 'haiti' | 'dr';
   destination_city: string;
   destination_address: string;
   recipient_first_name: string;
