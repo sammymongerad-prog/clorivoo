@@ -5,11 +5,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
-
-WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -18,7 +13,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<'google' | 'facebook' | null>(null);
   const [error, setError] = useState('');
 
   async function handleLogin() {
@@ -34,47 +28,11 @@ export default function LoginScreen() {
     }
   }
 
-  async function handleSocialLogin(provider: 'google' | 'facebook') {
-    try {
-      setSocialLoading(provider);
-      setError('');
-      const redirectUrl = makeRedirectUri({ scheme: 'com.jjsimex.client' });
-
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
-      });
-
-      if (oauthError || !data.url) {
-        setError(`Erreur ${provider}: ${oauthError?.message ?? 'URL non disponible'}`);
-        return;
-      }
-
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
-      if (result.type === 'success' && result.url) {
-        const url = new URL(result.url);
-        const params = new URLSearchParams(url.hash.substring(1));
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-
-        if (accessToken && refreshToken) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (sessionError) {
-            setError('Erreur de session. Réessayez.');
-            return;
-          }
-          router.replace('/(tabs-client)/');
-        }
-      }
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message ?? `Connexion ${provider} non disponible.`);
-    } finally {
-      setSocialLoading(null);
-    }
+  function handleSocial(provider: string) {
+    Alert.alert(
+      'Bientôt disponible',
+      `La connexion via ${provider} sera disponible dans une prochaine mise à jour.`,
+    );
   }
 
   return (
@@ -141,25 +99,11 @@ export default function LoginScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity
-              style={[styles.btnSocial, { flex: 1 }]}
-              activeOpacity={0.8}
-              onPress={() => handleSocialLogin('google')}
-              disabled={socialLoading !== null}
-            >
-              {socialLoading === 'google'
-                ? <ActivityIndicator color="#FFFFFF" size="small" />
-                : <Text style={styles.btnSocialText}>G  Google</Text>}
+            <TouchableOpacity style={[styles.btnSocial, { flex: 1 }]} activeOpacity={0.8} onPress={() => handleSocial('Google')}>
+              <Text style={styles.btnSocialText}>G  Google</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.btnSocial, { flex: 1, borderColor: '#1877F2' }]}
-              activeOpacity={0.8}
-              onPress={() => handleSocialLogin('facebook')}
-              disabled={socialLoading !== null}
-            >
-              {socialLoading === 'facebook'
-                ? <ActivityIndicator color="#FFFFFF" size="small" />
-                : <Text style={styles.btnSocialText}>f  Facebook</Text>}
+            <TouchableOpacity style={[styles.btnSocial, { flex: 1 }]} activeOpacity={0.8} onPress={() => handleSocial('Facebook')}>
+              <Text style={styles.btnSocialText}>f  Facebook</Text>
             </TouchableOpacity>
           </View>
         </View>
