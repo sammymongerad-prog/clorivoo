@@ -96,14 +96,16 @@ export default function ProfilScreen() {
   async function uploadAvatar(uri: string) {
     try {
       setUploading(true);
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const arrayBuffer = await new Response(blob).arrayBuffer();
       const filePath = `${profile!.id}/avatar.jpg`;
+      const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+
+      const formData = new FormData();
+      formData.append('file', { uri, name: 'avatar.jpg', type: mimeType } as any);
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
+        .upload(filePath, formData, { contentType: mimeType, upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -111,9 +113,10 @@ export default function ProfilScreen() {
         .from('avatars')
         .getPublicUrl(filePath);
 
+      const ts = Date.now();
       const { error: updateError } = await supabase
         .from('users')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: `${publicUrl}?t=${ts}` })
         .eq('id', profile!.id);
 
       if (updateError) throw updateError;

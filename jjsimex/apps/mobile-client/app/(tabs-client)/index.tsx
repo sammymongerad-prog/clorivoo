@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
 import { getNextDepartures, ensureUpcomingDepartures } from '@jjsimex/supabase/departures';
@@ -72,6 +73,7 @@ export default function HomeScreen() {
   const [seaDeparture, setSeaDeparture] = useState<Departure | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [bannerDot, setBannerDot] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [rateTabOpen, setRateTabOpen] = useState(false);
   const rateSlide = useRef(new Animated.Value(0)).current;
   const dragPos = useRef(new Animated.ValueXY({ x: width - 32, y: 300 })).current;
@@ -120,6 +122,14 @@ export default function HomeScreen() {
     try {
       const b = await getActiveBranches();
       setBranches(b);
+    } catch {}
+    try {
+      const { count } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', session.user.id)
+        .eq('is_read', false);
+      setUnreadCount(count ?? 0);
     } catch {}
   }
 
@@ -176,7 +186,7 @@ export default function HomeScreen() {
           </View>
           <TouchableOpacity onPress={() => router.push('/(tabs-client)/notifications')} style={styles.bellBtn}>
             <Bell size={22} color="#FFFFFF" strokeWidth={1.8} />
-            <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>3</Text></View>
+            {unreadCount > 0 && <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View>}
           </TouchableOpacity>
         </View>
 

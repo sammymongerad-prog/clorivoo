@@ -146,7 +146,7 @@ export default function CreateShipmentScreen() {
         weight_estimated: parseFloat(weightEstimated) || 0,
         declared_value: parseFloat(declaredValue) || 0,
         transport_mode: transport,
-        destination_country: destCountry === 'haiti' ? 'haiti' : 'dominican_republic',
+        destination_country: destCountry,
         destination_city: destCity,
         destination_address: destAddress,
         recipient_first_name: receiverFirst,
@@ -308,7 +308,7 @@ export default function CreateShipmentScreen() {
 
               <View style={s.divider} />
 
-              <Text style={s.sectionTitle}>Destinataire en Haïti</Text>
+              <Text style={s.sectionTitle}>Destinataire {destCountry === 'haiti' ? 'en Haïti' : 'en Rép. Dom.'}</Text>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.inputLabel}>Prénom</Text>
@@ -321,7 +321,12 @@ export default function CreateShipmentScreen() {
               </View>
 
               <Text style={s.inputLabel}>Téléphone destinataire</Text>
-              <TextInput style={s.input} value={receiverPhone} onChangeText={setReceiverPhone} placeholder="+509 33 12 3456" placeholderTextColor="#555" keyboardType="phone-pad" />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={[s.input, { width: 70, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ color: '#F97316', fontSize: 15, fontWeight: '700' }}>{destCountry === 'haiti' ? '+509' : '+1'}</Text>
+                </View>
+                <TextInput style={[s.input, { flex: 1 }]} value={receiverPhone} onChangeText={setReceiverPhone} placeholder="33 12 3456" placeholderTextColor="#555" keyboardType="phone-pad" />
+              </View>
 
               <Text style={s.inputLabel}>Pays</Text>
               <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
