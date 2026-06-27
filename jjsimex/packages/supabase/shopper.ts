@@ -56,18 +56,12 @@ export interface GetAllFilters {
 
 async function generateRequestNumber(): Promise<string> {
   const supabase = getClient();
-  const year = new Date().getFullYear();
-
-  // Récupérer le dernier numéro de l'année
-  const { data, count } = await supabase
-    .from('personal_shopper')
-    .select('request_number', { count: 'exact' })
-    .like('request_number', `PS-${year}-%`)
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  const nextNum = (count ?? 0) + 1;
-  return `PS-${year}-${String(nextNum).padStart(5, '0')}`;
+  const { data, error } = await supabase.rpc('generate_shopper_request_number');
+  if (error || !data) {
+    const year = new Date().getFullYear();
+    return `PS-${year}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`;
+  }
+  return data as string;
 }
 
 // ─── createShopperRequest ─────────────────────────────────────────────────────
