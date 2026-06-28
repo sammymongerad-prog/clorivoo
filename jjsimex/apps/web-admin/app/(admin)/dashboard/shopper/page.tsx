@@ -30,7 +30,7 @@ function getModeEmoji(mode: string): string {
 }
 
 export default function ShopperPage() {
-  const { user } = useAuth()
+  const { profile: user } = useAuth()
   const [requests, setRequests] = useState<ShopperRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('pending')
@@ -169,7 +169,7 @@ export default function ShopperPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 12, color: '#9CA3AF' }}>Qté: <span style={{ color: '#fff', fontWeight: 600 }}>{req.quantity}</span></span>
-                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>Prix: <span style={{ color: '#fff', fontWeight: 600 }}>${req.estimated_price.toFixed(2)}</span></span>
+                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>Prix: <span style={{ color: '#fff', fontWeight: 600 }}>${(req.estimated_price ?? 0).toFixed(2)}</span></span>
                   <span style={{ fontSize: 12, color: '#9CA3AF' }}>{formatDate(req.created_at)}</span>
                 </div>
               </div>

@@ -77,7 +77,7 @@ async function send({ to, subject, element }: SendEmailOptions): Promise<void> {
     const resend = getResend();
     await resend.emails.send({
       from: FROM,
-      replyTo: REPLY_TO,
+      reply_to: REPLY_TO,
       to,
       subject,
       html,

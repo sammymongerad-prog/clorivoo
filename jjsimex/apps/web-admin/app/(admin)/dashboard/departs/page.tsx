@@ -190,7 +190,7 @@ export default function DepartsPage() {
       return;
     }
 
-    const uniqueClients = [...new Set(packages.map(p => p.client_id))];
+    const uniqueClients = Array.from(new Set(packages.map(p => p.client_id)));
     const typeLabel = dep.type === 'air' ? 'Vol' : 'Bateau';
     const destLabel = dep.destinations.join(', ');
     const dateFormatted = new Date(dep.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });

@@ -35,7 +35,7 @@ const statusLabel: Record<string, string> = {
 }
 
 export default function PaiementsPage() {
-  const { user } = useAuth()
+  const { profile: user } = useAuth()
   const [payments, setPayments] = useState<Payment[]>([])
   const [stats, setStats] = useState<PaymentStats | null>(null)
   const [loading, setLoading] = useState(true)

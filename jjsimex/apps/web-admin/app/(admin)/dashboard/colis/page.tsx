@@ -6,6 +6,7 @@ import { getAllPackages } from '@jjsimex/supabase/packages';
 import type { PackageFilters, PackageStatus } from '@jjsimex/supabase/packages';
 
 const STATUS_LABELS: Record<PackageStatus, string> = {
+  awaiting_arrival: 'En attente',
   pending: 'En attente',
   received_usa: 'Reçu USA',
   in_transit: 'En transit',
@@ -15,6 +16,7 @@ const STATUS_LABELS: Record<PackageStatus, string> = {
 };
 
 const STATUS_STYLES: Record<PackageStatus, { background: string; color: string }> = {
+  awaiting_arrival: { background: 'rgba(107,114,128,0.14)', color: '#6B7280' },
   pending:      { background: 'rgba(107,114,128,0.14)', color: '#6B7280' },
   received_usa: { background: 'rgba(59,130,246,0.14)',  color: '#3B82F6' },
   in_transit:   { background: 'rgba(249,115,22,0.14)',  color: '#F97316' },
@@ -54,7 +56,7 @@ export default function ColisPage() {
     setError('');
     try {
       const result = await getAllPackages(f);
-      setPackages(result.data as ColisRow[]);
+      setPackages(result.packages as ColisRow[]);
       setTotal(result.total);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors du chargement.');

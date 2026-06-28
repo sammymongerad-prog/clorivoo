@@ -71,7 +71,7 @@ export default function EnvoyerPage() {
       .select('id, request_number, tracking_number, category, description, real_weight_lbs, billed_weight_lbs, declared_value, quantity, destination_city, destination_country, transport_mode, total_price, shipping_rate, insurance_amount, status, carrier_name, carrier_tracking_number, client_photo_1_url, client_photo_2_url, recipient_first_name, recipient_last_name, recipient_phone, recipient_address, created_at, users!packages_client_id_fkey(full_name, phone_whatsapp, email)')
       .not('request_number', 'is', null)
       .order('created_at', { ascending: false });
-    setShipments((data ?? []) as Shipment[]);
+    setShipments((data ?? []) as unknown as Shipment[]);
     setLoading(false);
   }, []);
 

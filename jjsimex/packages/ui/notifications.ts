@@ -133,9 +133,9 @@ export async function updateBadgeCount(count: number): Promise<void> {
 
 // ─── unregisterPushNotifications ──────────────────────────────────────────
 
-export async function unregisterPushNotifications(userId: string): Promise<void> {
+export async function unregisterPushNotifications(userId: string, supabaseClient?: any): Promise<void> {
   try {
-    const supabase = getClient();
+    const supabase = supabaseClient ?? getClient();
     await supabase
       .from('push_tokens')
       .update({ is_active: false })

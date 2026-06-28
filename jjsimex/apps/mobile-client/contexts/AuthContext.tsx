@@ -155,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
-    if (user) unregisterPushNotifications(user.id).catch(() => {});
+    if (user) unregisterPushNotifications(user.id, supabase).catch(() => {});
     await supabase.auth.signOut();
   }
 

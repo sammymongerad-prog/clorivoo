@@ -7,6 +7,7 @@ import type { PackageStatus } from '@jjsimex/supabase/packages';
 import { createClient } from '@/lib/supabase/client';
 
 const STATUS_LABELS: Record<PackageStatus, string> = {
+  awaiting_arrival: 'En attente',
   pending: 'En attente',
   received_usa: 'Reçu USA',
   in_transit: 'En transit',
@@ -16,6 +17,7 @@ const STATUS_LABELS: Record<PackageStatus, string> = {
 };
 
 const STATUS_NEXT: Partial<Record<PackageStatus, PackageStatus[]>> = {
+  awaiting_arrival: ['received_usa'],
   pending: ['received_usa'],
   received_usa: ['in_transit'],
   in_transit: ['arrived'],
@@ -24,6 +26,7 @@ const STATUS_NEXT: Partial<Record<PackageStatus, PackageStatus[]>> = {
 };
 
 const STATUS_COLORS: Record<PackageStatus, string> = {
+  awaiting_arrival: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
   pending: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
   received_usa: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
   in_transit: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
@@ -74,7 +77,7 @@ export default function ColisDetailPage() {
     setStatusLoading(true);
     setStatusError('');
     try {
-      await updatePackageStatus(id, newStatus, statusNote || undefined, adminId);
+      await updatePackageStatus(id!, newStatus, statusNote || '', adminId);
       const refreshed = await getPackageDetail(id, adminId);
       setPkg(refreshed);
       setStatusModal(false);
