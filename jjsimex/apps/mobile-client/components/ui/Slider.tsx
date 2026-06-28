@@ -17,27 +17,27 @@ export function Slider({ min, max, value, onChange, step = 1, label, formatValue
 
   const pct = trackWidth > 0 ? ((value - min) / (max - min)) : 0;
 
+  function updateValue(pageX: number) {
+    if (!trackRef.current) return;
+    trackRef.current.measure((_x, _y, w, _h, px) => {
+      const rel = pageX - px;
+      const newPct = Math.max(0, Math.min(1, rel / w));
+      const raw = min + newPct * (max - min);
+      const stepped = Math.round(raw / step) * step;
+      onChange(Math.max(min, Math.min(max, stepped)));
+    });
+  }
+
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (e) => {
-      if (!trackRef.current) return;
-      trackRef.current.measure((x, y, w, h, px) => {
-        const rel = e.nativeEvent.pageX - px;
-        const newPct = Math.max(0, Math.min(1, rel / w));
-        const raw = min + newPct * (max - min);
-        const stepped = Math.round(raw / step) * step;
-        onChange(Math.max(min, Math.min(max, stepped)));
-      });
+      const pageX = e.nativeEvent.pageX;
+      updateValue(pageX);
     },
     onPanResponderMove: (e) => {
-      if (!trackRef.current) return;
-      trackRef.current.measure((x, y, w, h, px) => {
-        const rel = e.nativeEvent.pageX - px;
-        const newPct = Math.max(0, Math.min(1, rel / w));
-        const raw = min + newPct * (max - min);
-        const stepped = Math.round(raw / step) * step;
-        onChange(Math.max(min, Math.min(max, stepped)));
-      });
+      const pageX = e.nativeEvent.pageX;
+      updateValue(pageX);
     },
   });
 
@@ -52,11 +52,17 @@ export function Slider({ min, max, value, onChange, step = 1, label, formatValue
       <View
         ref={trackRef}
         onLayout={e => setTrackWidth(e.nativeEvent.layout.width)}
-        style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, justifyContent: 'center' }}
+        style={{ height: 30, justifyContent: 'center' }}
         {...panResponder.panHandlers}
       >
-        <View style={{ position: 'absolute', left: 0, width: `${pct * 100}%`, height: 6, backgroundColor: '#F97316', borderRadius: 3 }} />
-        <View style={{ position: 'absolute', left: `${pct * 100}%`, marginLeft: -14, width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 }} />
+        <View style={{ height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, justifyContent: 'center' }}>
+          <View style={{ position: 'absolute', left: 0, width: `${pct * 100}%`, height: 6, backgroundColor: '#F97316', borderRadius: 3 }} />
+        </View>
+        <View style={{
+          position: 'absolute', left: `${pct * 100}%`, marginLeft: -14,
+          width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFFFFF',
+          shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4,
+        }} />
       </View>
     </View>
   );

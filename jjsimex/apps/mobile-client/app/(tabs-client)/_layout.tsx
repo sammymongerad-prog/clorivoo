@@ -2,6 +2,8 @@ import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import Svg, { Path, Line, Polyline, Circle, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#F97316';
@@ -36,6 +38,8 @@ function FloatingScanner() {
 }
 
 export default function TabsLayout() {
+  const { isDark } = useTheme();
+  const { t } = useLanguage();
   return (
     <View style={{ flex: 1 }}>
       <Tabs
@@ -47,11 +51,11 @@ export default function TabsLayout() {
             left: 16,
             right: 82,
             height: 64,
-            backgroundColor: 'rgba(20,20,20,0.92)',
+            backgroundColor: isDark ? 'rgba(20,20,20,0.92)' : 'rgba(255,255,255,0.95)',
             borderRadius: 99,
             borderTopWidth: 0,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.08)',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
             paddingBottom: 0,
             paddingTop: 0,
             paddingHorizontal: 8,
@@ -62,18 +66,18 @@ export default function TabsLayout() {
             shadowRadius: 16,
           },
           tabBarActiveTintColor: ACCENT,
-          tabBarInactiveTintColor: '#666666',
+          tabBarInactiveTintColor: isDark ? '#666666' : '#9CA3AF',
           tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2, marginBottom: 8 },
           tabBarIconStyle: { marginTop: 8 },
         }}
       >
         <Tabs.Screen
           name="index"
-          options={{ title: 'Accueil', tabBarIcon: ({ color }) => <IcoHome color={color} /> }}
+          options={{ title: t('home'), tabBarIcon: ({ color }) => <IcoHome color={color} /> }}
         />
         <Tabs.Screen
           name="colis"
-          options={{ title: 'Mes colis', tabBarIcon: ({ color }) => <IcoPackage color={color} /> }}
+          options={{ title: t('my_packages'), tabBarIcon: ({ color }) => <IcoPackage color={color} /> }}
         />
         <Tabs.Screen
           name="scanner"
@@ -93,11 +97,11 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="envoyer"
-          options={{ title: 'Envoyer', tabBarIcon: ({ color }) => <IcoSend color={color} /> }}
+          options={{ title: t('send'), tabBarIcon: ({ color }) => <IcoSend color={color} /> }}
         />
         <Tabs.Screen
           name="profil"
-          options={{ title: 'Profil', tabBarIcon: ({ color }) => <IcoUser color={color} /> }}
+          options={{ title: t('profile'), tabBarIcon: ({ color }) => <IcoUser color={color} /> }}
         />
       </Tabs>
 
