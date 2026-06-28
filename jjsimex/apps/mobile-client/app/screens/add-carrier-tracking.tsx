@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BackButton } from '@/components/layout/BackButton';
 import { addCarrierTracking } from '@jjsimex/supabase/packages';
 import { ChevronDown, CheckCircle } from 'lucide-react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const ACCENT = '#F97316';
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
@@ -17,6 +18,7 @@ const CARRIERS = ['UPS', 'FedEx', 'USPS', 'Amazon Logistics', 'DHL', 'Autre'];
 export default function AddCarrierTrackingScreen() {
   const router = useRouter();
   const { session } = useAuth();
+  const { colors, isDark } = useTheme();
   const params = useLocalSearchParams<{ packageId: string; requestNumber: string }>();
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
@@ -39,11 +41,11 @@ export default function AddCarrierTrackingScreen() {
 
   if (done) {
     return (
-      <View style={s.container}>
+      <View style={[s.container, { backgroundColor: colors.bg }]}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <CheckCircle size={72} color="#22C55E" strokeWidth={1.5} />
-          <Text style={s.doneTitle}>Tracking ajouté !</Text>
-          <Text style={s.doneDesc}>
+          <Text style={[s.doneTitle, { color: colors.text }]}>Tracking ajouté !</Text>
+          <Text style={[s.doneDesc, { color: colors.textSecondary }]}>
             Nous suivrons l'arrivée de votre colis et vous notifierons dès sa réception dans notre entrepôt.
           </Text>
           <TouchableOpacity style={s.ctaBtn} onPress={() => router.replace('/(tabs-client)/')} activeOpacity={0.85}>
@@ -55,48 +57,48 @@ export default function AddCarrierTrackingScreen() {
   }
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: colors.bg }]}>
       <View style={s.header}>
         <BackButton />
-        <Text style={s.headerTitle}>Numéro de suivi</Text>
+        <Text style={[s.headerTitle, { color: colors.text }]}>Numéro de suivi</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
         {params.requestNumber && (
-          <View style={s.refCard}>
-            <Text style={s.refLabel}>Référence demande</Text>
+          <View style={[s.refCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[s.refLabel, { color: colors.textMuted }]}>Référence demande</Text>
             <Text style={s.refValue}>{params.requestNumber}</Text>
           </View>
         )}
 
-        <Text style={s.inputLabel}>Transporteur</Text>
-        <TouchableOpacity style={s.dropdown} onPress={() => setShowPicker(!showPicker)} activeOpacity={0.8}>
-          <Text style={{ color: carrier ? '#FFFFFF' : '#555', fontSize: 15 }}>{carrier || 'Choisir un transporteur'}</Text>
-          <ChevronDown size={18} color="#666" />
+        <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Transporteur</Text>
+        <TouchableOpacity style={[s.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setShowPicker(!showPicker)} activeOpacity={0.8}>
+          <Text style={{ color: carrier ? colors.text : colors.textMuted, fontSize: 15 }}>{carrier || 'Choisir un transporteur'}</Text>
+          <ChevronDown size={18} color={colors.textMuted} />
         </TouchableOpacity>
         {showPicker && (
-          <View style={s.pickerList}>
+          <View style={[s.pickerList, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {CARRIERS.map((c) => (
-              <TouchableOpacity key={c} style={s.pickerItem} onPress={() => { setCarrier(c); setShowPicker(false); }}>
-                <Text style={[s.pickerItemText, carrier === c && { color: ACCENT }]}>{c}</Text>
+              <TouchableOpacity key={c} style={[s.pickerItem, { borderBottomColor: colors.border }]} onPress={() => { setCarrier(c); setShowPicker(false); }}>
+                <Text style={[s.pickerItemText, { color: colors.text }, carrier === c && { color: ACCENT }]}>{c}</Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
 
-        <Text style={s.inputLabel}>Numéro de tracking</Text>
+        <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Numéro de tracking</Text>
         <TextInput
-          style={s.input}
+          style={[s.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
           value={trackingNumber}
           onChangeText={setTrackingNumber}
           placeholder="Ex: 1Z999AA10123456784"
-          placeholderTextColor="#555"
+          placeholderTextColor={colors.textMuted}
           autoCapitalize="characters"
         />
       </ScrollView>
 
-      <View style={s.bottomBar}>
+      <View style={[s.bottomBar, { backgroundColor: colors.bg, borderTopColor: colors.card }]}>
         <TouchableOpacity
           style={[s.ctaBtn, (!carrier || !trackingNumber) && { opacity: 0.4 }]}
           onPress={handleSave}

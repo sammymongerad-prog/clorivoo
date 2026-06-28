@@ -5,6 +5,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/contexts/ThemeContext';
 
 type FilterType = 'tous' | 'colis' | 'paiement' | 'promo' | 'systeme';
 
@@ -59,6 +60,7 @@ function fmtTime(date: string): string {
 export default function NotificationsScreen() {
   const router = useRouter();
   const { session } = useAuth();
+  const { colors, isDark } = useTheme();
   const [filter, setFilter] = useState<FilterType>('tous');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,12 +134,12 @@ export default function NotificationsScreen() {
   if (olderItems.length) grouped.push({ label: 'Cette semaine', items: olderItems });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* HEADER */}
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={styles.title}>Notifications</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unreadCount}</Text>
@@ -156,10 +158,10 @@ export default function NotificationsScreen() {
             <TouchableOpacity
               key={f.key}
               onPress={() => setFilter(f.key)}
-              style={[styles.filterTab, filter === f.key && styles.filterTabActive]}
+              style={[styles.filterTab, { backgroundColor: colors.card, borderColor: colors.border }, filter === f.key && styles.filterTabActive]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+              <Text style={[styles.filterText, { color: colors.textSecondary }, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -173,23 +175,23 @@ export default function NotificationsScreen() {
       >
         {loading && (
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
-            <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Chargement...</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Chargement...</Text>
           </View>
         )}
 
         {!loading && filtered.length === 0 && (
           <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
+            <View style={[styles.emptyIcon, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={{ fontSize: 32 }}>🔔</Text>
             </View>
-            <Text style={styles.emptyTitle}>Aucune notification</Text>
-            <Text style={styles.emptyText}>Vous êtes à jour ! On vous préviendra dès qu'un colis bougera.</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucune notification</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Vous êtes à jour ! On vous préviendra dès qu'un colis bougera.</Text>
           </View>
         )}
 
         {grouped.map(group => (
           <View key={group.label}>
-            <Text style={styles.groupLabel}>{group.label}</Text>
+            <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>{group.label}</Text>
             {group.items.map(notif => {
               const ico = TYPE_ICON[notif.type] ?? { emoji: '📢', bg: '#9CA3AF' };
               return (
@@ -197,7 +199,7 @@ export default function NotificationsScreen() {
                   key={notif.id}
                   onPress={() => handleTap(notif)}
                   activeOpacity={0.85}
-                  style={[styles.card, !notif.is_read && styles.cardUnread]}
+                  style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, !notif.is_read && styles.cardUnread]}
                 >
                   {!notif.is_read && <View style={styles.unreadDot} />}
                   <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -205,9 +207,9 @@ export default function NotificationsScreen() {
                       <Text style={{ fontSize: 18 }}>{ico.emoji}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.cardTitle, notif.is_read && { color: '#9CA3AF' }]}>{notif.title}</Text>
-                      <Text style={styles.cardBody}>{notif.body}</Text>
-                      <Text style={styles.cardTime}>{fmtTime(notif.created_at)}</Text>
+                      <Text style={[styles.cardTitle, { color: colors.text }, notif.is_read && { color: colors.textSecondary }]}>{notif.title}</Text>
+                      <Text style={[styles.cardBody, { color: colors.textSecondary }]}>{notif.body}</Text>
+                      <Text style={[styles.cardTime, { color: colors.textMuted }]}>{fmtTime(notif.created_at)}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>

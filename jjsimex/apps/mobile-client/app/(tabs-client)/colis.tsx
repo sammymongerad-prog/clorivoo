@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getMyPackages, subscribeToPackages } from '@jjsimex/supabase/packages';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PackageCard } from '@/components/ui/PackageCard';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const FILTERS = [
   { key: 'all', label: 'Tous' },
@@ -18,6 +19,7 @@ type Pkg = any;
 export default function ColisScreen() {
   const router = useRouter();
   const { session } = useAuth();
+  const { colors, isDark } = useTheme();
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,28 +57,28 @@ export default function ColisScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Mes colis</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Mes colis</Text>
         <View style={styles.searchRow}>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
             placeholder="Rechercher un tracking..."
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
           />
         </View>
-        <View style={styles.filterRow}>
+        <View style={[styles.filterRow, { borderBottomColor: colors.card }]}>
           {FILTERS.map(f => (
             <TouchableOpacity
               key={f.key}
               onPress={() => setFilter(f.key)}
-              style={[styles.filterTab, filter === f.key && styles.filterTabActive]}
+              style={[styles.filterTab, { backgroundColor: colors.card, borderColor: colors.border }, filter === f.key && styles.filterTabActive]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+              <Text style={[styles.filterText, { color: colors.textSecondary }, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -91,8 +93,8 @@ export default function ColisScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>📦</Text>
-            <Text style={styles.emptyTitle}>{loading ? 'Chargement...' : 'Aucun colis'}</Text>
-            <Text style={styles.emptyText}>Vos colis apparaîtront ici une fois créés</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{loading ? 'Chargement...' : 'Aucun colis'}</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Vos colis apparaîtront ici une fois créés</Text>
           </View>
         }
         renderItem={({ item }) => (

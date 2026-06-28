@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text } from 'react-native';
-import RNSlider from '@react-native-community/slider';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface Props {
   min: number;
@@ -13,25 +13,35 @@ interface Props {
 }
 
 export function Slider({ min, max, value, onChange, step = 1, label, formatValue }: Props) {
+  const { colors, isDark } = useTheme();
+  const pct = ((value - min) / (max - min)) * 100;
+
+  function adjust(delta: number) {
+    const next = Math.round((value + delta) / step) * step;
+    onChange(Math.max(min, Math.min(max, next)));
+  }
+
   return (
     <View>
       {label && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-          <Text style={{ fontSize: 13, color: '#9CA3AF' }}>{label}</Text>
+          <Text style={{ fontSize: 13, color: colors.textSecondary }}>{label}</Text>
           <Text style={{ fontSize: 14, fontWeight: '700', color: '#F97316' }}>{formatValue ? formatValue(value) : value}</Text>
         </View>
       )}
-      <RNSlider
-        style={{ width: '100%', height: 40 }}
-        minimumValue={min}
-        maximumValue={max}
-        value={value}
-        step={step}
-        onValueChange={onChange}
-        minimumTrackTintColor="#F97316"
-        maximumTrackTintColor="#2A2A2A"
-        thumbTintColor="#FFFFFF"
-      />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <TouchableOpacity onPress={() => adjust(-step)} activeOpacity={0.7}
+          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}>−</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1, height: 6, backgroundColor: colors.border, borderRadius: 3 }}>
+          <View style={{ width: `${pct}%`, height: 6, backgroundColor: '#F97316', borderRadius: 3 }} />
+        </View>
+        <TouchableOpacity onPress={() => adjust(step)} activeOpacity={0.7}
+          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}>+</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

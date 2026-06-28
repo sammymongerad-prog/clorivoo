@@ -1,26 +1,33 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import RNSlider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { calculateShipping, getDestinationCities } from '@jjsimex/supabase/shipping';
 import type { TransportMode, DestinationCountry, ShippingResult } from '@jjsimex/supabase/shipping';
 
-function CustomSlider({ min, max, step, value, onChange }: {
-  min: number; max: number; step: number; value: number; onChange: (v: number) => void;
+function CustomSlider({ min, max, step, value, onChange, colors }: {
+  min: number; max: number; step: number; value: number; onChange: (v: number) => void; colors: any;
 }) {
+  const pct = ((value - min) / (max - min)) * 100;
+  function adjust(delta: number) {
+    const next = Math.round((value + delta) / step) * step;
+    onChange(Math.max(min, Math.min(max, next)));
+  }
   return (
-    <RNSlider
-      style={{ width: '100%', height: 40 }}
-      minimumValue={min}
-      maximumValue={max}
-      value={value}
-      step={step}
-      onValueChange={onChange}
-      minimumTrackTintColor="#F97316"
-      maximumTrackTintColor="#2A2A2A"
-      thumbTintColor="#FFFFFF"
-    />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <TouchableOpacity onPress={() => adjust(-step * 5)} activeOpacity={0.7}
+        style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}>−</Text>
+      </TouchableOpacity>
+      <View style={{ flex: 1, height: 6, backgroundColor: colors.border, borderRadius: 3 }}>
+        <View style={{ width: `${pct}%`, height: 6, backgroundColor: '#F97316', borderRadius: 3 }} />
+      </View>
+      <TouchableOpacity onPress={() => adjust(step * 5)} activeOpacity={0.7}
+        style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}>+</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -37,6 +44,7 @@ const LEVEL_STYLE = {
 export default function CalculateurScreen() {
   const router = useRouter();
   const { profile } = useAuth();
+  const { colors, isDark } = useTheme();
 
   const [mode, setMode] = useState<TransportMode>('air');
   const [dest, setDest] = useState<DestinationCountry>('haiti');
@@ -118,12 +126,12 @@ export default function CalculateurScreen() {
     : `${Math.round((result?.estimated_days_min ?? 21) / 7)}-${Math.round((result?.estimated_days_max ?? 28) / 7)} semaines`;
 
   return (
-    <View style={S.container}>
-      <View style={S.header}>
-        <TouchableOpacity style={S.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Text style={{ color: '#FFFFFF', fontSize: 20 }}>←</Text>
+    <View style={[S.container, { backgroundColor: colors.bg }]}>
+      <View style={[S.header, { backgroundColor: colors.bg, borderBottomColor: colors.card }]}>
+        <TouchableOpacity style={[S.backBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.back()} activeOpacity={0.8}>
+          <Text style={{ color: colors.text, fontSize: 20 }}>←</Text>
         </TouchableOpacity>
-        <Text style={S.headerTitle}>Calculateur de tarif</Text>
+        <Text style={[S.headerTitle, { color: colors.text }]}>Calculateur de tarif</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -133,20 +141,20 @@ export default function CalculateurScreen() {
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {([['air', '✈️ Avion', '5-7 jours'], ['sea', '🚢 Bateau', '3-4 semaines']] as [TransportMode, string, string][]).map(([m, label, sub]) => (
             <TouchableOpacity key={m} onPress={() => handleModeChange(m)} activeOpacity={0.8}
-              style={[S.modeBtn, mode === m && S.modeBtnActive]}>
-              <Text style={{ fontWeight: '700', fontSize: 15, color: mode === m ? '#F97316' : '#FFFFFF' }}>{label}</Text>
-              <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{sub}</Text>
+              style={[S.modeBtn, { backgroundColor: colors.card, borderColor: colors.border }, mode === m && S.modeBtnActive]}>
+              <Text style={{ fontWeight: '700', fontSize: 15, color: mode === m ? '#F97316' : colors.text }}>{label}</Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>{sub}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Destination pays */}
-        <Text style={S.label}>Destination</Text>
+        <Text style={[S.label, { color: colors.textSecondary }]}>Destination</Text>
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
           {(['haiti', 'dr'] as DestinationCountry[]).map(d => (
             <TouchableOpacity key={d} onPress={() => handleDestChange(d)} activeOpacity={0.8}
-              style={[S.destBtn, dest === d && S.destBtnActive]}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: dest === d ? '#F97316' : '#9CA3AF' }}>
+              style={[S.destBtn, { backgroundColor: colors.card, borderColor: colors.border }, dest === d && S.destBtnActive]}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: dest === d ? '#F97316' : colors.textSecondary }}>
                 {d === 'haiti' ? '🇭🇹 Haïti' : '🇩🇴 Rép. Dominicaine'}
               </Text>
             </TouchableOpacity>
@@ -159,9 +167,9 @@ export default function CalculateurScreen() {
             {currentCities.map(c => (
               <TouchableOpacity key={c} onPress={() => setCity(c)} activeOpacity={0.8}
                 style={{ height: 36, borderRadius: 99, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: city === c ? '#F97316' : '#1A1A1A',
-                  borderWidth: 1, borderColor: city === c ? '#F97316' : '#2A2A2A' }}>
-                <Text style={{ color: city === c ? '#0D0D0D' : '#9CA3AF', fontSize: 13, fontWeight: '600' }}>{c}</Text>
+                  backgroundColor: city === c ? '#F97316' : colors.card,
+                  borderWidth: 1, borderColor: city === c ? '#F97316' : colors.border }}>
+                <Text style={{ color: city === c ? '#0D0D0D' : colors.textSecondary, fontSize: 13, fontWeight: '600' }}>{c}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -170,13 +178,13 @@ export default function CalculateurScreen() {
         {/* Slider poids */}
         <View style={{ marginBottom: 26 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Text style={S.label}>Poids du colis</Text>
+            <Text style={[S.label, { color: colors.textSecondary }]}>Poids du colis</Text>
             <Text style={{ fontSize: 24, fontWeight: '800', color: '#F97316', letterSpacing: -0.5 }}>{weight.toFixed(1)} lbs</Text>
           </View>
-          <CustomSlider min={0.5} max={150} step={0.5} value={weight} onChange={setWeight} />
+          <CustomSlider min={0.5} max={150} step={0.5} value={weight} onChange={setWeight} colors={colors} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
             {['0.5', '25', '50', '75', '100+'].map(v => (
-              <Text key={v} style={{ fontSize: 11, color: '#6B7280' }}>{v}</Text>
+              <Text key={v} style={{ fontSize: 11, color: colors.textMuted }}>{v}</Text>
             ))}
           </View>
         </View>
@@ -184,23 +192,23 @@ export default function CalculateurScreen() {
         {/* Slider valeur déclarée */}
         <View style={{ marginBottom: 26 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Text style={S.label}>Valeur du colis</Text>
+            <Text style={[S.label, { color: colors.textSecondary }]}>Valeur du colis</Text>
             <Text style={{ fontSize: 24, fontWeight: '800', color: '#F97316', letterSpacing: -0.5 }}>${value}</Text>
           </View>
-          <CustomSlider min={0} max={500} step={5} value={value} onChange={setValue} />
+          <CustomSlider min={0} max={500} step={5} value={value} onChange={setValue} colors={colors} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
             {['$0', '$100', '$200', '$500'].map(v => (
-              <Text key={v} style={{ fontSize: 11, color: '#6B7280' }}>{v}</Text>
+              <Text key={v} style={{ fontSize: 11, color: colors.textMuted }}>{v}</Text>
             ))}
           </View>
-          <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 8 }}>
+          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 8 }}>
             Assurance incluse jusqu'à $100 automatiquement
           </Text>
         </View>
 
         {/* Carte résultat */}
-        <View style={S.resultCard}>
-          <Text style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center' }}>Votre estimation</Text>
+        <View style={[S.resultCard, { backgroundColor: colors.card }]}>
+          <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center' }}>Votre estimation</Text>
 
           {loading ? (
             <View style={{ alignItems: 'center', paddingVertical: 16 }}>
@@ -210,11 +218,11 @@ export default function CalculateurScreen() {
             <>
               {/* Prix avant réduction */}
               {result && result.loyalty_discount_percent > 0 && (
-                <Text style={{ fontSize: 18, color: '#6B7280', textAlign: 'center', marginTop: 8, textDecorationLine: 'line-through' }}>
+                <Text style={{ fontSize: 18, color: colors.textMuted, textAlign: 'center', marginTop: 8, textDecorationLine: 'line-through' }}>
                   ${result.base_price.toFixed(2)}
                 </Text>
               )}
-              <Text style={{ fontSize: 52, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', letterSpacing: -1.5, lineHeight: 60, marginTop: 4 }}>
+              <Text style={{ fontSize: 52, fontWeight: '800', color: colors.text, textAlign: 'center', letterSpacing: -1.5, lineHeight: 60, marginTop: 4 }}>
                 ${price.toFixed(2)}
               </Text>
 
@@ -228,8 +236,8 @@ export default function CalculateurScreen() {
               {/* Si non connecté */}
               {!profile && (
                 <TouchableOpacity onPress={() => router.push('/(auth)/login')} activeOpacity={0.8}
-                  style={{ marginTop: 10, backgroundColor: '#1F1F1F', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'center' }}>
-                  <Text style={{ color: '#9CA3AF', fontSize: 11, textAlign: 'center' }}>
+                  style={{ marginTop: 10, backgroundColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'center' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 11, textAlign: 'center' }}>
                     Connectez-vous pour voir{'\n'}vos réductions fidélité
                   </Text>
                 </TouchableOpacity>
@@ -238,26 +246,26 @@ export default function CalculateurScreen() {
           )}
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-            <View style={{ backgroundColor: '#2A2A2A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
-              <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>{weight.toFixed(1)} lbs facturés</Text>
+            <View style={{ backgroundColor: colors.border, borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600' }}>{weight.toFixed(1)} lbs facturés</Text>
             </View>
             <View style={{ backgroundColor: '#C2600A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>{mode === 'air' ? '✈️ Avion' : '🚢 Bateau'}</Text>
             </View>
-            <View style={{ backgroundColor: '#2A2A2A', borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
-              <Text style={{ color: '#C9CDD3', fontSize: 12, fontWeight: '600' }}>{city}</Text>
+            <View style={{ backgroundColor: colors.border, borderRadius: 99, paddingHorizontal: 13, paddingVertical: 7 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600' }}>{city}</Text>
             </View>
           </View>
 
-          <View style={{ height: 1, backgroundColor: '#2A2A2A', marginVertical: 20 }} />
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 20 }} />
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
             <Text style={{ color: '#F97316', fontSize: 16 }}>📅</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Livraison ~ {deliveryText}</Text>
+            <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>Livraison ~ {deliveryText}</Text>
           </View>
 
           {result?.estimated_delivery_date ? (
-            <Text style={{ fontSize: 12, color: '#6B7280', textAlign: 'center', marginTop: 6 }}>
+            <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 6 }}>
               Estimé le {result.estimated_delivery_date}
             </Text>
           ) : null}
@@ -267,14 +275,14 @@ export default function CalculateurScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               {['Départ', 'Transit', 'Arrivée', 'Livraison'].map((step, i) => (
                 <View key={step} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: i === 0 ? '#F97316' : '#2E2E2E' }} />
-                  {i < 3 && <View style={{ flex: 1, height: 2, backgroundColor: '#2E2E2E' }} />}
+                  <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: i === 0 ? '#F97316' : colors.border }} />
+                  {i < 3 && <View style={{ flex: 1, height: 2, backgroundColor: colors.border }} />}
                 </View>
               ))}
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
               {['Départ', 'Transit', 'Arrivée', 'Livraison'].map((step, i) => (
-                <Text key={step} style={{ fontSize: 10, color: i === 0 ? '#F97316' : '#6B7280', fontWeight: i === 0 ? '600' : '400', width: 50, textAlign: i === 0 ? 'left' : i === 3 ? 'right' : 'center' }}>{step}</Text>
+                <Text key={step} style={{ fontSize: 10, color: i === 0 ? '#F97316' : colors.textMuted, fontWeight: i === 0 ? '600' : '400', width: 50, textAlign: i === 0 ? 'left' : i === 3 ? 'right' : 'center' }}>{step}</Text>
               ))}
             </View>
           </View>
@@ -286,7 +294,7 @@ export default function CalculateurScreen() {
             <Text style={{ fontSize: 22 }}>🛡️</Text>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#22C55E' }}>✅ Votre colis est couvert à 100%</Text>
-              <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Assurance gratuite jusqu'à $100</Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Assurance gratuite jusqu'à $100</Text>
             </View>
             <View style={{ backgroundColor: 'rgba(34,197,94,0.2)', borderRadius: 99, paddingHorizontal: 8, paddingVertical: 4 }}>
               <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>Inclus</Text>
@@ -295,7 +303,7 @@ export default function CalculateurScreen() {
         ) : (
           <View style={{ backgroundColor: 'rgba(249,115,22,0.10)', borderWidth: 1, borderColor: 'rgba(249,115,22,0.25)', borderRadius: 12, padding: 14, marginTop: 14 }}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: '#F97316' }}>⚠️ Valeur dépasse $100</Text>
-            <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Assurance supplémentaire recommandée pour ${value - 100} de couverture additionnelle.</Text>
+            <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Assurance supplémentaire recommandée pour ${value - 100} de couverture additionnelle.</Text>
             <TouchableOpacity activeOpacity={0.8} style={{ marginTop: 10 }}>
               <Text style={{ fontSize: 12, color: '#F97316', fontWeight: '600', textDecorationLine: 'underline' }}>Ajouter une couverture →</Text>
             </TouchableOpacity>
@@ -303,8 +311,8 @@ export default function CalculateurScreen() {
         )}
 
         {/* Détail tarif */}
-        <View style={{ backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 12, padding: 16, marginTop: 14 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', marginBottom: 10 }}>Détail du tarif</Text>
+        <View style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 16, marginTop: 14 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 10 }}>Détail du tarif</Text>
           {[
             [`Frais d'expédition (${weight.toFixed(1)} lbs × $${result?.rate_per_lb_used?.toFixed(2) ?? '—'}/lb)`, `$${result?.base_price?.toFixed(2) ?? '—'}`],
             ['Assurance (jusqu\'à $100)', 'Gratuit'],
@@ -314,13 +322,13 @@ export default function CalculateurScreen() {
             ['Manutention', 'Inclus'],
           ].map(([k, v]) => (
             <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
-              <Text style={{ fontSize: 12, color: '#9CA3AF', flex: 1 }}>{k}</Text>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: v.startsWith('−') ? '#F97316' : v === 'Gratuit' || v === 'Inclus' ? '#22C55E' : '#FFFFFF' }}>{v}</Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, flex: 1 }}>{k}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: v.startsWith('−') ? '#F97316' : v === 'Gratuit' || v === 'Inclus' ? '#22C55E' : colors.text }}>{v}</Text>
             </View>
           ))}
           {result && result.loyalty_discount_percent > 0 && (
-            <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#2A2A2A', flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Total</Text>
+            <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>Total</Text>
               <Text style={{ fontSize: 13, fontWeight: '800', color: '#F97316' }}>${result.final_price.toFixed(2)}</Text>
             </View>
           )}

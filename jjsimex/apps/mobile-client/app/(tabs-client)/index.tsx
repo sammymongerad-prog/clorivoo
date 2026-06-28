@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
@@ -63,6 +64,7 @@ type Pkg = any;
 export default function HomeScreen() {
   const router = useRouter();
   const { session, profile, updateDestination } = useAuth();
+  const { colors, isDark } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [citySheetOpen, setCitySheetOpen] = useState(false);
   const [citySearch, setCitySearch] = useState('');
@@ -162,7 +164,7 @@ export default function HomeScreen() {
   const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -173,19 +175,19 @@ export default function HomeScreen() {
         <View style={[styles.header, { paddingTop: statusBarH + 18 }]}>
           <View style={styles.headerLeft}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
+              <Text style={[styles.avatarText, { color: colors.bg }]}>{initials}</Text>
             </View>
             <View>
-              <Text style={styles.greeting}>Bonjour, {firstName} 👋</Text>
+              <Text style={[styles.greeting, { color: colors.text }]}>Bonjour, {firstName} 👋</Text>
               <TouchableOpacity onPress={() => setCitySheetOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }} activeOpacity={0.7}>
-                <MapPin size={13} color="#9CA3AF" strokeWidth={2} />
-                <Text style={styles.location}>{profile?.destination_city ?? 'Port-au-Prince'}, {profile?.destination_country === 'dr' ? 'Rép. Dom.' : 'Haïti'}</Text>
-                <ChevronDown size={13} color="#9CA3AF" strokeWidth={2} />
+                <MapPin size={13} color={colors.textSecondary} strokeWidth={2} />
+                <Text style={[styles.location, { color: colors.textSecondary }]}>{profile?.destination_city ?? 'Port-au-Prince'}, {profile?.destination_country === 'dr' ? 'Rép. Dom.' : 'Haïti'}</Text>
+                <ChevronDown size={13} color={colors.textSecondary} strokeWidth={2} />
               </TouchableOpacity>
             </View>
           </View>
-          <TouchableOpacity onPress={() => router.push('/(tabs-client)/notifications')} style={styles.bellBtn}>
-            <Bell size={22} color="#FFFFFF" strokeWidth={1.8} />
+          <TouchableOpacity onPress={() => router.push('/(tabs-client)/notifications')} style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Bell size={22} color={colors.text} strokeWidth={1.8} />
             {unreadCount > 0 && <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View>}
           </TouchableOpacity>
         </View>
@@ -194,10 +196,10 @@ export default function HomeScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesRow}>
           {STORIES.map((s, i) => (
             <TouchableOpacity key={i} style={styles.storyItem} activeOpacity={0.8}>
-              <View style={[styles.storyCircle, s.unread && styles.storyCircleActive]}>
-                <s.Icon size={26} color={s.unread ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
+              <View style={[styles.storyCircle, { backgroundColor: colors.card, borderColor: colors.border }, s.unread && styles.storyCircleActive]}>
+                <s.Icon size={26} color={s.unread ? '#F97316' : colors.textSecondary} strokeWidth={1.8} />
               </View>
-              <Text style={styles.storyLabel}>{s.label}</Text>
+              <Text style={[styles.storyLabel, { color: colors.textSecondary }]}>{s.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -220,7 +222,7 @@ export default function HomeScreen() {
         />
         <View style={styles.dots}>
           {BANNERS.map((_, i) => (
-            <View key={i} style={[styles.dot, i === bannerDot && styles.dotActive]} />
+            <View key={i} style={[styles.dot, { backgroundColor: colors.border }, i === bannerDot && styles.dotActive]} />
           ))}
         </View>
 
@@ -228,11 +230,11 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.quickGrid}>
             {QUICK_ACTIONS.map((a, i) => (
-              <TouchableOpacity key={i} onPress={() => router.push(a.route as never)} style={styles.quickCard} activeOpacity={0.8}>
-                <View style={[styles.quickIconWrap, a.darkIcon && { backgroundColor: '#1A1A1A' }]}>
+              <TouchableOpacity key={i} onPress={() => router.push(a.route as never)} style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} activeOpacity={0.8}>
+                <View style={[styles.quickIconWrap, a.darkIcon && { backgroundColor: colors.card }]}>
                   <a.Icon size={22} color="#F97316" strokeWidth={1.8} />
                 </View>
-                <Text style={styles.quickLabel}>{a.label}</Text>
+                <Text style={[styles.quickLabel, { color: colors.text }]}>{a.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -240,7 +242,7 @@ export default function HomeScreen() {
 
         {/* ─── NOUVEAUTÉS ─── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Nouveautés</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Nouveautés</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
             {/* Card 1: GIF animé */}
             <View style={{ width: 200, height: 220, borderRadius: 20, overflow: 'hidden' }}>
@@ -252,24 +254,24 @@ export default function HomeScreen() {
             </View>
 
             {/* Card 2: Pickup */}
-            <TouchableOpacity onPress={() => router.push('/screens/pickup')} style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }} activeOpacity={0.85}>
+            <TouchableOpacity onPress={() => router.push('/screens/pickup')} style={{ width: 200, borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }} activeOpacity={0.85}>
               <View style={{ height: 160 }}>
                 <Image source={require('../../assets/images/options/pickup.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               </View>
               <View style={{ padding: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF', marginBottom: 4 }}>Service</Text>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Pickup à domicile</Text>
+                <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary, marginBottom: 4 }}>Service</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Pickup à domicile</Text>
               </View>
             </TouchableOpacity>
 
             {/* Card 3: Drop-off */}
-            <TouchableOpacity onPress={() => router.push('/screens/dropoff')} style={{ width: 200, borderRadius: 16, backgroundColor: '#1A1A1A', overflow: 'hidden', borderWidth: 1, borderColor: '#2A2A2A' }} activeOpacity={0.85}>
+            <TouchableOpacity onPress={() => router.push('/screens/dropoff')} style={{ width: 200, borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }} activeOpacity={0.85}>
               <View style={{ height: 160 }}>
                 <Image source={require('../../assets/images/options/dropoff.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               </View>
               <View style={{ padding: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF', marginBottom: 4 }}>Service</Text>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Points de dépôt</Text>
+                <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary, marginBottom: 4 }}>Service</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Points de dépôt</Text>
               </View>
             </TouchableOpacity>
           </ScrollView>
@@ -296,15 +298,15 @@ export default function HomeScreen() {
             const IconComp = mode === 'air' ? Plane : Ship;
             return (
               <View style={{
-                flex: 1, backgroundColor: '#1A1A1A', borderRadius: 16, padding: 14,
-                borderWidth: data.urgent ? 1.5 : 1, borderColor: data.urgent ? '#F97316' : '#2A2A2A',
+                flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 14,
+                borderWidth: data.urgent ? 1.5 : 1, borderColor: data.urgent ? '#F97316' : colors.border,
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                  <IconComp size={16} color={data.urgent ? '#F97316' : '#9CA3AF'} strokeWidth={2} />
-                  <Text style={{ fontSize: 13, fontWeight: '500', color: '#9CA3AF' }}>{label}</Text>
+                  <IconComp size={16} color={data.urgent ? '#F97316' : colors.textSecondary} strokeWidth={2} />
+                  <Text style={{ fontSize: 13, fontWeight: '500', color: colors.textSecondary }}>{label}</Text>
                 </View>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 10 }}>{data.dateStr}</Text>
-                <View style={{ height: 5, backgroundColor: '#2A2A2A', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 10 }}>{data.dateStr}</Text>
+                <View style={{ height: 5, backgroundColor: colors.border, borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
                   <View style={{ width: `${Math.max(Math.min(data.pct, 100), 3)}%`, height: '100%', backgroundColor: data.urgent ? '#F97316' : '#22C55E', borderRadius: 99 }} />
                 </View>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: data.urgent ? '#F97316' : '#22C55E', marginBottom: 10 }}>{data.remaining.toFixed(0)} lbs restantes</Text>
@@ -318,7 +320,7 @@ export default function HomeScreen() {
           return (
             <View style={styles.section}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF' }}>Prochain départ</Text>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Prochain départ</Text>
                 <TouchableOpacity><Text style={{ fontSize: 13, fontWeight: '600', color: '#F97316' }}>Voir calendrier →</Text></TouchableOpacity>
               </View>
               <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -339,7 +341,7 @@ export default function HomeScreen() {
           return (
             <View style={styles.section}>
               <View style={styles.sectionRow}>
-                <Text style={styles.sectionTitle}>Colis en cours</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Colis en cours</Text>
                 <TouchableOpacity onPress={() => router.push('/(tabs-client)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
               </View>
               <View style={{ backgroundColor: '#F97316', borderRadius: 16, padding: 18, gap: 14 }}>
@@ -394,10 +396,10 @@ export default function HomeScreen() {
         {recentPackages.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionRow}>
-              <Text style={styles.sectionTitle}>Récents</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Récents</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs-client)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
             </View>
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {recentPackages.map((pkg: Pkg, i: number) => {
                 const statusColors: Record<string, { bg: string; text: string }> = {
                   received_usa: { bg: 'rgba(156,163,175,0.2)', text: '#9CA3AF' },
@@ -410,13 +412,13 @@ export default function HomeScreen() {
                 const desc = pkg.description ?? pkg.destination_city ?? '';
                 return (
                   <TouchableOpacity key={pkg.id} onPress={() => router.push(`/colis/${pkg.id}`)} activeOpacity={0.7}
-                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#1F1F1F', gap: 12 }}>
-                    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }}>
-                      <Package size={18} color="#9CA3AF" strokeWidth={1.8} />
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: colors.border, gap: 12 }}>
+                    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                      <Package size={18} color={colors.textSecondary} strokeWidth={1.8} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{pkg.tracking_number}</Text>
-                      {desc ? <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }} numberOfLines={1}>{desc}</Text> : null}
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>{pkg.tracking_number}</Text>
+                      {desc ? <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }} numberOfLines={1}>{desc}</Text> : null}
                     </View>
                     <View style={{ backgroundColor: sc.bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
                       <Text style={{ fontSize: 10, fontWeight: '700', color: sc.text }}>
@@ -433,7 +435,7 @@ export default function HomeScreen() {
         {/* ─── SECTION 4: NOS SUCCURSALES ─── */}
         <View style={[styles.section, { marginBottom: 30 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF' }}>Nos succursales</Text>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Nos succursales</Text>
             <TouchableOpacity><Text style={{ fontSize: 13, fontWeight: '600', color: '#F97316' }}>Voir la carte →</Text></TouchableOpacity>
           </View>
           <View style={{ gap: 10 }}>
@@ -446,19 +448,19 @@ export default function HomeScreen() {
                 (b as any).distance ? `${(b as any).distance}` : null,
               ].filter(Boolean).join(' · ');
               return (
-                <View key={b.id} style={{ backgroundColor: '#1A1A1A', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View key={b.id} style={{ backgroundColor: colors.card, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: isFirst ? 'rgba(249,115,22,0.15)' : '#2A2A2A', alignItems: 'center', justifyContent: 'center' }}>
-                      <MapPin size={20} color={isFirst ? '#F97316' : '#9CA3AF'} strokeWidth={1.8} />
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: isFirst ? 'rgba(249,115,22,0.15)' : colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                      <MapPin size={20} color={isFirst ? '#F97316' : colors.textSecondary} strokeWidth={1.8} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF', marginBottom: 6 }}>{b.name}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 6 }}>{b.name}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                          <Text style={{ fontSize: 11, fontWeight: '600', color: open ? '#22C55E' : '#9CA3AF' }}>{open ? 'Ouvert maintenant' : 'Fermé'}</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '600', color: open ? '#22C55E' : colors.textSecondary }}>{open ? 'Ouvert maintenant' : 'Fermé'}</Text>
                         </View>
                         {timeDistText ? (
-                          <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF' }}>{timeDistText}</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary }}>{timeDistText}</Text>
                         ) : null}
                       </View>
                     </View>
@@ -468,8 +470,8 @@ export default function HomeScreen() {
                       if (b.latitude && b.longitude) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`);
                       else if (b.address) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`);
                     }}
-                    style={{ backgroundColor: '#2A2A2A', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, marginLeft: 10 }} activeOpacity={0.7}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>Itinéraire</Text>
+                    style={{ backgroundColor: colors.border, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, marginLeft: 10 }} activeOpacity={0.7}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>Itinéraire</Text>
                   </TouchableOpacity>
                 </View>
               );
@@ -479,7 +481,7 @@ export default function HomeScreen() {
 
         {/* ─── LEGAL FOOTER ─── */}
         <View style={{ paddingHorizontal: 20, paddingVertical: 16, marginTop: 8 }}>
-          <Text style={{ fontSize: 11, lineHeight: 16, color: '#9CA3AF', textAlign: 'center' }}>
+          <Text style={{ fontSize: 11, lineHeight: 16, color: colors.textSecondary, textAlign: 'center' }}>
             JJ's IMEX opère entre Miami, Boston, Haïti et la République Dominicaine. Service soumis à nos conditions de transport.
           </Text>
           <TouchableOpacity onPress={() => Linking.openURL('https://jjsimex.com/conditions')} style={{ alignSelf: 'center', marginTop: 6 }}>
@@ -493,13 +495,13 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setCitySheetOpen(false)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-              <View style={styles.sheetContainer}>
-                <View style={styles.sheetHandle} />
-                <Text style={styles.sheetTitle}>Choisir ma ville</Text>
+              <View style={[styles.sheetContainer, { backgroundColor: colors.card }]}>
+                <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+                <Text style={[styles.sheetTitle, { color: colors.text }]}>Choisir ma ville</Text>
                 <TextInput
-                  style={styles.sheetInput}
+                  style={[styles.sheetInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                   placeholder="Tapez une ville..."
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor={colors.textMuted}
                   value={citySearch}
                   onChangeText={setCitySearch}
                   autoCapitalize="words"
@@ -510,10 +512,10 @@ export default function HomeScreen() {
                     if (filtered.length === 0) return null;
                     return (
                       <View key={section.country} style={{ marginBottom: 16 }}>
-                        <Text style={styles.sheetSectionTitle}>{section.flag} {section.title}</Text>
+                        <Text style={[styles.sheetSectionTitle, { color: colors.textSecondary }]}>{section.flag} {section.title}</Text>
                         {filtered.map(c => (
                           <TouchableOpacity key={c} onPress={() => pickCity(section.country, c)} style={[styles.sheetCity, profile?.destination_city === c && styles.sheetCityActive]} activeOpacity={0.7}>
-                            <Text style={[styles.sheetCityText, profile?.destination_city === c && { color: '#F97316', fontWeight: '700' }]}>{c}</Text>
+                            <Text style={[styles.sheetCityText, { color: colors.text }, profile?.destination_city === c && { color: '#F97316', fontWeight: '700' }]}>{c}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -554,12 +556,12 @@ export default function HomeScreen() {
                       <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginVertical: 1 }}>{r.value}</Text>
                       <Text style={{ fontSize: 10, fontWeight: '600', color: '#F97316' }}>{r.unit} {r.up ? '▲' : '▼'}</Text>
                     </View>
-                    {i < arr.length - 1 && <View style={{ width: 1, height: 36, backgroundColor: '#2A2A2A' }} />}
+                    {i < arr.length - 1 && <View style={{ width: 1, height: 36, backgroundColor: colors.border }} />}
                   </View>
                 ))}
               </ScrollView>
             </View>
-            <View style={styles.floatingTab}>
+            <View style={[styles.floatingTab, { backgroundColor: colors.card }]}>
               <ArrowLeftRight size={16} color="#F97316" strokeWidth={2} />
               <Text style={styles.floatingTabText}>USD</Text>
             </View>
