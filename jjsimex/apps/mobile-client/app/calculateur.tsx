@@ -1,46 +1,26 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import RNSlider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { calculateShipping, getDestinationCities } from '@jjsimex/supabase/shipping';
 import type { TransportMode, DestinationCountry, ShippingResult } from '@jjsimex/supabase/shipping';
 
-// ─── Custom Slider ─────────────────────────────────────────────────────────────
-
 function CustomSlider({ min, max, step, value, onChange }: {
   min: number; max: number; step: number; value: number; onChange: (v: number) => void;
 }) {
-  const trackWidth = useRef(0);
-  const percent = (value - min) / (max - min);
-
-  const pan = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (_, gs) => {
-      if (!trackWidth.current) return;
-      const pct = Math.max(0, Math.min(1, gs.x0 / trackWidth.current));
-      onChange(Math.round((min + pct * (max - min)) / step) * step);
-    },
-    onPanResponderMove: (_, gs) => {
-      if (!trackWidth.current) return;
-      const pct = Math.max(0, Math.min(1, gs.moveX / trackWidth.current));
-      onChange(Math.round((min + pct * (max - min)) / step) * step);
-    },
-  });
-
   return (
-    <View style={{ height: 40, justifyContent: 'center' }}
-      onLayout={(e: LayoutChangeEvent) => { trackWidth.current = e.nativeEvent.layout.width; }}
-      {...pan.panHandlers}>
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: '#2A2A2A' }}>
-        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${percent * 100}%`, backgroundColor: '#F97316', borderRadius: 2 }} />
-        <View style={{
-          position: 'absolute', top: -8, left: `${percent * 100}%`, marginLeft: -10,
-          width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF',
-          shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4,
-        }} />
-      </View>
-    </View>
+    <RNSlider
+      style={{ width: '100%', height: 40 }}
+      minimumValue={min}
+      maximumValue={max}
+      value={value}
+      step={step}
+      onValueChange={onChange}
+      minimumTrackTintColor="#F97316"
+      maximumTrackTintColor="#2A2A2A"
+      thumbTintColor="#FFFFFF"
+    />
   );
 }
 
