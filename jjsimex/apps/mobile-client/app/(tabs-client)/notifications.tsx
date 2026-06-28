@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type FilterType = 'tous' | 'colis' | 'paiement' | 'promo' | 'systeme';
 
@@ -43,24 +44,25 @@ const FILTER_TYPES: Record<FilterType, string[]> = {
   systeme:  ['system'],
 };
 
-function fmtTime(date: string): string {
-  const d = new Date(date);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 60) return `Il y a ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `Il y a ${diffH}h`;
-  const diffD = Math.floor(diffH / 24);
-  if (diffD === 1) return 'Hier';
-  if (diffD < 7) return `Il y a ${diffD} jours`;
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-}
-
 export default function NotificationsScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { colors, isDark } = useTheme();
+  const { t, lang } = useLanguage();
+
+  function fmtTime(date: string): string {
+    const d = new Date(date);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 60) return lang === 'fr' ? `Il y a ${diffMin} min` : `${diffMin} min ago`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return lang === 'fr' ? `Il y a ${diffH}h` : `${diffH}h ago`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD === 1) return t('yesterday');
+    if (diffD < 7) return lang === 'fr' ? `Il y a ${diffD} jours` : `${diffD} days ago`;
+    return d.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short' });
+  }
   const [filter, setFilter] = useState<FilterType>('tous');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,9 +131,9 @@ export default function NotificationsScreen() {
   const yesterdayItems = filtered.filter(n => new Date(n.created_at).toDateString() === yesterday);
   const olderItems = filtered.filter(n => new Date(n.created_at).toDateString() !== today && new Date(n.created_at).toDateString() !== yesterday);
 
-  if (todayItems.length) grouped.push({ label: "Aujourd'hui", items: todayItems });
-  if (yesterdayItems.length) grouped.push({ label: 'Hier', items: yesterdayItems });
-  if (olderItems.length) grouped.push({ label: 'Cette semaine', items: olderItems });
+  if (todayItems.length) grouped.push({ label: t('today'), items: todayItems });
+  if (yesterdayItems.length) grouped.push({ label: t('yesterday'), items: yesterdayItems });
+  if (olderItems.length) grouped.push({ label: t('this_week'), items: olderItems });
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -139,7 +141,7 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{t('notifications')}</Text>
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unreadCount}</Text>
@@ -148,7 +150,7 @@ export default function NotificationsScreen() {
           </View>
           {unreadCount > 0 && (
             <TouchableOpacity onPress={markAllRead}>
-              <Text style={styles.markAll}>Tout marquer lu</Text>
+              <Text style={styles.markAll}>{t('mark_all_read')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -161,7 +163,7 @@ export default function NotificationsScreen() {
               style={[styles.filterTab, { backgroundColor: colors.card, borderColor: colors.border }, filter === f.key && styles.filterTabActive]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.filterText, { color: colors.textSecondary }, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+              <Text style={[styles.filterText, { color: colors.textSecondary }, filter === f.key && styles.filterTextActive]}>{f.key === 'tous' ? t('filter_all') : f.key === 'colis' ? t('filter_packages') : f.key === 'paiement' ? t('filter_payment') : f.key === 'promo' ? t('filter_promos') : t('filter_system')}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -175,7 +177,7 @@ export default function NotificationsScreen() {
       >
         {loading && (
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Chargement...</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{t('loading')}</Text>
           </View>
         )}
 
@@ -184,8 +186,8 @@ export default function NotificationsScreen() {
             <View style={[styles.emptyIcon, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={{ fontSize: 32 }}>🔔</Text>
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucune notification</Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Vous êtes à jour ! On vous préviendra dès qu'un colis bougera.</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('no_notifications')}</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('up_to_date')}</Text>
           </View>
         )}
 

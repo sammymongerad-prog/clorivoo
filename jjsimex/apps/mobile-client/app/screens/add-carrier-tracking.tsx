@@ -9,6 +9,7 @@ import { BackButton } from '@/components/layout/BackButton';
 import { addCarrierTracking } from '@jjsimex/supabase/packages';
 import { ChevronDown, CheckCircle } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const ACCENT = '#F97316';
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
@@ -19,6 +20,7 @@ export default function AddCarrierTrackingScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const params = useLocalSearchParams<{ packageId: string; requestNumber: string }>();
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
@@ -33,7 +35,7 @@ export default function AddCarrierTrackingScreen() {
       await addCarrierTracking(params.packageId, session.user.id, carrier, trackingNumber);
       setDone(true);
     } catch (e: any) {
-      Alert.alert('Erreur', e.message);
+      Alert.alert(t('error'), e.message);
     } finally {
       setLoading(false);
     }
@@ -44,12 +46,12 @@ export default function AddCarrierTrackingScreen() {
       <View style={[s.container, { backgroundColor: colors.bg }]}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <CheckCircle size={72} color="#22C55E" strokeWidth={1.5} />
-          <Text style={[s.doneTitle, { color: colors.text }]}>Tracking ajouté !</Text>
+          <Text style={[s.doneTitle, { color: colors.text }]}>{t('tracking_added')}</Text>
           <Text style={[s.doneDesc, { color: colors.textSecondary }]}>
-            Nous suivrons l'arrivée de votre colis et vous notifierons dès sa réception dans notre entrepôt.
+            {t('tracking_added_desc')}
           </Text>
           <TouchableOpacity style={s.ctaBtn} onPress={() => router.replace('/(tabs-client)/')} activeOpacity={0.85}>
-            <Text style={s.ctaBtnText}>Retour à l'accueil</Text>
+            <Text style={s.ctaBtnText}>{t('back_to_home')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -60,21 +62,21 @@ export default function AddCarrierTrackingScreen() {
     <View style={[s.container, { backgroundColor: colors.bg }]}>
       <View style={s.header}>
         <BackButton />
-        <Text style={[s.headerTitle, { color: colors.text }]}>Numéro de suivi</Text>
+        <Text style={[s.headerTitle, { color: colors.text }]}>{t('carrier_tracking')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
         {params.requestNumber && (
           <View style={[s.refCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[s.refLabel, { color: colors.textMuted }]}>Référence demande</Text>
+            <Text style={[s.refLabel, { color: colors.textMuted }]}>{t('request_ref')}</Text>
             <Text style={s.refValue}>{params.requestNumber}</Text>
           </View>
         )}
 
-        <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Transporteur</Text>
+        <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('carrier')}</Text>
         <TouchableOpacity style={[s.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setShowPicker(!showPicker)} activeOpacity={0.8}>
-          <Text style={{ color: carrier ? colors.text : colors.textMuted, fontSize: 15 }}>{carrier || 'Choisir un transporteur'}</Text>
+          <Text style={{ color: carrier ? colors.text : colors.textMuted, fontSize: 15 }}>{carrier || t('choose_carrier')}</Text>
           <ChevronDown size={18} color={colors.textMuted} />
         </TouchableOpacity>
         {showPicker && (
@@ -87,7 +89,7 @@ export default function AddCarrierTrackingScreen() {
           </View>
         )}
 
-        <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Numéro de tracking</Text>
+        <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('tracking_number_input')}</Text>
         <TextInput
           style={[s.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
           value={trackingNumber}
@@ -105,7 +107,7 @@ export default function AddCarrierTrackingScreen() {
           activeOpacity={0.85}
           disabled={!carrier || !trackingNumber || loading}
         >
-          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={s.ctaBtnText}>Enregistrer</Text>}
+          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={s.ctaBtnText}>{t('save')}</Text>}
         </TouchableOpacity>
       </View>
     </View>

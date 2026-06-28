@@ -6,6 +6,7 @@ import { getMyPackages, subscribeToPackages } from '@jjsimex/supabase/packages';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PackageCard } from '@/components/ui/PackageCard';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const FILTERS = [
   { key: 'all', label: 'Tous' },
@@ -20,6 +21,7 @@ export default function ColisScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -60,11 +62,11 @@ export default function ColisScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Mes colis</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('my_packages')}</Text>
         <View style={styles.searchRow}>
           <TextInput
             style={[styles.searchInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
-            placeholder="Rechercher un tracking..."
+            placeholder={t('search_tracking')}
             placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
@@ -78,7 +80,7 @@ export default function ColisScreen() {
               style={[styles.filterTab, { backgroundColor: colors.card, borderColor: colors.border }, filter === f.key && styles.filterTabActive]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.filterText, { color: colors.textSecondary }, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+              <Text style={[styles.filterText, { color: colors.textSecondary }, filter === f.key && styles.filterTextActive]}>{f.key === 'all' ? t('all') : f.key === 'active' ? t('active') : t('delivered_filter')}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -93,8 +95,8 @@ export default function ColisScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>📦</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>{loading ? 'Chargement...' : 'Aucun colis'}</Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Vos colis apparaîtront ici une fois créés</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{loading ? t('loading') : t('no_packages')}</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('packages_appear_here')}</Text>
           </View>
         }
         renderItem={({ item }) => (
@@ -106,7 +108,7 @@ export default function ColisScreen() {
                 onPress={() => router.push(`/screens/add-carrier-tracking?packageId=${item.id}&requestNumber=${item.request_number ?? item.tracking_number}`)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.addTrackingText}>Ajouter mon tracking</Text>
+                <Text style={styles.addTrackingText}>{t('add_my_tracking')}</Text>
               </TouchableOpacity>
             )}
           </View>

@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { BackButton } from '@/components/layout/BackButton';
 import { calculateShipping, getDestinationCities } from '@jjsimex/supabase/shipping';
 import { createShipmentRequest } from '@jjsimex/supabase/packages';
@@ -38,6 +39,9 @@ export default function CreateShipmentScreen() {
   const router = useRouter();
   const { session, profile } = useAuth();
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
+
+  const catLabel = (key: string) => { const m: Record<string,string> = { phone: t('cat_phone'), laptop: t('cat_laptop'), clothes: t('cat_clothes'), shoes: t('cat_shoes'), electronics: t('cat_electronics'), home: t('cat_home'), cosmetics: t('cat_cosmetics'), other: t('cat_other') }; return m[key] ?? key; };
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
 
@@ -113,7 +117,7 @@ export default function CreateShipmentScreen() {
         setter(result.assets[0].uri);
       }
     } catch {
-      Alert.alert('Non disponible', 'La sélection de photos nécessite un development build. Les photos pourront être ajoutées ultérieurement.');
+      Alert.alert(t('not_available'), t('photo_needs_build'));
     }
   }
 
@@ -162,7 +166,7 @@ export default function CreateShipmentScreen() {
       setRequestId(result.id);
       setStep(5);
     } catch (e: any) {
-      Alert.alert('Erreur', e.message);
+      Alert.alert(t('error'), e.message);
     } finally {
       setLoading(false);
     }
@@ -199,7 +203,7 @@ export default function CreateShipmentScreen() {
     <View style={[s.container, { backgroundColor: colors.bg }]}>
       <View style={s.header}>
         <BackButton onPress={step > 1 && step < 5 ? () => setStep((step - 1) as Step) : () => router.replace('/(tabs-client)/')} />
-        <Text style={[s.headerTitle, { color: colors.text }]}>Créer un envoi</Text>
+        <Text style={[s.headerTitle, { color: colors.text }]}>{t('create_shipment')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -215,7 +219,7 @@ export default function CreateShipmentScreen() {
           ))}
         </View>
       )}
-      {step < 5 && <Text style={[s.stepLabel, { color: colors.textMuted }]}>Étape {step} sur 4</Text>}
+      {step < 5 && <Text style={[s.stepLabel, { color: colors.textMuted }]}>{t('step_of')} {step} {t('of')} 4</Text>}
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
@@ -223,7 +227,7 @@ export default function CreateShipmentScreen() {
           {/* STEP 1: Category */}
           {step === 1 && (
             <>
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Qu'envoyez-vous ?</Text>
+              <Text style={[s.sectionTitle, { color: colors.text }]}>{t('what_sending')}</Text>
               <View style={s.catGrid}>
                 {CATEGORIES.map((c) => (
                   <TouchableOpacity
@@ -235,7 +239,7 @@ export default function CreateShipmentScreen() {
                     <View style={[s.catIcon, category === c.key && s.catIconActive]}>
                       <c.Icon size={24} color={category === c.key ? '#FFFFFF' : ACCENT} strokeWidth={1.8} />
                     </View>
-                    <Text style={[s.catLabel, { color: colors.textSecondary }, category === c.key && { color: colors.text }]}>{c.label}</Text>
+                    <Text style={[s.catLabel, { color: colors.textSecondary }, category === c.key && { color: colors.text }]}>{catLabel(c.key)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -245,22 +249,22 @@ export default function CreateShipmentScreen() {
           {/* STEP 2: Details + Receiver */}
           {step === 2 && (
             <>
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Le produit</Text>
-              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Description</Text>
+              <Text style={[s.sectionTitle, { color: colors.text }]}>{t('the_product')}</Text>
+              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('description')}</Text>
               <TextInput style={[s.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={description} onChangeText={setDescription} placeholder="Ex: iPhone 16 Pro Max" placeholderTextColor={colors.textMuted} />
 
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Poids estimé (lbs)</Text>
+                  <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('weight_lbs')}</Text>
                   <TextInput style={[s.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={weightEstimated} onChangeText={setWeightEstimated} placeholder="0.0" placeholderTextColor={colors.textMuted} keyboardType="numeric" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Valeur déclarée ($)</Text>
+                  <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('declared_value')}</Text>
                   <TextInput style={[s.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={declaredValue} onChangeText={setDeclaredValue} placeholder="0.00" placeholderTextColor={colors.textMuted} keyboardType="numeric" />
                 </View>
               </View>
 
-              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Quantité</Text>
+              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('quantity')}</Text>
               <View style={s.stepper2}>
                 <TouchableOpacity onPress={() => setQuantity(Math.max(1, quantity - 1))} style={[s.stepperBtn, { backgroundColor: colors.card, borderColor: colors.border }]}><Text style={[s.stepperBtnText, { color: colors.text }]}>−</Text></TouchableOpacity>
                 <Text style={[s.stepperVal, { color: colors.text }]}>{quantity}</Text>
@@ -269,16 +273,16 @@ export default function CreateShipmentScreen() {
 
               <View style={[s.divider, { backgroundColor: colors.border }]} />
 
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Photos du produit (optionnel)</Text>
+              <Text style={[s.sectionTitle, { color: colors.text }]}>{t('product_photos')}</Text>
               <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12, marginTop: -8 }}>
-                Une capture du produit ou de la confirmation de commande nous aide à identifier votre colis.
+                {t('photo_help')}
               </Text>
 
               <View style={s.warningBox}>
                 <AlertTriangle size={20} color={ACCENT} style={{ marginBottom: 6 }} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 4 }}>⚠️ Avant de prendre vos photos</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 4 }}>{t('photo_warning_title')}</Text>
                 <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
-                  Écrivez clairement VOTRE NOM et le NOM DU DESTINATAIRE sur le colis avant de le prendre en photo. Cela nous aide à identifier rapidement votre envoi à la réception et évite les erreurs de livraison.
+                  {t('photo_warning_text')}
                 </Text>
               </View>
 
@@ -300,7 +304,7 @@ export default function CreateShipmentScreen() {
                     ) : (
                       <View style={{ alignItems: 'center' }}>
                         <Camera size={28} color={ACCENT} strokeWidth={1.5} />
-                        <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 6 }}>Tap pour ajouter</Text>
+                        <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 6 }}>{t('tap_to_add')}</Text>
                         <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>{p.label}</Text>
                       </View>
                     )}
@@ -310,19 +314,19 @@ export default function CreateShipmentScreen() {
 
               <View style={[s.divider, { backgroundColor: colors.border }]} />
 
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Destinataire {destCountry === 'haiti' ? 'en Haïti' : 'en Rép. Dom.'}</Text>
+              <Text style={[s.sectionTitle, { color: colors.text }]}>{t('recipient_in')} {destCountry === 'haiti' ? t('in_haiti') : t('in_dr')}</Text>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Prénom</Text>
+                  <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('first_name')}</Text>
                   <TextInput style={[s.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={receiverFirst} onChangeText={setReceiverFirst} placeholder="Jean" placeholderTextColor={colors.textMuted} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Nom</Text>
+                  <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('last_name')}</Text>
                   <TextInput style={[s.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={receiverLast} onChangeText={setReceiverLast} placeholder="Louis" placeholderTextColor={colors.textMuted} />
                 </View>
               </View>
 
-              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Téléphone destinataire</Text>
+              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('recipient_phone')}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={[s.input, { width: 70, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Text style={{ color: '#F97316', fontSize: 15, fontWeight: '700' }}>{destCountry === 'haiti' ? '+509' : '+1'}</Text>
@@ -330,7 +334,7 @@ export default function CreateShipmentScreen() {
                 <TextInput style={[s.input, { flex: 1, backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={receiverPhone} onChangeText={setReceiverPhone} placeholder="33 12 3456" placeholderTextColor={colors.textMuted} keyboardType="phone-pad" />
               </View>
 
-              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Pays</Text>
+              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('country')}</Text>
               <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
                 {(['haiti', 'dr'] as const).map((c) => (
                   <TouchableOpacity
@@ -346,9 +350,9 @@ export default function CreateShipmentScreen() {
                 ))}
               </View>
 
-              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Ville de destination</Text>
+              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('destination_city')}</Text>
               <TouchableOpacity style={[s.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setShowCityPicker(!showCityPicker)} activeOpacity={0.8}>
-                <Text style={{ color: destCity ? colors.text : colors.textMuted, fontSize: 15 }}>{destCity || 'Choisir une ville'}</Text>
+                <Text style={{ color: destCity ? colors.text : colors.textMuted, fontSize: 15 }}>{destCity || t('choose_city_picker')}</Text>
                 <ChevronDown size={18} color={colors.textMuted} />
               </TouchableOpacity>
               {showCityPicker && (
@@ -361,15 +365,15 @@ export default function CreateShipmentScreen() {
                 </View>
               )}
 
-              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Adresse de livraison</Text>
-              <TextInput style={[s.input, { height: 80, textAlignVertical: 'top', backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={destAddress} onChangeText={setDestAddress} placeholder="Adresse complète du destinataire" placeholderTextColor={colors.textMuted} multiline />
+              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>{t('delivery_address')}</Text>
+              <TextInput style={[s.input, { height: 80, textAlignVertical: 'top', backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={destAddress} onChangeText={setDestAddress} placeholder={t('full_address')} placeholderTextColor={colors.textMuted} multiline />
             </>
           )}
 
           {/* STEP 3: Transport */}
           {step === 3 && (
             <>
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Choisissez le transport</Text>
+              <Text style={[s.sectionTitle, { color: colors.text }]}>{t('choose_transport')}</Text>
               <TouchableOpacity
                 style={[s.transportCard, { backgroundColor: colors.card, borderColor: colors.border }, transport === 'air' && s.transportCardActive]}
                 onPress={() => setTransport('air')}
@@ -381,19 +385,19 @@ export default function CreateShipmentScreen() {
                       <Plane size={22} color="#FFFFFF" strokeWidth={1.8} />
                     </View>
                     <View>
-                      <Text style={[s.transportTitle, { color: colors.text }]}>Air Freight</Text>
-                      <Text style={[s.transportSub, { color: colors.textSecondary }]}>Livraison rapide</Text>
+                      <Text style={[s.transportTitle, { color: colors.text }]}>{t('air_freight')}</Text>
+                      <Text style={[s.transportSub, { color: colors.textSecondary }]}>{t('fast_delivery')}</Text>
                     </View>
                   </View>
                   {transport === 'air' && <View style={[s.radioActive, { borderColor: colors.bg }]} />}
                 </View>
                 <View style={[s.transportMeta, { borderTopColor: colors.border }]}>
                   <View>
-                    <Text style={[s.transportMetaLabel, { color: colors.textMuted }]}>Délai estimé</Text>
+                    <Text style={[s.transportMetaLabel, { color: colors.textMuted }]}>{t('estimated_delay')}</Text>
                     <Text style={[s.transportMetaVal, { color: colors.text }]}>{airDays}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[s.transportMetaLabel, { color: colors.textMuted }]}>Prix estimé</Text>
+                    <Text style={[s.transportMetaLabel, { color: colors.textMuted }]}>{t('estimated_price')}</Text>
                     <Text style={[s.transportPrice, { color: colors.text }, transport === 'air' && { color: ACCENT }]}>${airPrice.toFixed(2)}</Text>
                   </View>
                 </View>
@@ -410,19 +414,19 @@ export default function CreateShipmentScreen() {
                       <Ship size={22} color="#FFFFFF" strokeWidth={1.8} />
                     </View>
                     <View>
-                      <Text style={[s.transportTitle, { color: colors.text }]}>Sea Freight</Text>
-                      <Text style={[s.transportSub, { color: colors.textSecondary }]}>Moins cher, plus lent</Text>
+                      <Text style={[s.transportTitle, { color: colors.text }]}>{t('sea_freight')}</Text>
+                      <Text style={[s.transportSub, { color: colors.textSecondary }]}>{t('cheaper_slower')}</Text>
                     </View>
                   </View>
                   {transport === 'sea' && <View style={[s.radioActive, { borderColor: colors.bg }]} />}
                 </View>
                 <View style={[s.transportMeta, { borderTopColor: colors.border }]}>
                   <View>
-                    <Text style={[s.transportMetaLabel, { color: colors.textMuted }]}>Délai estimé</Text>
+                    <Text style={[s.transportMetaLabel, { color: colors.textMuted }]}>{t('estimated_delay')}</Text>
                     <Text style={[s.transportMetaVal, { color: colors.text }]}>{seaDays}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[s.transportMetaLabel, { color: colors.textMuted }]}>Prix estimé</Text>
+                    <Text style={[s.transportMetaLabel, { color: colors.textMuted }]}>{t('estimated_price')}</Text>
                     <Text style={[s.transportPrice, { color: colors.text }, transport === 'sea' && { color: ACCENT }]}>${seaPrice.toFixed(2)}</Text>
                   </View>
                 </View>
@@ -430,60 +434,60 @@ export default function CreateShipmentScreen() {
 
               <View style={[s.divider, { backgroundColor: colors.border }]} />
 
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Résumé de la commande</Text>
+              <Text style={[s.sectionTitle, { color: colors.text }]}>{t('order_summary')}</Text>
               <View style={[s.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <SummaryRow label="Catégorie" value={CATEGORIES.find(c => c.key === category)?.label ?? category} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Description" value={description} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Poids estimé" value={`${weightEstimated} lbs`} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Quantité" value={String(quantity)} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Mode" value={transport === 'air' ? 'Avion' : 'Bateau'} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Délai estimé" value={transport === 'air' ? airDays : seaDays} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('category')} value={catLabel(category)} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('description')} value={description} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('estimated_weight')} value={`${weightEstimated} lbs`} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('quantity')} value={String(quantity)} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('mode')} value={transport === 'air' ? t('airplane') : t('boat')} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('estimated_delay')} value={transport === 'air' ? airDays : seaDays} labelColor={colors.textSecondary} valueColor={colors.text} />
                 <View style={[s.summaryDivider, { backgroundColor: colors.border }]} />
-                <SummaryRow label="Prix expédition" value={`$${selectedPrice.toFixed(2)}`} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Assurance" value={`$${insurance.toFixed(2)}`} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('shipping_price')} value={`$${selectedPrice.toFixed(2)}`} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('insurance')} value={`$${insurance.toFixed(2)}`} labelColor={colors.textSecondary} valueColor={colors.text} />
                 <View style={[s.summaryDivider, { backgroundColor: colors.border }]} />
                 <View style={s.summaryRow}>
-                  <Text style={[s.summaryLabel, { fontWeight: '800', color: colors.text }]}>TOTAL ESTIMÉ</Text>
+                  <Text style={[s.summaryLabel, { fontWeight: '800', color: colors.text }]}>{t('total_estimated')}</Text>
                   <Text style={[s.summaryValue, { fontWeight: '800', color: ACCENT, fontSize: 18 }]}>${total.toFixed(2)}</Text>
                 </View>
               </View>
-              <Text style={[s.noteText, { color: colors.textMuted }]}>Le prix final sera confirmé au poids réel à la réception du colis.</Text>
+              <Text style={[s.noteText, { color: colors.textMuted }]}>{t('price_note')}</Text>
             </>
           )}
 
           {/* STEP 4: Confirm */}
           {step === 4 && (
             <>
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Finaliser votre demande</Text>
+              <Text style={[s.sectionTitle, { color: colors.text }]}>{t('finalize_request')}</Text>
               <View style={[s.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <SummaryRow label="Catégorie" value={CATEGORIES.find(c => c.key === category)?.label ?? category} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Description" value={description} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Poids estimé" value={`${weightEstimated} lbs`} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Quantité" value={String(quantity)} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Mode" value={transport === 'air' ? 'Avion' : 'Bateau'} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Délai estimé" value={transport === 'air' ? airDays : seaDays} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('category')} value={catLabel(category)} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('description')} value={description} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('estimated_weight')} value={`${weightEstimated} lbs`} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('quantity')} value={String(quantity)} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('mode')} value={transport === 'air' ? t('airplane') : t('boat')} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('estimated_delay')} value={transport === 'air' ? airDays : seaDays} labelColor={colors.textSecondary} valueColor={colors.text} />
                 <View style={[s.summaryDivider, { backgroundColor: colors.border }]} />
-                <SummaryRow label="Destinataire" value={`${receiverFirst} ${receiverLast}`} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Tél. destinataire" value={receiverPhone} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Destination" value={`${destCity}, ${destCountry === 'haiti' ? 'Haïti' : 'Rép. Dom.'}`} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Adresse" value={destAddress || '—'} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('recipient_label')} value={`${receiverFirst} ${receiverLast}`} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('recipient_phone_label')} value={receiverPhone} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('destination')} value={`${destCity}, ${destCountry === 'haiti' ? 'Haïti' : 'Rép. Dom.'}`} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('address')} value={destAddress || '—'} labelColor={colors.textSecondary} valueColor={colors.text} />
                 <View style={[s.summaryDivider, { backgroundColor: colors.border }]} />
-                <SummaryRow label="Prix expédition" value={`$${selectedPrice.toFixed(2)}`} labelColor={colors.textSecondary} valueColor={colors.text} />
-                <SummaryRow label="Assurance" value={`$${insurance.toFixed(2)}`} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('shipping_price')} value={`$${selectedPrice.toFixed(2)}`} labelColor={colors.textSecondary} valueColor={colors.text} />
+                <SummaryRow label={t('insurance')} value={`$${insurance.toFixed(2)}`} labelColor={colors.textSecondary} valueColor={colors.text} />
                 <View style={[s.summaryDivider, { backgroundColor: colors.border }]} />
                 <View style={s.summaryRow}>
-                  <Text style={[s.summaryLabel, { fontWeight: '800', color: colors.text }]}>TOTAL ESTIMÉ</Text>
+                  <Text style={[s.summaryLabel, { fontWeight: '800', color: colors.text }]}>{t('total_estimated')}</Text>
                   <Text style={[s.summaryValue, { fontWeight: '800', color: ACCENT, fontSize: 18 }]}>${total.toFixed(2)}</Text>
                 </View>
               </View>
-              <Text style={[s.noteText, { color: colors.textMuted }]}>Le prix final sera confirmé au poids réel à la réception du colis.</Text>
+              <Text style={[s.noteText, { color: colors.textMuted }]}>{t('price_note')}</Text>
 
               <TouchableOpacity style={s.ctaBtn} onPress={handleConfirm} activeOpacity={0.85} disabled={loading}>
-                {loading ? <ActivityIndicator color="#FFF" /> : <Text style={s.ctaBtnText}>Confirmer la demande</Text>}
+                {loading ? <ActivityIndicator color="#FFF" /> : <Text style={s.ctaBtnText}>{t('confirm_request')}</Text>}
               </TouchableOpacity>
 
               <TouchableOpacity style={s.whatsappBtn} onPress={handleWhatsApp} activeOpacity={0.85}>
-                <Text style={s.whatsappBtnText}>Finaliser sur WhatsApp</Text>
+                <Text style={s.whatsappBtnText}>{t('finalize_whatsapp')}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -492,7 +496,7 @@ export default function CreateShipmentScreen() {
           {step === 5 && (
             <View style={{ alignItems: 'center', paddingTop: 40 }}>
               <CheckCircle size={72} color="#22C55E" strokeWidth={1.5} />
-              <Text style={[s.confirmTitle, { color: colors.text }]}>Demande enregistrée !</Text>
+              <Text style={[s.confirmTitle, { color: colors.text }]}>{t('request_saved')}</Text>
               <Text style={s.requestNum}>{requestNumber}</Text>
               <TouchableOpacity
                 style={s.copyBtn}
@@ -500,19 +504,19 @@ export default function CreateShipmentScreen() {
                   try {
                     const Clipboard = require('expo-clipboard');
                     Clipboard.setStringAsync(requestNumber);
-                    Alert.alert('Copié !', requestNumber);
+                    Alert.alert(t('copied'), requestNumber);
                   } catch {
-                    Alert.alert('Numéro', requestNumber);
+                    Alert.alert(t('tracking_number'), requestNumber);
                   }
                 }}
                 activeOpacity={0.7}
               >
                 <Copy size={16} color={ACCENT} />
-                <Text style={s.copyText}>Copier</Text>
+                <Text style={s.copyText}>{t('copy')}</Text>
               </TouchableOpacity>
 
               <Text style={[s.confirmDesc, { color: colors.textSecondary }]}>
-                Achetez votre produit chez le marchand. Vous recevrez une notification dans les 2 à 5 prochains jours pour ajouter votre numéro de suivi et le nom du transporteur utilisé (UPS, FedEx, USPS, etc.).
+                {t('request_desc')}
               </Text>
 
               <TouchableOpacity
@@ -520,7 +524,7 @@ export default function CreateShipmentScreen() {
                 onPress={() => router.push({ pathname: '/screens/add-carrier-tracking', params: { packageId: requestId, requestNumber } })}
                 activeOpacity={0.85}
               >
-                <Text style={s.ctaBtnText}>Ajouter mon tracking maintenant</Text>
+                <Text style={s.ctaBtnText}>{t('add_tracking_now')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -528,7 +532,7 @@ export default function CreateShipmentScreen() {
                 onPress={() => router.replace('/(tabs-client)/')}
                 activeOpacity={0.85}
               >
-                <Text style={[s.outlineBtnText, { color: colors.textSecondary }]}>Plus tard, retour à l'accueil</Text>
+                <Text style={[s.outlineBtnText, { color: colors.textSecondary }]}>{t('later_back_home')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -544,7 +548,7 @@ export default function CreateShipmentScreen() {
             activeOpacity={0.85}
             disabled={!canContinue()}
           >
-            <Text style={s.ctaBtnText}>Continuer</Text>
+            <Text style={s.ctaBtnText}>{t('continue_btn')}</Text>
           </TouchableOpacity>
         </View>
       )}

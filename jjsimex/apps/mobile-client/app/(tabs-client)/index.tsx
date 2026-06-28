@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Bell, ChevronDown, Tag, Plane, BookOpen, Newspaper, Gift, MapPin, Package, ShoppingCart, Calculator, MapPinned, ArrowLeftRight, Ship, Calendar, Check, Navigation, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
@@ -65,6 +66,15 @@ export default function HomeScreen() {
   const router = useRouter();
   const { session, profile, updateDestination } = useAuth();
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
+
+  const STORY_KEYS = ['offers', 'departures', 'guide', 'news', 'sponsorship'];
+  const ACTION_KEYS = ['track_package', 'personal_shopper', 'rate_calculator', 'my_us_addresses'];
+
+  const statusLabel = (s: string) => {
+    const map: Record<string, string> = { awaiting_arrival: t('status_awaiting'), received_usa: t('status_received'), in_transit: t('status_transit'), arrived: t('status_arrived'), ready_pickup: t('status_ready'), delivered: t('status_delivered') };
+    return map[s] ?? s;
+  };
   const [refreshing, setRefreshing] = useState(false);
   const [citySheetOpen, setCitySheetOpen] = useState(false);
   const [citySearch, setCitySearch] = useState('');
@@ -178,7 +188,7 @@ export default function HomeScreen() {
               <Text style={[styles.avatarText, { color: colors.bg }]}>{initials}</Text>
             </View>
             <View>
-              <Text style={[styles.greeting, { color: colors.text }]}>Bonjour, {firstName} 👋</Text>
+              <Text style={[styles.greeting, { color: colors.text }]}>{t('hello')}, {firstName} 👋</Text>
               <TouchableOpacity onPress={() => setCitySheetOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }} activeOpacity={0.7}>
                 <MapPin size={13} color={colors.textSecondary} strokeWidth={2} />
                 <Text style={[styles.location, { color: colors.textSecondary }]}>{profile?.destination_city ?? 'Port-au-Prince'}, {profile?.destination_country === 'dr' ? 'Rép. Dom.' : 'Haïti'}</Text>
@@ -199,7 +209,7 @@ export default function HomeScreen() {
               <View style={[styles.storyCircle, { backgroundColor: colors.card, borderColor: colors.border }, s.unread && styles.storyCircleActive]}>
                 <s.Icon size={26} color={s.unread ? '#F97316' : colors.textSecondary} strokeWidth={1.8} />
               </View>
-              <Text style={[styles.storyLabel, { color: colors.textSecondary }]}>{s.label}</Text>
+              <Text style={[styles.storyLabel, { color: colors.textSecondary }]}>{t(STORY_KEYS[i])}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -234,7 +244,7 @@ export default function HomeScreen() {
                 <View style={[styles.quickIconWrap, a.darkIcon && { backgroundColor: colors.card }]}>
                   <a.Icon size={22} color="#F97316" strokeWidth={1.8} />
                 </View>
-                <Text style={[styles.quickLabel, { color: colors.text }]}>{a.label}</Text>
+                <Text style={[styles.quickLabel, { color: colors.text }]}>{t(ACTION_KEYS[i])}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -242,7 +252,7 @@ export default function HomeScreen() {
 
         {/* ─── NOUVEAUTÉS ─── */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Nouveautés</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('whats_new')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
             {/* Card 1: GIF animé */}
             <View style={{ width: 200, height: 220, borderRadius: 20, overflow: 'hidden' }}>
@@ -259,8 +269,8 @@ export default function HomeScreen() {
                 <Image source={require('../../assets/images/options/pickup.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               </View>
               <View style={{ padding: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary, marginBottom: 4 }}>Service</Text>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Pickup à domicile</Text>
+                <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary, marginBottom: 4 }}>{t('service')}</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>{t('home_pickup')}</Text>
               </View>
             </TouchableOpacity>
 
@@ -270,8 +280,8 @@ export default function HomeScreen() {
                 <Image source={require('../../assets/images/options/dropoff.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               </View>
               <View style={{ padding: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary, marginBottom: 4 }}>Service</Text>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Points de dépôt</Text>
+                <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary, marginBottom: 4 }}>{t('service')}</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>{t('dropoff_points')}</Text>
               </View>
             </TouchableOpacity>
           </ScrollView>
@@ -294,7 +304,7 @@ export default function HomeScreen() {
           const sea = formatDep(seaDeparture, 14, 8000);
 
           const renderCard = (mode: 'air' | 'sea', data: typeof air) => {
-            const label = mode === 'air' ? 'Avion' : 'Bateau';
+            const label = mode === 'air' ? t('airplane') : t('boat');
             const IconComp = mode === 'air' ? Plane : Ship;
             return (
               <View style={{
@@ -309,9 +319,9 @@ export default function HomeScreen() {
                 <View style={{ height: 5, backgroundColor: colors.border, borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
                   <View style={{ width: `${Math.max(Math.min(data.pct, 100), 3)}%`, height: '100%', backgroundColor: data.urgent ? '#F97316' : '#22C55E', borderRadius: 99 }} />
                 </View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: data.urgent ? '#F97316' : '#22C55E', marginBottom: 10 }}>{data.remaining.toFixed(0)} lbs restantes</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: data.urgent ? '#F97316' : '#22C55E', marginBottom: 10 }}>{data.remaining.toFixed(0)} {t('lbs_remaining')}</Text>
                 <View style={{ backgroundColor: data.urgent ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, alignSelf: 'flex-start' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: data.urgent ? '#EF4444' : '#22C55E' }}>{data.urgent ? 'Bientôt complet !' : 'Places disponibles'}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: data.urgent ? '#EF4444' : '#22C55E' }}>{data.urgent ? t('almost_full') : t('spots_available')}</Text>
                 </View>
               </View>
             );
@@ -320,8 +330,8 @@ export default function HomeScreen() {
           return (
             <View style={styles.section}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Prochain départ</Text>
-                <TouchableOpacity><Text style={{ fontSize: 13, fontWeight: '600', color: '#F97316' }}>Voir calendrier →</Text></TouchableOpacity>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{t('next_departure')}</Text>
+                <TouchableOpacity><Text style={{ fontSize: 13, fontWeight: '600', color: '#F97316' }}>{t('view_calendar')}</Text></TouchableOpacity>
               </View>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 {renderCard('air', air)}
@@ -341,17 +351,17 @@ export default function HomeScreen() {
           return (
             <View style={styles.section}>
               <View style={styles.sectionRow}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Colis en cours</Text>
-                <TouchableOpacity onPress={() => router.push('/(tabs-client)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('active_package')}</Text>
+                <TouchableOpacity onPress={() => router.push('/(tabs-client)/colis')}><Text style={styles.seeAll}>{t('view_all')}</Text></TouchableOpacity>
               </View>
               <View style={{ backgroundColor: '#F97316', borderRadius: 16, padding: 18, gap: 14 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
-                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Numéro de suivi</Text>
+                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{t('tracking_number')}</Text>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>{activePackage.tracking_number}</Text>
                   </View>
                   <View style={{ backgroundColor: '#C2600A', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>{STATUS_LABELS[activePackage.status] ?? activePackage.status}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>{statusLabel(activePackage.status)}</Text>
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -364,7 +374,7 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
                   {STATUS_STEPS.slice(0, 4).map((step, i) => {
                     const done = i <= stepIdx;
-                    const labels = ['Reçu', 'Transit', 'Arrivé', 'Livré'];
+                    const labels = [t('received'), t('transit'), t('arrived'), t('delivered')];
                     return (
                       <React.Fragment key={step}>
                         <View style={{ alignItems: 'center', flex: 1 }}>
@@ -381,11 +391,11 @@ export default function HomeScreen() {
                 {estimated && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Calendar size={14} color="rgba(255,255,255,0.7)" strokeWidth={2} />
-                    <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Livraison estimée : {new Date(estimated).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+                    <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{t('estimated_delivery')} : {new Date(estimated).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
                   </View>
                 )}
                 <TouchableOpacity onPress={() => router.push(`/colis/${activePackage.id}`)} style={{ backgroundColor: '#FFFFFF', borderRadius: 12, height: 44, alignItems: 'center', justifyContent: 'center' }} activeOpacity={0.85}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#F97316' }}>Suivre en détail →</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#F97316' }}>{t('follow_detail')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -396,8 +406,8 @@ export default function HomeScreen() {
         {recentPackages.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionRow}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Récents</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs-client)/colis')}><Text style={styles.seeAll}>Voir tout →</Text></TouchableOpacity>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('recent')}</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs-client)/colis')}><Text style={styles.seeAll}>{t('view_all')}</Text></TouchableOpacity>
             </View>
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {recentPackages.map((pkg: Pkg, i: number) => {
@@ -422,7 +432,7 @@ export default function HomeScreen() {
                     </View>
                     <View style={{ backgroundColor: sc.bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
                       <Text style={{ fontSize: 10, fontWeight: '700', color: sc.text }}>
-                        {pkg.status === 'delivered' ? 'Livré ✓' : STATUS_LABELS[pkg.status] ?? pkg.status}
+                        {pkg.status === 'delivered' ? t('delivered_check') : statusLabel(pkg.status)}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -435,8 +445,8 @@ export default function HomeScreen() {
         {/* ─── SECTION 4: NOS SUCCURSALES ─── */}
         <View style={[styles.section, { marginBottom: 30 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Nos succursales</Text>
-            <TouchableOpacity><Text style={{ fontSize: 13, fontWeight: '600', color: '#F97316' }}>Voir la carte →</Text></TouchableOpacity>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{t('our_branches')}</Text>
+            <TouchableOpacity><Text style={{ fontSize: 13, fontWeight: '600', color: '#F97316' }}>{t('view_map')}</Text></TouchableOpacity>
           </View>
           <View style={{ gap: 10 }}>
             {branches.slice(0, 2).map((b, i) => {
@@ -444,7 +454,7 @@ export default function HomeScreen() {
               const closeTime = getClosingTime(b);
               const isFirst = i === 0;
               const timeDistText = [
-                closeTime && open ? `Ferme à ${closeTime}` : null,
+                closeTime && open ? `${t('closes_at')} ${closeTime}` : null,
                 (b as any).distance ? `${(b as any).distance}` : null,
               ].filter(Boolean).join(' · ');
               return (
@@ -457,7 +467,7 @@ export default function HomeScreen() {
                       <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 6 }}>{b.name}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <View style={{ backgroundColor: open ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                          <Text style={{ fontSize: 11, fontWeight: '600', color: open ? '#22C55E' : colors.textSecondary }}>{open ? 'Ouvert maintenant' : 'Fermé'}</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '600', color: open ? '#22C55E' : colors.textSecondary }}>{open ? t('open_now') : t('closed')}</Text>
                         </View>
                         {timeDistText ? (
                           <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary }}>{timeDistText}</Text>
@@ -471,7 +481,7 @@ export default function HomeScreen() {
                       else if (b.address) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`);
                     }}
                     style={{ backgroundColor: colors.border, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, marginLeft: 10 }} activeOpacity={0.7}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>Itinéraire</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>{t('directions')}</Text>
                   </TouchableOpacity>
                 </View>
               );
@@ -482,10 +492,10 @@ export default function HomeScreen() {
         {/* ─── LEGAL FOOTER ─── */}
         <View style={{ paddingHorizontal: 20, paddingVertical: 16, marginTop: 8 }}>
           <Text style={{ fontSize: 11, lineHeight: 16, color: colors.textSecondary, textAlign: 'center' }}>
-            JJ's IMEX opère entre Miami, Boston, Haïti et la République Dominicaine. Service soumis à nos conditions de transport.
+            {t('legal_footer')}
           </Text>
           <TouchableOpacity onPress={() => Linking.openURL('https://jjsimex.com/conditions')} style={{ alignSelf: 'center', marginTop: 6 }}>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#F97316', textDecorationLine: 'underline' }}>Conditions de transport</Text>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#F97316', textDecorationLine: 'underline' }}>{t('shipping_terms')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -497,10 +507,10 @@ export default function HomeScreen() {
             <TouchableOpacity activeOpacity={1} onPress={() => {}}>
               <View style={[styles.sheetContainer, { backgroundColor: colors.card }]}>
                 <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-                <Text style={[styles.sheetTitle, { color: colors.text }]}>Choisir ma ville</Text>
+                <Text style={[styles.sheetTitle, { color: colors.text }]}>{t('choose_city')}</Text>
                 <TextInput
                   style={[styles.sheetInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
-                  placeholder="Tapez une ville..."
+                  placeholder={t('type_city')}
                   placeholderTextColor={colors.textMuted}
                   value={citySearch}
                   onChangeText={setCitySearch}
@@ -524,7 +534,7 @@ export default function HomeScreen() {
                 </ScrollView>
                 {citySearch.length > 0 && (
                   <TouchableOpacity onPress={() => pickCity(profile?.destination_country ?? 'haiti', citySearch)} style={styles.sheetConfirmBtn} activeOpacity={0.85}>
-                    <Text style={styles.sheetConfirmText}>Confirmer "{citySearch}"</Text>
+                    <Text style={styles.sheetConfirmText}>{t('confirm')} "{citySearch}"</Text>
                   </TouchableOpacity>
                 )}
               </View>
