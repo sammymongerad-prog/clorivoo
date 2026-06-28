@@ -46,7 +46,7 @@ export default function AddCarrierTrackingScreen() {
           <Text style={s.doneDesc}>
             Nous suivrons l'arrivée de votre colis et vous notifierons dès sa réception dans notre entrepôt.
           </Text>
-          <TouchableOpacity style={s.ctaBtn} onPress={() => router.replace('/(tabs)')} activeOpacity={0.85}>
+          <TouchableOpacity style={s.ctaBtn} onPress={() => router.replace('/(tabs-client)/')} activeOpacity={0.85}>
             <Text style={s.ctaBtnText}>Retour à l'accueil</Text>
           </TouchableOpacity>
         </View>

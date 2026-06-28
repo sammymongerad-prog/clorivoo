@@ -523,7 +523,7 @@ export default function CreateShipmentScreen() {
 
               <TouchableOpacity
                 style={[s.outlineBtn, { marginTop: 12, width: '100%' }]}
-                onPress={() => router.replace('/(tabs)')}
+                onPress={() => router.replace('/(tabs-client)/')}
                 activeOpacity={0.85}
               >
                 <Text style={s.outlineBtnText}>Plus tard, retour à l'accueil</Text>
