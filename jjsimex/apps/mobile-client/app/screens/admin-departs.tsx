@@ -10,6 +10,7 @@ import {
   Plus, Edit3, Lock, X, AlertTriangle, ChevronDown,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { sendPushToAll } from '@jjsimex/supabase/push';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -138,6 +139,15 @@ export default function AdminDeparts() {
         notes: newNotes.trim() || null,
         created_by: profile!.id,
       });
+
+      const typeLabel = newType === 'air' ? 'Vol' : 'Bateau';
+      const dateFormatted = new Date(newDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+      const destsLabel = dests.length > 0 ? dests.join(', ') : 'destination';
+      sendPushToAll(
+        `Nouveau départ ${typeLabel} 🚀`,
+        `${typeLabel} prévu le ${dateFormatted} — Miami → ${destsLabel}. Envoyez vos colis !`,
+      ).catch(e => console.error('Push error:', e));
+
       setShowCreate(false);
       setNewDate('');
       setNewCapacity('');

@@ -241,6 +241,19 @@ export function subscribeToExchangeRates(callback: (rates: ExchangeRate) => void
   return () => { supabase.removeChannel(channel); };
 }
 
+// ─── subscribeToShippingRates (Realtime) ─────────────────────────────────────
+
+export function subscribeToShippingRates(callback: () => void): () => void {
+  const supabase = getClient();
+  const channel = supabase
+    .channel(`shipping_rates_rt_${Date.now()}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shipping_rates' }, () => {
+      callback();
+    })
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}
+
 // ─── getDestinationCities ─────────────────────────────────────────────────────
 
 export async function getDestinationCities(): Promise<{

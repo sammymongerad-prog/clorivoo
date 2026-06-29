@@ -66,3 +66,14 @@ export function getClosingTime(branch: Branch): string {
   const parts = branch.opening_hours.split('-');
   return parts.length === 2 ? parts[1].trim() : '';
 }
+
+export function subscribeToBranches(callback: () => void): () => void {
+  const supabase = getClient();
+  const channel = supabase
+    .channel(`branches_rt_${Date.now()}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'branches' }, () => {
+      callback();
+    })
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}

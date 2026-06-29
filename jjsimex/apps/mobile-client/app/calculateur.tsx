@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { calculateShipping, getDestinationCities } from '@jjsimex/supabase/shipping';
+import { calculateShipping, getDestinationCities, subscribeToShippingRates } from '@jjsimex/supabase/shipping';
 import type { TransportMode, DestinationCountry, ShippingResult } from '@jjsimex/supabase/shipping';
 
 function CustomSlider({ min, max, step, value, onChange, colors }: {
@@ -108,6 +108,12 @@ export default function CalculateurScreen() {
 
   // Déclenche au changement de n'importe quel paramètre
   useEffect(() => { recalculate(weight, mode, dest, city); }, [weight, mode, dest, city, recalculate]);
+
+  // Realtime: re-calcule si un tarif change côté admin
+  useEffect(() => {
+    const unsub = subscribeToShippingRates(() => recalculate(weight, mode, dest, city));
+    return unsub;
+  }, [weight, mode, dest, city, recalculate]);
 
   function handleModeChange(m: TransportMode) {
     setMode(m);

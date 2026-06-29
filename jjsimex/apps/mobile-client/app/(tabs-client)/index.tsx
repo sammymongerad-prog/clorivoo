@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
 import { getNextDepartures, subscribeToDepartures } from '@jjsimex/supabase/departures';
-import { getActiveBranches, isBranchOpen, getClosingTime } from '@jjsimex/supabase/branches';
+import { getActiveBranches, isBranchOpen, getClosingTime, subscribeToBranches } from '@jjsimex/supabase/branches';
 import type { ExchangeRate } from '@jjsimex/supabase/shipping';
 import type { Departure } from '@jjsimex/supabase/departures';
 import type { Branch } from '@jjsimex/supabase/branches';
@@ -161,6 +161,13 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => { loadData(); }, [session?.user.id]);
+
+  useEffect(() => {
+    const unsub = subscribeToBranches(() => {
+      getActiveBranches().then(setBranches).catch(() => {});
+    });
+    return unsub;
+  }, []);
 
   async function onRefresh() {
     setRefreshing(true);
