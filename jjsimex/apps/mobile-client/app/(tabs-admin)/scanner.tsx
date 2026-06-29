@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { BackButton } from '@/components/layout/BackButton';
 import { scanPackage, updatePackageStatus, type PackageStatus } from '@jjsimex/supabase/packages';
+import { supabase } from '@/lib/supabase';
 import {
   Search, Zap, CheckCircle, MessageCircle,
 } from 'lucide-react-native';
@@ -57,7 +58,7 @@ export default function AdminScanner() {
     if (!pkg || !session?.user?.id) return;
     try {
       const label = STATUS_MAP[newStatus]?.label ?? newStatus;
-      await updatePackageStatus(pkg.id, newStatus, `Statut changé via scanner vers ${label}`, session.user.id);
+      await updatePackageStatus(pkg.id, newStatus, `Statut changé via scanner vers ${label}`, session.user.id, supabase);
       setCurrentStatus(newStatus);
       setUpdated(true);
       setRecentScans(prev => [

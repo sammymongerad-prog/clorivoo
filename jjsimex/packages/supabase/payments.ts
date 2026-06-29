@@ -218,8 +218,9 @@ export async function getAllPayments(filters?: GetAllPaymentsFilters): Promise<P
 export async function confirmPayment(
   payment_id: string,
   admin_id: string,
+  supabaseClient?: any,
 ): Promise<Payment> {
-  const supabase = getClient();
+  const supabase = supabaseClient ?? getClient();
 
   // Récupérer le paiement
   const { data: payment, error: fetchError } = await supabase
@@ -282,7 +283,7 @@ export async function confirmPayment(
     message: confMsg,
     action_url: `/colis/${payment.package_id}`,
   });
-  sendPushNotification(payment.user_id, confTitle, confMsg).catch(e => console.error('Push error:', e));
+  sendPushNotification(payment.user_id, confTitle, confMsg, undefined, supabase).catch(e => console.error('Push error:', e));
 
   return updated as Payment;
 }
@@ -293,8 +294,9 @@ export async function refusePayment(
   payment_id: string,
   reason: string,
   admin_id: string,
+  supabaseClient?: any,
 ): Promise<Payment> {
-  const supabase = getClient();
+  const supabase = supabaseClient ?? getClient();
 
   const { data: payment, error: fetchError } = await supabase
     .from('payments')
@@ -332,7 +334,7 @@ export async function refusePayment(
     message: refMsg,
     action_url: '/colis',
   });
-  sendPushNotification(payment.user_id, refTitle, refMsg).catch(e => console.error('Push error:', e));
+  sendPushNotification(payment.user_id, refTitle, refMsg, undefined, supabase).catch(e => console.error('Push error:', e));
 
   return updated as Payment;
 }

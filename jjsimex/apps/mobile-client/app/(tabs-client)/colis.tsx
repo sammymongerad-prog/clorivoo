@@ -41,7 +41,7 @@ export default function ColisScreen() {
   useEffect(() => {
     loadPackages();
     if (!session?.user.id) return;
-    const unsub = subscribeToPackages(session.user.id, () => loadPackages());
+    const unsub = subscribeToPackages(() => loadPackages(), { client_id: session.user.id });
     return unsub;
   }, [loadPackages, session?.user.id]);
 

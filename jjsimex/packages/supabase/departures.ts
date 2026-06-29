@@ -186,8 +186,8 @@ export async function markArrived(departureId: string): Promise<Departure> {
 
 // ─── notifyDepartureClients ──────────────────────────────────────────────────
 
-export async function notifyDepartureClients(departureId: string): Promise<number> {
-  const supabase = getClient();
+export async function notifyDepartureClients(departureId: string, supabaseClient?: any): Promise<number> {
+  const supabase = supabaseClient ?? getClient();
 
   // Get departure info
   const { data: dep } = await supabase
@@ -227,7 +227,7 @@ export async function notifyDepartureClients(departureId: string): Promise<numbe
 
   // Push notifications
   for (const clientId of uniqueClients) {
-    sendPushNotification(clientId, title, message).catch(e => console.error('Push error:', e));
+    sendPushNotification(clientId, title, message, undefined, supabase).catch(e => console.error('Push error:', e));
   }
 
   return uniqueClients.length;

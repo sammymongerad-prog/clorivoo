@@ -10,6 +10,7 @@ import {
   Package, CreditCard, ShoppingCart, Settings, X, Megaphone,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { sendBulkNotification } from '@jjsimex/supabase/push';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -177,14 +178,16 @@ export default function AdminNotifications() {
                 );
               }
 
+              const pushResult = await sendBulkNotification(title.trim(), message.trim(), target);
+
               await supabase.from('notification_logs').insert({
                 sent_by: profile!.id,
                 title: title.trim(),
                 message: message.trim(),
                 target_type: target,
                 recipient_count: users?.length ?? 0,
-                sent_count: users?.length ?? 0,
-                failed_count: 0,
+                sent_count: pushResult.sent,
+                failed_count: pushResult.failed,
               });
 
               Alert.alert('Envoyé !', `Notification envoyée à ${users?.length ?? 0} clients.`);

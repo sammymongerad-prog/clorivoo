@@ -9,6 +9,7 @@ import {
   getAllPackages, updatePackageStatus, subscribeToPackages,
   type PackageStatus, type PackageFilters,
 } from '@jjsimex/supabase/packages';
+import { supabase } from '@/lib/supabase';
 import {
   Package, User, MapPin, Filter, Search, Plus,
   Plane, Ship, ChevronRight,
@@ -105,7 +106,7 @@ export default function AdminColis() {
           text: 'Confirmer',
           onPress: async () => {
             try {
-              await updatePackageStatus(pkg.id, newStatus, '', session.user.id);
+              await updatePackageStatus(pkg.id, newStatus, '', session.user.id, supabase);
               fetchData();
             } catch (e: any) {
               Alert.alert('Erreur', e.message);

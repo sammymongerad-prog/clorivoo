@@ -7,7 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { BackButton } from '@/components/layout/BackButton';
-import { createPickupRequest, getMyPickupRequests } from '@jjsimex/supabase/pickup';
+import { createPickupRequest, getMyPickupRequests, subscribeToPickups } from '@jjsimex/supabase/pickup';
 import type { PickupRequest } from '@jjsimex/supabase/pickup';
 import { Truck, MapPin, Calendar, Clock, Package, MessageCircle } from 'lucide-react-native';
 
@@ -225,10 +225,12 @@ export default function PickupScreen() {
 
   useEffect(() => {
     if (!session?.user?.id) return;
-    getMyPickupRequests(session.user.id)
+    const loadPickups = () => getMyPickupRequests(session.user.id)
       .then(setRequests)
-      .catch(() => {})
-      .finally(() => setLoadingList(false));
+      .catch(() => {});
+    loadPickups().finally(() => setLoadingList(false));
+    const unsub = subscribeToPickups(() => { loadPickups(); });
+    return unsub;
   }, [session?.user?.id]);
 
   async function handleSubmit() {

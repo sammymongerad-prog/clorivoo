@@ -120,7 +120,15 @@ export async function getPackageDetail(packageId: string, userId: string) {
     throw new Error('Colis introuvable ou accès non autorisé.');
   }
 
-  return pkg;
+  const { internal_notes, ...safePkg } = pkg as any;
+
+  if (safePkg.package_status_history) {
+    safePkg.package_status_history = safePkg.package_status_history.filter(
+      (h: any) => !h.notes?.startsWith('[NOTE INTERNE]'),
+    );
+  }
+
+  return safePkg;
 }
 
 // ─── CLIENT : Créer une demande d'envoi ──────────────────────────────────────
@@ -346,9 +354,11 @@ export async function updatePackageStatus(
   newStatus: PackageStatus,
   note: string,
   adminId: string,
+  supabaseClient?: any,
 ) {
-  // Récupérer le colis avec infos client et succursale
-  const { data: pkg, error } = await getClient()
+  const supabase = supabaseClient ?? getClient();
+
+  const { data: pkg, error } = await supabase
     .from('packages')
     .select(`
       *,
@@ -372,16 +382,14 @@ export async function updatePackageStatus(
     updateData[timestampField[newStatus]] = new Date().toISOString();
   }
 
-  // Update du statut
-  const { error: updateError } = await getClient()
+  const { error: updateError } = await supabase
     .from('packages')
     .update(updateData)
     .eq('id', packageId);
 
   if (updateError) throw new Error('Erreur lors de la mise à jour du statut.');
 
-  // Historique
-  await getClient().from('package_status_history').insert({
+  await supabase.from('package_status_history').insert({
     package_id: packageId,
     status: newStatus,
     updated_by: adminId,
@@ -391,7 +399,6 @@ export async function updatePackageStatus(
   const client = (pkg as { users?: { id: string; full_name: string; email: string } }).users;
   if (!client) return pkg;
 
-  // Messages push selon statut
   const branch = (pkg as any).branches;
   const branchInfo = branch
     ? `\n📍 ${branch.name}${branch.address ? ` — ${branch.address}` : ''}${branch.opening_hours ? `\n🕐 ${branch.opening_hours}` : ''}`
@@ -418,14 +425,14 @@ export async function updatePackageStatus(
 
   const msg = pushMessages[newStatus];
   if (msg) {
-    await getClient().from('notifications').insert({
+    await supabase.from('notifications').insert({
       user_id: client.id,
       type: 'package',
       title: msg.title,
       message: msg.body,
       action_url: `/colis/${packageId}`,
     });
-    sendPushNotification(client.id, msg.title, msg.body, { package_id: packageId }).catch(e => console.error('Push error:', e));
+    sendPushNotification(client.id, msg.title, msg.body, { package_id: packageId }, supabase).catch(e => console.error('Push error:', e));
   }
 
   return pkg;
@@ -755,7 +762,7 @@ export async function markPackageAsReceived(
     message: markMsg,
     type: 'package',
   });
-  sendPushNotification(pkgData.client_id, markTitle, markMsg).catch(e => console.error('Push error:', e));
+  sendPushNotification(pkgData.client_id, markTitle, markMsg, undefined, supabase).catch(e => console.error('Push error:', e));
 
   return { tracking_number: trackingNumber };
 }

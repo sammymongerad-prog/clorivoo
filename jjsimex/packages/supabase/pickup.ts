@@ -159,3 +159,17 @@ export async function getMyPickupRequests(userId: string): Promise<PickupRequest
   if (error) throw new Error('Erreur lors du chargement des demandes.');
   return (data ?? []) as PickupRequest[];
 }
+
+export function subscribeToPickups(
+  callback: (pickup: PickupRequest) => void,
+): () => void {
+  const supabase = getClient();
+  const channel = supabase
+    .channel(`pickup_requests_rt_${Date.now()}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_requests' }, (payload) => {
+      if (payload.new) callback(payload.new as PickupRequest);
+    })
+    .subscribe();
+
+  return () => { supabase.removeChannel(channel); };
+}

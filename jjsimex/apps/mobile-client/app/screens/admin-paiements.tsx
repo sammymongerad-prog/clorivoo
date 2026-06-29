@@ -11,6 +11,7 @@ import {
   Smartphone, Building, Banknote, Wallet,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { confirmPayment, refusePayment } from '@jjsimex/supabase/payments';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -127,18 +128,7 @@ export default function AdminPaiements() {
       {
         text: 'Confirmer', onPress: async () => {
           try {
-            await supabase.from('payments').update({
-              status: 'confirmed',
-              confirmed_by: profile!.id,
-              confirmed_at: new Date().toISOString(),
-            }).eq('id', p.id);
-
-            await supabase.from('notifications').insert({
-              user_id: p.client_id, type: 'payment',
-              title: 'Paiement confirmé ✅',
-              message: `$${Number(p.amount).toFixed(2)} — ${p.transaction_number}`,
-            });
-
+            await confirmPayment(p.id, profile!.id, supabase);
             fetchData();
           } catch (e: any) { Alert.alert('Erreur', e.message); }
         },
@@ -152,14 +142,7 @@ export default function AdminPaiements() {
       {
         text: 'Refuser', style: 'destructive', onPress: async () => {
           try {
-            await supabase.from('payments').update({ status: 'failed' }).eq('id', p.id);
-
-            await supabase.from('notifications').insert({
-              user_id: p.client_id, type: 'payment',
-              title: 'Paiement non confirmé ❌',
-              message: `$${Number(p.amount).toFixed(2)} — Contactez-nous pour plus d'infos.`,
-            });
-
+            await refusePayment(p.id, 'Paiement non vérifié', profile!.id, supabase);
             fetchData();
           } catch (e: any) { Alert.alert('Erreur', e.message); }
         },

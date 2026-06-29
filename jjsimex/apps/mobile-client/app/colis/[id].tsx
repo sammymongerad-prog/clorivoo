@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPackageDetail } from '@jjsimex/supabase/packages';
+import { getPackageDetail, subscribeToPackages } from '@jjsimex/supabase/packages';
 import type { PackageStatus } from '@jjsimex/supabase/packages';
 
 const STATUS_LABELS: Record<PackageStatus, string> = {
@@ -41,10 +41,12 @@ export default function ColisDetailScreen() {
 
   useEffect(() => {
     if (!session?.user.id || !id) return;
-    getPackageDetail(id, session.user.id)
-      .then(setPkg)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Erreur lors du chargement.'))
-      .finally(() => setLoading(false));
+    const load = () => getPackageDetail(id, session.user.id).then(setPkg).catch(() => {});
+    load().catch((e) => setError(e instanceof Error ? e.message : 'Erreur lors du chargement.')).finally(() => setLoading(false));
+    const unsub = subscribeToPackages((updated: any) => {
+      if (updated.id === id) load();
+    });
+    return unsub;
   }, [id, session?.user.id]);
 
   if (loading) {
