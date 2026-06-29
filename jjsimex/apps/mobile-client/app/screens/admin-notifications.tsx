@@ -82,6 +82,9 @@ export default function AdminNotifications() {
   const [message, setMessage] = useState('');
   const [target, setTarget] = useState<'all' | 'haiti' | 'dr'>('all');
   const [sending, setSending] = useState(false);
+  const [tab, setTab] = useState<'inbox' | 'history'>('inbox');
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -99,6 +102,21 @@ export default function AdminNotifications() {
   }, [profile]);
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+
+  const fetchLogs = useCallback(async () => {
+    setLogsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('notification_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      setLogs(data ?? []);
+    } catch {}
+    setLogsLoading(false);
+  }, []);
+
+  useEffect(() => { if (tab === 'history') fetchLogs(); }, [tab, fetchLogs]);
 
   useEffect(() => {
     const channel = supabase
@@ -159,10 +177,21 @@ export default function AdminNotifications() {
                 );
               }
 
+              await supabase.from('notification_logs').insert({
+                sent_by: profile!.id,
+                title: title.trim(),
+                message: message.trim(),
+                target_type: target,
+                recipient_count: users?.length ?? 0,
+                sent_count: users?.length ?? 0,
+                failed_count: 0,
+              });
+
               Alert.alert('Envoyé !', `Notification envoyée à ${users?.length ?? 0} clients.`);
               setTitle('');
               setMessage('');
               setShowSend(false);
+              if (tab === 'history') fetchLogs();
             } catch (e: any) {
               Alert.alert('Erreur', e.message);
             }
@@ -190,59 +219,114 @@ export default function AdminNotifications() {
         </TouchableOpacity>
       </View>
 
+      {/* Tab switcher */}
+      <View style={{ flexDirection: 'row', marginHorizontal: 18, marginTop: 10, gap: 8 }}>
+        <TouchableOpacity
+          style={[s.tabBtn, tab === 'inbox' && s.tabBtnActive]}
+          onPress={() => setTab('inbox')} activeOpacity={0.8}
+        >
+          <Bell size={14} color={tab === 'inbox' ? '#0D0D0D' : '#9CA3AF'} strokeWidth={2} />
+          <Text style={[s.tabBtnText, tab === 'inbox' && s.tabBtnTextActive]}>Boîte de réception</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.tabBtn, tab === 'history' && s.tabBtnActive]}
+          onPress={() => setTab('history')} activeOpacity={0.8}
+        >
+          <Megaphone size={14} color={tab === 'history' ? '#0D0D0D' : '#9CA3AF'} strokeWidth={2} />
+          <Text style={[s.tabBtnText, tab === 'history' && s.tabBtnTextActive]}>Historique envois</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={tab === 'history' ? fetchLogs : onRefresh} tintColor={ACCENT} />}
       >
-        {/* Mark all read */}
-        {unreadCount > 0 && (
-          <TouchableOpacity style={s.markAllBtn} onPress={handleMarkAllRead} activeOpacity={0.7}>
-            <CheckCheck size={14} color={ACCENT} strokeWidth={2} />
-            <Text style={s.markAllText}>Tout marquer comme lu ({unreadCount})</Text>
-          </TouchableOpacity>
-        )}
+        {tab === 'inbox' ? (
+          <>
+            {unreadCount > 0 && (
+              <TouchableOpacity style={s.markAllBtn} onPress={handleMarkAllRead} activeOpacity={0.7}>
+                <CheckCheck size={14} color={ACCENT} strokeWidth={2} />
+                <Text style={s.markAllText}>Tout marquer comme lu ({unreadCount})</Text>
+              </TouchableOpacity>
+            )}
 
-        {loading ? (
-          <ActivityIndicator color={ACCENT} style={{ marginTop: 40 }} />
-        ) : notifications.length === 0 ? (
-          <Text style={s.emptyText}>Aucune notification.</Text>
+            {loading ? (
+              <ActivityIndicator color={ACCENT} style={{ marginTop: 40 }} />
+            ) : notifications.length === 0 ? (
+              <Text style={s.emptyText}>Aucune notification.</Text>
+            ) : (
+              <View style={{ paddingHorizontal: 18 }}>
+                {groups.map((group) => (
+                  <View key={group.label} style={{ marginBottom: 16 }}>
+                    <Text style={s.groupLabel}>{group.label}</Text>
+                    <View style={{ gap: 6 }}>
+                      {group.items.map((n) => {
+                        const cfg = TYPE_CONFIG[n.type] ?? TYPE_CONFIG.system;
+                        const TypeIcon = cfg.icon;
+                        return (
+                          <TouchableOpacity
+                            key={n.id}
+                            style={[s.notifCard, !n.is_read && s.notifCardUnread]}
+                            onPress={() => handleTapNotif(n)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[s.notifIcon, { backgroundColor: cfg.bg }]}>
+                              <TypeIcon size={16} color={cfg.color} strokeWidth={1.8} />
+                            </View>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text style={s.notifTitle} numberOfLines={1}>{n.title}</Text>
+                                {!n.is_read && <View style={s.unreadDot} />}
+                              </View>
+                              <Text style={s.notifMessage} numberOfLines={2}>{n.message}</Text>
+                              <Text style={s.notifTime}>
+                                {new Date(n.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
         ) : (
-          <View style={{ paddingHorizontal: 18 }}>
-            {groups.map((group) => (
-              <View key={group.label} style={{ marginBottom: 16 }}>
-                <Text style={s.groupLabel}>{group.label}</Text>
-                <View style={{ gap: 6 }}>
-                  {group.items.map((n) => {
-                    const cfg = TYPE_CONFIG[n.type] ?? TYPE_CONFIG.system;
-                    const TypeIcon = cfg.icon;
-                    return (
-                      <TouchableOpacity
-                        key={n.id}
-                        style={[s.notifCard, !n.is_read && s.notifCardUnread]}
-                        onPress={() => handleTapNotif(n)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[s.notifIcon, { backgroundColor: cfg.bg }]}>
-                          <TypeIcon size={16} color={cfg.color} strokeWidth={1.8} />
-                        </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={s.notifTitle} numberOfLines={1}>{n.title}</Text>
-                            {!n.is_read && <View style={s.unreadDot} />}
+          <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
+            {logsLoading ? (
+              <ActivityIndicator color={ACCENT} style={{ marginTop: 40 }} />
+            ) : logs.length === 0 ? (
+              <Text style={s.emptyText}>Aucun envoi enregistré.</Text>
+            ) : (
+              <View style={{ gap: 8 }}>
+                {logs.map((log: any) => {
+                  const targetLabel = log.target_type === 'all' ? 'Tous' : log.target_type === 'haiti' ? 'Haïti' : 'Rép. Dom.';
+                  return (
+                    <View key={log.id} style={s.notifCard}>
+                      <View style={[s.notifIcon, { backgroundColor: 'rgba(249,115,22,0.14)' }]}>
+                        <Megaphone size={16} color={ACCENT} strokeWidth={1.8} />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={s.notifTitle} numberOfLines={1}>{log.title}</Text>
+                        <Text style={s.notifMessage} numberOfLines={2}>{log.message}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                          <View style={{ backgroundColor: 'rgba(249,115,22,0.12)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: ACCENT }}>{targetLabel}</Text>
                           </View>
-                          <Text style={s.notifMessage} numberOfLines={2}>{n.message}</Text>
+                          <Text style={{ fontSize: 10, color: '#6B7280' }}>{log.sent_count} envoyé{log.sent_count > 1 ? 's' : ''}</Text>
                           <Text style={s.notifTime}>
-                            {new Date(n.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            {new Date(log.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </Text>
                         </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
-            ))}
+            )}
           </View>
         )}
       </ScrollView>
@@ -429,4 +513,13 @@ const s = StyleSheet.create({
     height: 48, backgroundColor: ACCENT, borderRadius: 12, marginTop: 6, marginBottom: 20,
   },
   sendBtnText: { fontSize: 14, fontWeight: '700', color: '#0D0D0D' },
+
+  tabBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    height: 38, borderRadius: 10, backgroundColor: '#1A1A1A',
+    borderWidth: 1, borderColor: '#2A2A2A',
+  },
+  tabBtnActive: { backgroundColor: ACCENT, borderColor: ACCENT },
+  tabBtnText: { fontSize: 12, fontWeight: '600', color: '#9CA3AF' },
+  tabBtnTextActive: { color: '#0D0D0D' },
 });

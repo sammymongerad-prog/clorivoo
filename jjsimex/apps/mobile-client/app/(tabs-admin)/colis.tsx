@@ -35,13 +35,14 @@ const TABS = [
   { key: 'delivered', label: 'Livré' },
 ] as const;
 
-const NEXT_STATUS: Record<string, { next: PackageStatus; label: string }> = {
-  awaiting_arrival: { next: 'received_usa', label: 'Traiter' },
-  received_usa: { next: 'in_transit', label: 'Changer statut' },
-  in_transit: { next: 'arrived', label: 'Changer statut' },
-  arrived: { next: 'ready_pickup', label: 'Changer statut' },
-  ready_pickup: { next: 'delivered', label: 'Changer statut' },
-};
+const ALL_STATUSES: { key: PackageStatus; label: string }[] = [
+  { key: 'awaiting_arrival', label: 'En attente' },
+  { key: 'received_usa', label: 'Reçu USA' },
+  { key: 'in_transit', label: 'En transit' },
+  { key: 'arrived', label: 'Arrivé' },
+  { key: 'ready_pickup', label: 'Prêt retrait' },
+  { key: 'delivered', label: 'Livré' },
+];
 
 export default function AdminColis() {
   const router = useRouter();
@@ -54,6 +55,7 @@ export default function AdminColis() {
   const [showSearch, setShowSearch] = useState(false);
   const [search, setSearch] = useState('');
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [openPickerId, setOpenPickerId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -89,21 +91,21 @@ export default function AdminColis() {
     setRefreshing(false);
   }
 
-  async function handleChangeStatus(pkg: any) {
-    const nextInfo = NEXT_STATUS[pkg.status];
-    if (!nextInfo || !session?.user?.id) return;
-    const nextLabel = STATUS_MAP[nextInfo.next]?.label ?? nextInfo.next;
+  function handlePickStatus(pkg: any, newStatus: PackageStatus) {
+    if (!session?.user?.id) return;
+    const newLabel = STATUS_MAP[newStatus]?.label ?? newStatus;
+    setOpenPickerId(null);
 
     Alert.alert(
       'Changer le statut',
-      `Passer "${pkg.tracking_number || pkg.id.substring(0, 12)}" à "${nextLabel}" ?`,
+      `Passer "${pkg.tracking_number || pkg.id.substring(0, 12)}" à "${newLabel}" ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Confirmer',
           onPress: async () => {
             try {
-              await updatePackageStatus(pkg.id, nextInfo.next, `Statut changé vers ${nextLabel}`, session.user.id);
+              await updatePackageStatus(pkg.id, newStatus, '', session.user.id);
               fetchData();
             } catch (e: any) {
               Alert.alert('Erreur', e.message);
@@ -218,8 +220,7 @@ export default function AdminColis() {
           <View style={{ paddingHorizontal: 22, gap: 12, marginTop: 18 }}>
             {packages.map((pkg: any) => {
               const badge = STATUS_MAP[pkg.status] ?? STATUS_MAP.awaiting_arrival;
-              const nextAction = NEXT_STATUS[pkg.status];
-              const isDelivered = pkg.status === 'delivered';
+              const pickerOpen = openPickerId === pkg.id;
               return (
                 <View key={pkg.id} style={s.card}>
                   {/* Top row: ID + badge + date */}
@@ -258,20 +259,34 @@ export default function AdminColis() {
                     <TouchableOpacity style={s.detailBtn} activeOpacity={0.7}>
                       <Text style={s.detailBtnText}>Voir détails</Text>
                     </TouchableOpacity>
-                    {nextAction ? (
-                      <TouchableOpacity
-                        style={[s.actionBtn, { backgroundColor: ACCENT }]}
-                        onPress={() => handleChangeStatus(pkg)}
-                        activeOpacity={0.85}
-                      >
-                        <Text style={s.actionBtnTextDark}>{nextAction.label}</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#2A2A2A' }]} activeOpacity={0.7}>
-                        <Text style={s.actionBtnTextLight}>Voir reçu</Text>
-                      </TouchableOpacity>
-                    )}
+                    <TouchableOpacity
+                      style={[s.actionBtn, { backgroundColor: ACCENT }]}
+                      onPress={() => setOpenPickerId(pickerOpen ? null : pkg.id)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={s.actionBtnTextDark}>Changer statut</Text>
+                    </TouchableOpacity>
                   </View>
+
+                  {/* Status picker dropdown */}
+                  {pickerOpen && (
+                    <View style={s.statusPickerWrap}>
+                      {ALL_STATUSES.filter((st) => st.key !== pkg.status).map((st) => {
+                        const stStyle = STATUS_MAP[st.key];
+                        return (
+                          <TouchableOpacity
+                            key={st.key}
+                            style={s.statusPickerItem}
+                            onPress={() => handlePickStatus(pkg, st.key)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[s.statusPickerDot, { backgroundColor: stStyle?.color ?? '#9CA3AF' }]} />
+                            <Text style={s.statusPickerText}>{st.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
               );
             })}
@@ -361,6 +376,18 @@ const s = StyleSheet.create({
   },
   actionBtnTextDark: { fontSize: 12, fontWeight: '700', color: '#0D0D0D' },
   actionBtnTextLight: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+
+  statusPickerWrap: {
+    marginTop: 10, backgroundColor: '#222', borderRadius: 10,
+    borderWidth: 1, borderColor: '#333', overflow: 'hidden',
+  },
+  statusPickerItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 11, paddingHorizontal: 14,
+    borderBottomWidth: 1, borderBottomColor: '#2A2A2A',
+  },
+  statusPickerDot: { width: 8, height: 8, borderRadius: 4 },
+  statusPickerText: { fontSize: 13, fontWeight: '500', color: '#FFFFFF' },
 
   fab: {
     position: 'absolute', right: 20, bottom: 104,

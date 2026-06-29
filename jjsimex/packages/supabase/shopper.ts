@@ -184,8 +184,9 @@ export async function sendQuote(
   request_id: string,
   final_price: number,
   admin_id: string,
+  supabaseClient?: any,
 ): Promise<ShopperRequest> {
-  const supabase = getClient();
+  const supabase = supabaseClient ?? getClient();
 
   // Récupérer la demande
   const { data: request, error: fetchError } = await supabase
@@ -240,7 +241,7 @@ export async function sendQuote(
     message: quoteMsg,
     action_url: `/shopper/${request_id}`,
   });
-  sendPushNotification(request.client_id, quoteTitle, quoteMsg).catch(e => console.error('Push error:', e));
+  sendPushNotification(request.client_id, quoteTitle, quoteMsg, undefined, supabase).catch(e => console.error('Push error:', e));
 
   return updated as ShopperRequest;
 }

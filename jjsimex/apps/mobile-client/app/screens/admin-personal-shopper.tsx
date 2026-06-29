@@ -11,6 +11,7 @@ import {
   MessageCircle, AlertTriangle, Hash, User, Palette, FileText,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { sendPushNotification } from '@jjsimex/supabase/push';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -153,13 +154,16 @@ export default function AdminPersonalShopper() {
         handled_by: profile!.id,
       }).eq('id', r.id);
 
+      const quoteTitle = 'Votre devis est prêt !';
+      const quoteMsg = `${r.request_number}: Produit $${finalPrice.toFixed(2)} + Livraison $${shippingCost.toFixed(2)} = Total $${totalPrice.toFixed(2)}`;
       await supabase.from('notifications').insert({
         user_id: r.client_id,
         type: 'personal_shopper',
-        title: 'Votre devis est prêt !',
-        message: `${r.request_number}: Produit $${finalPrice.toFixed(2)} + Livraison $${shippingCost.toFixed(2)} = Total $${totalPrice.toFixed(2)}`,
+        title: quoteTitle,
+        message: quoteMsg,
         action_url: `/shopper/${r.id}`,
       });
+      sendPushNotification(r.client_id, quoteTitle, quoteMsg, undefined, supabase).catch(() => {});
 
       setPriceInputs(p => { const copy = { ...p }; delete copy[r.id]; return copy; });
       fetchRequests();

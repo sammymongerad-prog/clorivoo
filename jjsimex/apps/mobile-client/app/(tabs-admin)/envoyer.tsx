@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { getClient } from '@jjsimex/supabase/client';
 import { markPackageAsReceived } from '@jjsimex/supabase/packages';
+import { supabase } from '@/lib/supabase';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -124,7 +125,7 @@ export default function AdminEnvoyer() {
     }
     setSubmitting(true);
     try {
-      const result = await markPackageAsReceived(receiveModal.id, weight, {});
+      const result = await markPackageAsReceived(receiveModal.id, weight, {}, supabase);
       if (result) {
         Alert.alert('Succes', `Colis marque comme recu. Tracking: ${result.tracking_number}`);
         setReceiveModal(null);

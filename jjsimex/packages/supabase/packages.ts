@@ -174,8 +174,8 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
   }
 
   // Notification in-app pour le client
-  const shipTitle = 'Demande créée';
-  const shipMsg = `Votre demande ${pkg.request_number} a été créée. Ajoutez votre numéro de tracking quand disponible.`;
+  const shipTitle = `Demande ${pkg.request_number} enregistrée`;
+  const shipMsg = `Votre demande ${pkg.request_number} est enregistrée. Dès que vous recevez votre numéro de suivi du transporteur (UPS, FedEx, USPS, etc.), ajoutez-le dans l'app pour qu'on puisse suivre l'arrivée de votre colis.`;
   await getClient().from('notifications').insert({
     user_id: data.client_id,
     title: shipTitle,
@@ -702,24 +702,26 @@ export async function markPackageAsReceived(
   packageId: string,
   realWeight: number,
   adminPhotos: { front?: string; back?: string; left?: string; right?: string },
+  supabaseClient?: any,
 ): Promise<{ tracking_number: string } | null> {
-  const supabase = getClient();
+  const supabase = supabaseClient ?? getClient();
 
   // Step 1: Generate tracking number via RPC
   const { data: trackingNumber, error: rpcError } = await supabase.rpc('generate_next_tracking_number');
   if (rpcError || !trackingNumber) {
-    console.error('Failed to generate tracking number:', rpcError);
-    return null;
+    throw new Error(`Tracking number generation failed: ${rpcError?.message ?? 'no data returned'}`);
   }
 
   // Step 2: Get client_id and request_number
-  const { data: pkgData } = await supabase
+  const { data: pkgData, error: pkgError } = await supabase
     .from('packages')
     .select('client_id, request_number')
     .eq('id', packageId)
     .single();
 
-  if (!pkgData) return null;
+  if (pkgError || !pkgData) {
+    throw new Error(`Package not found: ${pkgError?.message ?? 'no data'}`);
+  }
 
   // Step 3: Update the package
   const { error } = await supabase.from('packages').update({
@@ -734,8 +736,7 @@ export async function markPackageAsReceived(
   }).eq('id', packageId);
 
   if (error) {
-    console.error('Failed to update package:', error);
-    return null;
+    throw new Error(`Package update failed: ${error.message}`);
   }
 
   // Step 4: Insert into package_status_history

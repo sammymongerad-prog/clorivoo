@@ -7,23 +7,23 @@ import type { PackageStatus } from '@jjsimex/supabase/packages';
 import { createClient } from '@/lib/supabase/client';
 
 const STATUS_LABELS: Record<PackageStatus, string> = {
-  awaiting_arrival: 'En attente',
+  awaiting_arrival: 'En attente d\'arrivée',
   pending: 'En attente',
-  received_usa: 'Reçu USA',
+  received_usa: 'Reçu aux USA',
   in_transit: 'En transit',
   arrived: 'Arrivé',
-  ready_pickup: 'Prêt à retirer',
+  ready_pickup: 'Prêt pour retrait',
   delivered: 'Livré',
 };
 
-const STATUS_NEXT: Partial<Record<PackageStatus, PackageStatus[]>> = {
-  awaiting_arrival: ['received_usa'],
-  pending: ['received_usa'],
-  received_usa: ['in_transit'],
-  in_transit: ['arrived'],
-  arrived: ['ready_pickup'],
-  ready_pickup: ['delivered'],
-};
+const ALL_STATUSES: PackageStatus[] = [
+  'awaiting_arrival',
+  'received_usa',
+  'in_transit',
+  'arrived',
+  'ready_pickup',
+  'delivered',
+];
 
 const STATUS_COLORS: Record<PackageStatus, string> = {
   awaiting_arrival: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
@@ -126,8 +126,6 @@ export default function ColisDetailPage() {
     );
   }
 
-  const nextStatuses = STATUS_NEXT[pkg.status as PackageStatus] ?? [];
-
   return (
     <div className="space-y-6 max-w-4xl">
       {/* En-tête */}
@@ -146,14 +144,12 @@ export default function ColisDetailPage() {
             Créé le {new Date(pkg.created_at).toLocaleDateString('fr-FR')}
           </p>
         </div>
-        {nextStatuses.length > 0 && (
-          <button
-            onClick={() => setStatusModal(true)}
-            className="bg-brand-orange text-white px-4 py-2 rounded-btn font-semibold text-sm hover:bg-brand-orange-dark transition-colors"
-          >
-            Changer statut
-          </button>
-        )}
+        <button
+          onClick={() => setStatusModal(true)}
+          className="bg-brand-orange text-white px-4 py-2 rounded-btn font-semibold text-sm hover:bg-brand-orange-dark transition-colors"
+        >
+          Changer statut
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -255,17 +251,18 @@ export default function ColisDetailPage() {
           <div className="bg-brand-card border border-brand-border rounded-card p-6 w-full max-w-md mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-white font-semibold text-lg">Changer le statut</h2>
 
-            <div className="space-y-2">
-              {nextStatuses.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setNewStatus(s)}
-                  className={`w-full text-left px-4 py-3 rounded-input border transition-colors ${newStatus === s ? 'border-brand-orange bg-brand-orange/10 text-white' : 'border-brand-border bg-brand-bg text-brand-gray hover:border-brand-orange/50'}`}
-                >
+            <select
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value as PackageStatus)}
+              className="w-full bg-brand-bg border border-brand-border rounded-input px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-orange"
+            >
+              <option value="">-- Sélectionner un statut --</option>
+              {ALL_STATUSES.map((s) => (
+                <option key={s} value={s}>
                   {STATUS_LABELS[s]}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
 
             <textarea
               value={statusNote}

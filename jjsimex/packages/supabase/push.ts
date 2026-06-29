@@ -16,8 +16,10 @@ export async function sendPushNotification(
   title: string,
   message: string,
   data?: Record<string, unknown>,
+  supabaseClient?: any,
 ): Promise<void> {
-  const { data: tokens } = await getClient()
+  const client = supabaseClient ?? getClient();
+  const { data: tokens } = await client
     .from('push_tokens')
     .select('id, token')
     .eq('user_id', userId)
@@ -53,7 +55,7 @@ export async function sendPushNotification(
         }
       });
       if (expired.length > 0) {
-        await getClient()
+        await client
           .from('push_tokens')
           .update({ is_active: false })
           .in('token', expired);

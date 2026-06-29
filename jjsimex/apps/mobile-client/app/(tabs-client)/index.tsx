@@ -12,7 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
 import { getMyPackages } from '@jjsimex/supabase/packages';
 import { getExchangeRates, subscribeToExchangeRates } from '@jjsimex/supabase/shipping';
-import { getNextDepartures, ensureUpcomingDepartures } from '@jjsimex/supabase/departures';
+import { getNextDepartures, subscribeToDepartures } from '@jjsimex/supabase/departures';
 import { getActiveBranches, isBranchOpen, getClosingTime } from '@jjsimex/supabase/branches';
 import type { ExchangeRate } from '@jjsimex/supabase/shipping';
 import type { Departure } from '@jjsimex/supabase/departures';
@@ -121,12 +121,11 @@ export default function HomeScreen() {
     try {
       const result = await getMyPackages(session.user.id, { page: 1 });
       const pkgs: Pkg[] = Array.isArray(result) ? result : result.data ?? [];
-      const active = pkgs.find((p: Pkg) => ['in_transit', 'arrived', 'ready_pickup', 'received_usa'].includes(p.status));
+      const active = pkgs.find((p: Pkg) => ['awaiting_arrival', 'in_transit', 'arrived', 'ready_pickup', 'received_usa'].includes(p.status));
       setActivePackage(active ?? null);
       setRecentPackages(pkgs.slice(0, 3));
     } catch {}
     try {
-      await ensureUpcomingDepartures();
       const { air, sea } = await getNextDepartures();
       setAirDeparture(air);
       setSeaDeparture(sea);
@@ -148,6 +147,16 @@ export default function HomeScreen() {
   useEffect(() => {
     getExchangeRates().then(setRates).catch(() => {});
     const unsub = subscribeToExchangeRates(setRates);
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeToDepartures(() => {
+      getNextDepartures().then(({ air, sea }) => {
+        setAirDeparture(air);
+        setSeaDeparture(sea);
+      }).catch(() => {});
+    });
     return unsub;
   }, []);
 
@@ -412,6 +421,7 @@ export default function HomeScreen() {
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {recentPackages.map((pkg: Pkg, i: number) => {
                 const statusColors: Record<string, { bg: string; text: string }> = {
+                  awaiting_arrival: { bg: 'rgba(234,179,8,0.15)', text: '#EAB308' },
                   received_usa: { bg: 'rgba(156,163,175,0.2)', text: '#9CA3AF' },
                   in_transit: { bg: 'rgba(249,115,22,0.15)', text: '#F97316' },
                   arrived: { bg: 'rgba(59,130,246,0.15)', text: '#3B82F6' },
