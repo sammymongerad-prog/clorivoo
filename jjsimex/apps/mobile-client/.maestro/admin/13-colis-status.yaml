@@ -1,0 +1,33 @@
+appId: host.exp.exponent
+name: "Flow 13 - Admin Colis + Status Change"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Navigate to Colis tab
+- tapOn: "Colis"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Colis"
+    timeout: 8000
+# Verify filter tabs exist
+- assertVisible: "Tous"
+- assertVisible: "En transit"
+# Verify search
+- tapOn:
+    text: "Rechercher un tracking..."
+- inputText: "JJI"
+- hideKeyboard
+- waitForAnimationToEnd
+# Clear search
+- tapOn:
+    text: "Rechercher un tracking..."
+- clearText
+- hideKeyboard
+# Test status change flow (tap first colis card if exists)
+- tapOn:
+    text: "Changer statut"
+    optional: true
+    timeout: 3000

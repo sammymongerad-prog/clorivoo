@@ -1,0 +1,20 @@
+appId: host.exp.exponent
+name: "Flow 3 - Colis List + Filters"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Navigate to Colis tab
+- tapOn: "Mes colis"
+- waitForAnimationToEnd
+# Verify colis screen loaded
+- assertVisible:
+    text: "Mes colis"
+    timeout: 8000
+# Test filter tabs
+- tapOn: "En cours"
+- waitForAnimationToEnd
+- tapOn: "Tous"
+- waitForAnimationToEnd

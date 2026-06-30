@@ -1,0 +1,23 @@
+appId: host.exp.exponent
+name: "Flow 2 - Home + Departures Realtime"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Verify departure section exists
+- scrollUntilVisible:
+    element: "Prochain"
+    direction: DOWN
+    timeout: 8000
+# Verify exchange rates section
+- scrollUntilVisible:
+    element: "HTG"
+    direction: DOWN
+    timeout: 5000
+# Verify branches section
+- scrollUntilVisible:
+    element: "Succursales"
+    direction: DOWN
+    timeout: 5000

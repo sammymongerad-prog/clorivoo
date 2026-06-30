@@ -1,0 +1,12 @@
+appId: host.exp.exponent
+name: "Flow 11 - Login Admin"
+---
+- launchApp
+- assertVisible:
+    text: "Se connecter"
+    timeout: 10000
+- runFlow: ../shared/login-admin.yaml
+# Admin should see Dashboard
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000

@@ -1,0 +1,25 @@
+appId: host.exp.exponent
+name: "Flow 15 - Admin Departs"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Navigate to Gestion > Departs
+- tapOn: "Gestion"
+- waitForAnimationToEnd
+- tapOn: "Departs"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Departs"
+    timeout: 8000
+# Verify tabs
+- assertVisible: "En cours"
+# Test tab switching
+- tapOn: "En cours"
+- waitForAnimationToEnd
+- tapOn: "Completes"
+- waitForAnimationToEnd
+- tapOn: "A venir"
+- waitForAnimationToEnd

@@ -1,0 +1,47 @@
+appId: host.exp.exponent
+name: "Flow 18 - Admin Notifications + Bulk Send"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Navigate to Gestion > Notifications
+- tapOn: "Gestion"
+- waitForAnimationToEnd
+- tapOn: "Notifications"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Notifications"
+    timeout: 8000
+# Verify tabs
+- assertVisible: "reception"
+- assertVisible: "Historique"
+# Test history tab
+- tapOn: "Historique"
+- waitForAnimationToEnd
+# Go back to inbox
+- tapOn: "reception"
+- waitForAnimationToEnd
+# Open send modal
+- tapOn:
+    point: "90%,6%"
+- waitForAnimationToEnd
+# Verify modal
+- assertVisible:
+    text: "Nouvelle notification"
+    timeout: 5000
+# Fill form
+- tapOn:
+    text: "Titre de la notification"
+- inputText: "Test Maestro"
+- hideKeyboard
+- tapOn:
+    text: "Message..."
+- inputText: "Notification de test automatise"
+- hideKeyboard
+# Verify target buttons
+- assertVisible: "Tous"
+# Close modal without sending
+- tapOn:
+    point: "90%,18%"

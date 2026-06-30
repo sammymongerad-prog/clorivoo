@@ -1,0 +1,27 @@
+appId: host.exp.exponent
+name: "Flow 16 - Admin Paiements"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Navigate to Gestion > Paiements
+- tapOn: "Gestion"
+- waitForAnimationToEnd
+- tapOn: "Paiements"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Paiements"
+    timeout: 8000
+# Verify tabs
+- assertVisible: "Tous"
+- assertVisible: "En attente"
+# Verify KPIs
+- assertVisible: "Aujourd'hui"
+- assertVisible: "Ce mois"
+# Test tab switching
+- tapOn: "En attente"
+- waitForAnimationToEnd
+- tapOn: "Tous"
+- waitForAnimationToEnd

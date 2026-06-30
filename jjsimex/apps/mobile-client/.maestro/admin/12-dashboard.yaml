@@ -1,0 +1,25 @@
+appId: host.exp.exponent
+name: "Flow 12 - Admin Dashboard"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Verify KPIs
+- assertVisible: "Colis"
+- assertVisible: "Revenus"
+# Verify period filters
+- tapOn: "7 jours"
+- waitForAnimationToEnd
+- tapOn: "30 jours"
+- waitForAnimationToEnd
+# Verify sections
+- scrollUntilVisible:
+    element: "Derniers colis"
+    direction: DOWN
+    timeout: 5000
+- scrollUntilVisible:
+    element: "Prochains"
+    direction: DOWN
+    timeout: 5000

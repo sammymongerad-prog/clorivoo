@@ -1,0 +1,19 @@
+appId: host.exp.exponent
+name: "Flow 4 - Colis Detail Screen"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Navigate to Colis tab
+- tapOn: "Mes colis"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Mes colis"
+    timeout: 8000
+# Tap first colis if any exist (will fail gracefully if no colis)
+- tapOn:
+    text: "JJI-.*"
+    optional: true
+    timeout: 5000

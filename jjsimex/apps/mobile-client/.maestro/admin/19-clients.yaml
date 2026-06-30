@@ -1,0 +1,30 @@
+appId: host.exp.exponent
+name: "Flow 19 - Admin Clients"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Navigate to Clients tab
+- tapOn: "Clients"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Clients"
+    timeout: 8000
+# Verify tabs
+- assertVisible: "Tous"
+- assertVisible: "Actifs"
+# Test search
+- tapOn:
+    text: "Nom, email"
+- inputText: "test"
+- hideKeyboard
+- waitForAnimationToEnd
+# Clear and test tabs
+- clearText
+- hideKeyboard
+- tapOn: "Actifs"
+- waitForAnimationToEnd
+- tapOn: "Tous"
+- waitForAnimationToEnd

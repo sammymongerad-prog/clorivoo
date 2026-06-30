@@ -1,0 +1,21 @@
+appId: host.exp.exponent
+name: "Flow 7 - Client Notifications"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Navigate to notifications (bell icon on home)
+- tapOn:
+    point: "90%,7%"
+- waitForAnimationToEnd
+# Verify notifications screen loaded
+- assertVisible:
+    text: "Notifications"
+    timeout: 8000
+# Test filter tabs
+- tapOn: "Colis"
+- waitForAnimationToEnd
+- tapOn: "Tout"
+- waitForAnimationToEnd

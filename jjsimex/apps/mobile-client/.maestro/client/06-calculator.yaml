@@ -1,0 +1,23 @@
+appId: host.exp.exponent
+name: "Flow 6 - Rate Calculator"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Navigate to calculator via quick actions
+- tapOn: "Calculateur"
+- waitForAnimationToEnd
+# Verify calculator screen
+- assertVisible:
+    text: "Estimateur"
+    timeout: 8000
+# Verify destination options exist
+- assertVisible: "Haiti"
+# Verify transport mode
+- assertVisible: "Avion"
+# Wait for calculation result
+- assertVisible:
+    text: "$"
+    timeout: 5000

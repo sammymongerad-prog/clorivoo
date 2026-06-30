@@ -1,0 +1,41 @@
+appId: host.exp.exponent
+name: "Flow 9 - Profile + Settings"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Navigate to Profile tab
+- tapOn: "Profil"
+- waitForAnimationToEnd
+# Verify profile screen
+- assertVisible:
+    text: "Mon profil"
+    timeout: 8000
+# Verify sections
+- assertVisible: "Mon compte"
+- scrollUntilVisible:
+    element: "Preferences"
+    direction: DOWN
+    timeout: 5000
+# Test language toggle
+- tapOn: "Langue"
+- waitForAnimationToEnd
+- assertVisible: "English"
+- tapOn: "English"
+- waitForAnimationToEnd
+# Verify English applied
+- assertVisible:
+    text: "My profile"
+    timeout: 5000
+# Switch back to French
+- tapOn: "Language"
+- waitForAnimationToEnd
+- tapOn: "Francais"
+- waitForAnimationToEnd
+# Test theme toggle
+- scrollUntilVisible:
+    element: "Theme"
+    direction: DOWN
+    timeout: 5000

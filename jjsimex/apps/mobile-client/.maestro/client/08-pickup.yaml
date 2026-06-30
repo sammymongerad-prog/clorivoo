@@ -1,0 +1,26 @@
+appId: host.exp.exponent
+name: "Flow 8 - Pickup Service"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Navigate to pickup via home
+- scrollUntilVisible:
+    element: "Pickup"
+    direction: DOWN
+    timeout: 8000
+- tapOn: "Pickup"
+- waitForAnimationToEnd
+# Verify pickup screen
+- assertVisible:
+    text: "Pickup"
+    timeout: 8000
+# Verify form elements
+- assertVisible: "Adresse"
+# Verify existing requests section
+- scrollUntilVisible:
+    element: "Mes demandes"
+    direction: DOWN
+    timeout: 5000

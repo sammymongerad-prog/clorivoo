@@ -1,0 +1,26 @@
+appId: host.exp.exponent
+name: "Flow 5 - Create Shipment Request"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Navigate to Envoyer tab (redirects to create-shipment)
+- tapOn: "Envoyer"
+- waitForAnimationToEnd
+# Verify create shipment screen
+- assertVisible:
+    text: "Nouvel envoi"
+    timeout: 8000
+# Select category
+- tapOn: "Telephone"
+- waitForAnimationToEnd
+# Fill description
+- tapOn:
+    text: "iPhone 15 Pro Max..."
+- inputText: "iPhone 15 Pro Max 256GB"
+- hideKeyboard
+# Verify form elements are visible
+- assertVisible: "Poids"
+- assertVisible: "Transport"

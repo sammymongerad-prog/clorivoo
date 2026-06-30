@@ -1,0 +1,37 @@
+appId: host.exp.exponent
+name: "Flow 20 - Gestion Navigation + Mode Client"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Navigate to Gestion tab
+- tapOn: "Gestion"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Gestion"
+    timeout: 8000
+# Verify all menu items exist
+- assertVisible: "Personal Shopper"
+- assertVisible: "Departs"
+- assertVisible: "Paiements"
+- assertVisible: "Notifications"
+- assertVisible: "Mon profil"
+- scrollUntilVisible:
+    element: "Mode Client"
+    direction: DOWN
+    timeout: 5000
+- assertVisible: "Mode Client"
+- scrollUntilVisible:
+    element: "Se deconnecter"
+    direction: DOWN
+    timeout: 5000
+- assertVisible: "Se deconnecter"
+# Test Mode Client switch
+- tapOn: "Mode Client"
+- waitForAnimationToEnd
+# Should now see client home
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000

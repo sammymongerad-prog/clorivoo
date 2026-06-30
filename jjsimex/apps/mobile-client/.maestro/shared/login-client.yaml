@@ -1,0 +1,12 @@
+appId: host.exp.exponent
+---
+- tapOn:
+    text: "votre@email.com"
+- inputText: "test@jjsimex.com"
+- hideKeyboard
+- tapOn:
+    text: "••••••••"
+- inputText: "test1234"
+- hideKeyboard
+- tapOn: "Se connecter"
+- waitForAnimationToEnd

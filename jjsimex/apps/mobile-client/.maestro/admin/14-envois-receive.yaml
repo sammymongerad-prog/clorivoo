@@ -1,0 +1,24 @@
+appId: host.exp.exponent
+name: "Flow 14 - Admin Envois + Receive Package"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Navigate to Envois tab
+- tapOn: "Envois"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Demandes d'envoi"
+    timeout: 8000
+# Verify tabs
+- assertVisible: "En attente"
+- assertVisible: "Tracking"
+# Test tab switching
+- tapOn: "Tracking"
+- waitForAnimationToEnd
+- tapOn: "Toutes"
+- waitForAnimationToEnd
+- tapOn: "En attente"
+- waitForAnimationToEnd

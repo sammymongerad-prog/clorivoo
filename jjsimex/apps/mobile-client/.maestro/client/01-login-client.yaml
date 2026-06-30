@@ -1,0 +1,11 @@
+appId: host.exp.exponent
+name: "Flow 1 - Login Client"
+---
+- launchApp
+- assertVisible:
+    text: "Se connecter"
+    timeout: 10000
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000

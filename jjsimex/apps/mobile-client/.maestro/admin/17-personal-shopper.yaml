@@ -1,0 +1,26 @@
+appId: host.exp.exponent
+name: "Flow 17 - Admin Personal Shopper"
+---
+- launchApp
+- runFlow: ../shared/login-admin.yaml
+- assertVisible:
+    text: "Dashboard"
+    timeout: 10000
+# Navigate to Gestion > Personal Shopper
+- tapOn: "Gestion"
+- waitForAnimationToEnd
+- tapOn: "Personal Shopper"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Personal Shopper"
+    timeout: 8000
+# Verify tabs
+- assertVisible: "En attente"
+- assertVisible: "En cours"
+# Test tabs
+- tapOn: "En cours"
+- waitForAnimationToEnd
+- tapOn: "Completees"
+- waitForAnimationToEnd
+- tapOn: "En attente"
+- waitForAnimationToEnd

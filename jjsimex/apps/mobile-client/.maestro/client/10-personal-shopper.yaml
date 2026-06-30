@@ -1,0 +1,15 @@
+appId: host.exp.exponent
+name: "Flow 10 - Personal Shopper Client"
+---
+- launchApp
+- runFlow: ../shared/login-client.yaml
+- assertVisible:
+    text: "Bonjour"
+    timeout: 10000
+# Navigate to Personal Shopper via quick actions
+- tapOn: "Personal Shopper"
+- waitForAnimationToEnd
+# Verify personal shopper screen loaded
+- assertVisible:
+    text: "Personal Shopper"
+    timeout: 8000
