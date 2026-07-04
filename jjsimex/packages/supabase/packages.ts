@@ -555,18 +555,30 @@ export async function assignToDeparture(packageId: string, departureId: string) 
 
 // ─── ADMIN MOBILE : Scanner un colis ─────────────────────────────────────────
 
-export async function scanPackage(trackingNumber: string) {
-  const { data: pkg, error } = await getClient()
-    .from('packages')
-    .select(`
-      id, tracking_number, status, transport_mode,
+export async function scanPackage(query: string) {
+  const q = query.toUpperCase().trim();
+  const selectFields = `
+      id, tracking_number, request_number, status, transport_mode,
       destination_country, destination_city, destination_address,
       real_weight_lbs, billed_weight_lbs, shipping_rate, total_price,
       received_at, shipped_at, arrived_at, delivered_at,
       users!client_id ( id, full_name, phone_whatsapp, email )
-    `)
-    .eq('tracking_number', trackingNumber.toUpperCase())
+    `;
+
+  // Try request_number first (QR codes use this), then tracking_number
+  let { data: pkg, error } = await getClient()
+    .from('packages')
+    .select(selectFields)
+    .eq('request_number', q)
     .single();
+
+  if (error || !pkg) {
+    ({ data: pkg, error } = await getClient()
+      .from('packages')
+      .select(selectFields)
+      .eq('tracking_number', q)
+      .single());
+  }
 
   if (error || !pkg) {
     throw new Error('Numéro de suivi introuvable. Vérifiez et réessayez.');
