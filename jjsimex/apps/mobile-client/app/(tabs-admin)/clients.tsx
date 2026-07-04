@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Platform, StatusBar, ActivityIndicator, RefreshControl, TextInput,
+  Platform, StatusBar, ActivityIndicator, RefreshControl, TextInput, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -38,6 +38,7 @@ export default function AdminClients() {
   const [newCount, setNewCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSearch, setShowSearch] = useState(true);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -105,27 +106,29 @@ export default function AdminClients() {
         <View style={s.header}>
           <Text style={s.headerTitle}>Clients</Text>
           <View style={s.headerRight}>
-            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7} onPress={() => setShowSearch((v) => !v)}>
               <Filter size={17} color="#FFFFFF" strokeWidth={1.8} />
             </TouchableOpacity>
-            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7} onPress={() => setShowSearch((v) => !v)}>
               <Search size={17} color="#FFFFFF" strokeWidth={1.8} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* RECHERCHE */}
-        <View style={s.searchWrap}>
-          <Search size={17} color={ACCENT} strokeWidth={2} style={{ position: 'absolute', left: 15, top: 15, zIndex: 1 }} />
-          <TextInput
-            style={s.searchInput}
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Nom, email, téléphone..."
-            placeholderTextColor="#5B6470"
-            autoCapitalize="none"
-          />
-        </View>
+        {showSearch && (
+          <View style={s.searchWrap}>
+            <Search size={17} color={ACCENT} strokeWidth={2} style={{ position: 'absolute', left: 15, top: 15, zIndex: 1 }} />
+            <TextInput
+              style={s.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Nom, email, téléphone..."
+              placeholderTextColor="#5B6470"
+              autoCapitalize="none"
+            />
+          </View>
+        )}
 
         {/* STATS PILLS */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, gap: 8, paddingTop: 14 }}>
@@ -178,7 +181,20 @@ export default function AdminClients() {
                   key={c.id}
                   style={s.card}
                   activeOpacity={0.7}
-                  onPress={() => {}}
+                  onPress={() => {
+                    Alert.alert(
+                      c.full_name || 'Client',
+                      [
+                        `Email: ${c.email ?? '—'}`,
+                        `Téléphone: ${c.phone_whatsapp ?? '—'}`,
+                        `Rôle: ${c.role ?? '—'}`,
+                        `Fidélité: ${loyaltyLabel}`,
+                        `Colis total: ${c.total_packages ?? 0}`,
+                        `Total dépensé: $${(c.total_spent ?? 0).toFixed(2)}`,
+                        `Créé le: ${c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}`,
+                      ].join('\n'),
+                    );
+                  }}
                 >
                   {/* Top section */}
                   <View style={s.cardTop}>

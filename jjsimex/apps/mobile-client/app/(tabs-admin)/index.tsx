@@ -55,17 +55,19 @@ export default function AdminDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsData, pkgsRes, depsData, branchesData] = await Promise.all([
+      const [statsData, pkgsRes, depsData, branchesData, { count: newClients }] = await Promise.all([
         getPackageStats(periodMap[period]),
         getAllPackages({ limit: 4 }),
         getNextDepartures(),
         getActiveBranches(),
+        getClient().from('users').select('*', { count: 'exact', head: true }).eq('role', 'client').gte('created_at', new Date(Date.now() - 30*24*60*60*1000).toISOString()),
       ]);
       setStats(statsData);
       setRecentPkgs(pkgsRes?.packages?.slice(0, 4) ?? []);
       setDepartures(depsData);
       setBranches(branchesData);
       setPendingCount(statsData?.by_status?.awaiting_arrival ?? 0);
+      setNewClientsCount(newClients ?? 0);
 
       const [{ count: unreadCount }, { count: shopperAlerts }, { count: paymentAlerts }] = await Promise.all([
         getClient().from('notifications').select('*', { count: 'exact', head: true }).eq('is_read', false),
@@ -139,11 +141,11 @@ export default function AdminDashboard() {
             </View>
           </View>
           <View style={s.headerRight}>
-            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7} onPress={() => router.push('/(tabs-admin)/gestion')}>
               <Bell size={19} color="#FFFFFF" strokeWidth={1.8} />
               {notifCount > 0 && <View style={s.bellBadge}><Text style={s.bellBadgeText}>{notifCount}</Text></View>}
             </TouchableOpacity>
-            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={s.headerBtn} activeOpacity={0.7} onPress={() => router.push('/(tabs-admin)/colis')}>
               <Search size={18} color="#FFFFFF" strokeWidth={1.8} />
             </TouchableOpacity>
           </View>
@@ -249,7 +251,7 @@ export default function AdminDashboard() {
                         <Text style={s.alertTitle}>Personal Shopper en attente</Text>
                         <Text style={s.alertSub}>{shopperAlertCount} demande(s) en attente</Text>
                       </View>
-                      <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85}>
+                      <TouchableOpacity style={s.alertBtnOrange} activeOpacity={0.85} onPress={() => router.push('/screens/admin-personal-shopper')}>
                         <Text style={s.alertBtnOrangeText}>Traiter →</Text>
                       </TouchableOpacity>
                     </View>
@@ -264,7 +266,7 @@ export default function AdminDashboard() {
                         <Text style={s.alertTitle}>Paiement non confirmé</Text>
                         <Text style={s.alertSub}>{paymentAlertCount} paiement(s) à vérifier</Text>
                       </View>
-                      <TouchableOpacity style={s.alertBtnGrey} activeOpacity={0.85}>
+                      <TouchableOpacity style={s.alertBtnGrey} activeOpacity={0.85} onPress={() => router.push('/screens/admin-paiements')}>
                         <Text style={s.alertBtnGreyText}>Vérifier →</Text>
                       </TouchableOpacity>
                     </View>
@@ -286,7 +288,7 @@ export default function AdminDashboard() {
           {recentPkgs.map((pkg: any) => {
             const badge = STATUS_BADGE[pkg.status] ?? STATUS_BADGE.awaiting_arrival;
             return (
-              <TouchableOpacity key={pkg.id} style={s.colisCard} activeOpacity={0.7}>
+              <TouchableOpacity key={pkg.id} style={s.colisCard} activeOpacity={0.7} onPress={() => router.push('/(tabs-admin)/colis')}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={s.colisId}>{pkg.tracking_number || pkg.request_number || pkg.id?.substring(0, 12)}</Text>
                   <Text style={s.colisClient} numberOfLines={1}>{pkg.client_name ?? '—'}</Text>
@@ -316,7 +318,7 @@ export default function AdminDashboard() {
         {/* 6. PROCHAINS DÉPARTS */}
         <View style={s.sectionRow}>
           <Text style={s.sectionTitle}>Prochains départs</Text>
-          <TouchableOpacity activeOpacity={0.7}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(tabs-admin)/gestion')}>
             <Text style={s.seeAll}>Gérer →</Text>
           </TouchableOpacity>
         </View>
@@ -337,7 +339,7 @@ export default function AdminDashboard() {
                 <View style={[s.progressFillThick, { width: `${((air.used_capacity_lbs ?? air.current_weight ?? 0) / air.capacity_lbs) * 100}%`, backgroundColor: getCapacityColor(air) }]} />
               </View>
               <Text style={s.capacityText}>{(air.used_capacity_lbs ?? air.current_weight ?? 0).toLocaleString()} / {air.capacity_lbs.toLocaleString()} lbs</Text>
-              <TouchableOpacity style={[s.departBtn, { backgroundColor: ACCENT }]} activeOpacity={0.85}>
+              <TouchableOpacity style={[s.departBtn, { backgroundColor: ACCENT }]} activeOpacity={0.85} onPress={() => router.push('/(tabs-admin)/envoyer')}>
                 <Text style={[s.departBtnText, { color: '#0D0D0D' }]}>Ajouter des colis</Text>
               </TouchableOpacity>
             </View>
@@ -358,7 +360,7 @@ export default function AdminDashboard() {
                 <View style={[s.progressFillThick, { width: `${((sea.used_capacity_lbs ?? sea.current_weight ?? 0) / sea.capacity_lbs) * 100}%`, backgroundColor: getCapacityColor(sea) }]} />
               </View>
               <Text style={s.capacityText}>{(sea.used_capacity_lbs ?? sea.current_weight ?? 0).toLocaleString()} / {sea.capacity_lbs.toLocaleString()} lbs</Text>
-              <TouchableOpacity style={[s.departBtn, { backgroundColor: '#2A2A2A' }]} activeOpacity={0.85}>
+              <TouchableOpacity style={[s.departBtn, { backgroundColor: '#2A2A2A' }]} activeOpacity={0.85} onPress={() => router.push('/(tabs-admin)/envoyer')}>
                 <Text style={[s.departBtnText, { color: '#FFFFFF' }]}>Ajouter des colis</Text>
               </TouchableOpacity>
             </View>
@@ -371,7 +373,7 @@ export default function AdminDashboard() {
         {/* 7. SUCCURSALES */}
         <View style={s.sectionRow}>
           <Text style={s.sectionTitle}>Succursales</Text>
-          <TouchableOpacity activeOpacity={0.7}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(tabs-admin)/gestion')}>
             <Text style={s.seeAll}>Voir tout →</Text>
           </TouchableOpacity>
         </View>
@@ -382,11 +384,9 @@ export default function AdminDashboard() {
                 <MapPin size={15} color={ACCENT} strokeWidth={1.8} style={{ flexShrink: 0 }} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={s.branchName} numberOfLines={1}>{b.name}</Text>
-                  <View style={s.branchBarBg}>
-                    <View style={[s.branchBarFill, { width: '75%' }]} />
-                  </View>
+                  <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }} numberOfLines={1}>{b.address || b.city || ''}</Text>
                 </View>
-                <Text style={s.branchStats}>{b.city || b.address?.substring(0, 15)}</Text>
+                <Text style={s.branchStats}>{b.city || ''}</Text>
               </View>
             ))}
           </View>

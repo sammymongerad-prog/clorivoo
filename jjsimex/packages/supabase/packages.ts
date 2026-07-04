@@ -181,16 +181,17 @@ export async function createShipmentRequest(data: CreateShipmentRequest) {
     throw new Error(error?.message ?? 'Erreur lors de la création de la demande.');
   }
 
-  // Notification in-app pour le client
+  // Notification in-app pour le client avec lien vers ajout tracking
   const shipTitle = `Demande ${pkg.request_number} enregistrée`;
-  const shipMsg = `Votre demande ${pkg.request_number} est enregistrée. Dès que vous recevez votre numéro de suivi du transporteur (UPS, FedEx, USPS, etc.), ajoutez-le dans l'app pour qu'on puisse suivre l'arrivée de votre colis.`;
+  const shipMsg = `Votre demande ${pkg.request_number} est enregistrée. Ajoutez votre numéro de suivi transporteur (UPS, FedEx, USPS...) dans les 7 jours pour confirmer votre envoi.`;
   await getClient().from('notifications').insert({
     user_id: data.client_id,
     title: shipTitle,
     message: shipMsg,
     type: 'package',
+    action_url: `/screens/add-carrier-tracking?packageId=${pkg.id}&requestNumber=${pkg.request_number}`,
   });
-  sendPushNotification(data.client_id, shipTitle, shipMsg).catch(e => console.error('Push error:', e));
+  sendPushNotification(data.client_id, shipTitle, shipMsg, { packageId: pkg.id, requestNumber: pkg.request_number }).catch(e => console.error('Push error:', e));
 
   // Notification admins
   const { data: admins } = await getClient()

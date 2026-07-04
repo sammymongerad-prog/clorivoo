@@ -148,7 +148,7 @@ export default function AdminColis() {
         <View style={s.header}>
           <Text style={s.headerTitle}>Colis</Text>
           <View style={s.headerRight}>
-            <TouchableOpacity style={s.headerBtn} onPress={() => {}} activeOpacity={0.7}>
+            <TouchableOpacity style={s.headerBtn} onPress={() => setShowSearch(!showSearch)} activeOpacity={0.7}>
               <Filter size={17} color="#FFFFFF" strokeWidth={1.8} />
             </TouchableOpacity>
             <TouchableOpacity style={s.headerBtn} onPress={() => setShowSearch(!showSearch)} activeOpacity={0.7}>
@@ -257,7 +257,18 @@ export default function AdminColis() {
 
                   {/* Buttons */}
                   <View style={s.cardBtns}>
-                    <TouchableOpacity style={s.detailBtn} activeOpacity={0.7}>
+                    <TouchableOpacity style={s.detailBtn} activeOpacity={0.7} onPress={() => {
+                      const name = clientName(pkg);
+                      const dest = `${pkg.destination_city ?? '—'}, ${pkg.destination_country === 'haiti' ? 'Haïti' : 'Rép. Dom.'}`;
+                      const weight = pkg.weight_billed ? `${pkg.weight_billed} lbs` : '—';
+                      const mode = pkg.transport_mode === 'air' ? 'Avion' : 'Bateau';
+                      const tracking = pkg.tracking_number || pkg.request_number || '—';
+                      const carrier = pkg.carrier_tracking_number ? `\nTracking transporteur: ${pkg.carrier_tracking_number}` : '';
+                      Alert.alert(
+                        tracking,
+                        `Client: ${name}\nDestination: ${dest}\nPoids: ${weight}\nMode: ${mode}${carrier}\nCréé: ${formatDate(pkg.created_at)}`
+                      );
+                    }}>
                       <Text style={s.detailBtnText}>Voir détails</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -296,7 +307,7 @@ export default function AdminColis() {
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity style={s.fab} activeOpacity={0.85}>
+      <TouchableOpacity style={s.fab} activeOpacity={0.85} onPress={() => router.push('/(tabs-admin)/envoyer')}>
         <Plus size={24} color="#0D0D0D" strokeWidth={2.4} />
       </TouchableOpacity>
     </View>
