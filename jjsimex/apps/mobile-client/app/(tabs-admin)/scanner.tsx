@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Platform, StatusBar, TextInput, ActivityIndicator, Alert, Linking,
@@ -11,6 +11,8 @@ import { supabase } from '@/lib/supabase';
 import {
   Search, Zap, CheckCircle, MessageCircle,
 } from 'lucide-react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import type { QRPayload } from '@/components/ui/QRCodeDisplay';
 
 const statusBarH = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const ACCENT = '#F97316';
@@ -30,6 +32,7 @@ const STATUS_KEYS: PackageStatus[] = ['received_usa', 'in_transit', 'arrived', '
 export default function AdminScanner() {
   const router = useRouter();
   const { session } = useAuth();
+  const [permission, requestPermission] = useCameraPermissions();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [pkg, setPkg] = useState<any>(null);
@@ -37,21 +40,50 @@ export default function AdminScanner() {
   const [updated, setUpdated] = useState(false);
   const [recentScans, setRecentScans] = useState<{ id: string; status: string; time: string }[]>([]);
   const [flash, setFlash] = useState(false);
+  const [cameraActive, setCameraActive] = useState(true);
+  const [scanLock, setScanLock] = useState(false);
 
-  async function handleSearch() {
-    const q = query.trim();
-    if (!q) return;
+  function parseQR(data: string): QRPayload | null {
+    try {
+      const parsed = JSON.parse(data);
+      if (parsed.app === 'jjsimex' && parsed.ref) return parsed as QRPayload;
+    } catch {}
+    return null;
+  }
+
+  async function lookupByRef(ref: string) {
     setLoading(true);
     setPkg(null);
     setUpdated(false);
     try {
-      const result = await scanPackage(q);
+      const result = await scanPackage(ref);
       setPkg(result);
       setCurrentStatus(result.status);
+      setCameraActive(false);
     } catch (e: any) {
-      Alert.alert('Introuvable', e.message);
+      Alert.alert('Introuvable', `Aucun colis trouvé pour "${ref}"`);
     }
     setLoading(false);
+  }
+
+  function handleBarCodeScanned(result: { data: string }) {
+    if (scanLock || !cameraActive) return;
+    setScanLock(true);
+
+    const qr = parseQR(result.data);
+    if (qr) {
+      lookupByRef(qr.ref);
+    } else {
+      lookupByRef(result.data);
+    }
+
+    setTimeout(() => setScanLock(false), 2000);
+  }
+
+  async function handleSearch() {
+    const q = query.trim();
+    if (!q) return;
+    lookupByRef(q);
   }
 
   async function handleChangeStatus(newStatus: PackageStatus) {
@@ -88,7 +120,15 @@ export default function AdminScanner() {
     return u?.full_name ?? '—';
   }
 
+  function resetScan() {
+    setPkg(null);
+    setQuery('');
+    setUpdated(false);
+    setCameraActive(true);
+  }
+
   const badge = STATUS_MAP[currentStatus] ?? STATUS_MAP.awaiting_arrival;
+  const cameraGranted = permission?.granted;
 
   return (
     <View style={s.container}>
@@ -107,19 +147,46 @@ export default function AdminScanner() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
 
-        {/* ZONE CAMÉRA (simulée) */}
-        <TouchableOpacity style={s.cameraZone} onPress={handleSearch} activeOpacity={0.9}>
-          <View style={s.scanFrame}>
-            <View style={[s.corner, s.cornerTL]} />
-            <View style={[s.corner, s.cornerTR]} />
-            <View style={[s.corner, s.cornerBL]} />
-            <View style={[s.corner, s.cornerBR]} />
-            <View style={s.scanLine} />
+        {/* ZONE CAMÉRA */}
+        {cameraActive && (
+          <View style={s.cameraZone}>
+            {cameraGranted ? (
+              <CameraView
+                style={StyleSheet.absoluteFillObject}
+                facing="back"
+                barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                onBarcodeScanned={handleBarCodeScanned}
+                enableTorch={flash}
+              />
+            ) : (
+              <TouchableOpacity style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onPress={requestPermission} activeOpacity={0.9}>
+                <Text style={{ fontSize: 14, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 20 }}>
+                  Appuyez pour autoriser la caméra
+                </Text>
+              </TouchableOpacity>
+            )}
+            {/* Scan frame overlay */}
+            <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="none">
+              <View style={s.scanFrame}>
+                <View style={[s.corner, s.cornerTL]} />
+                <View style={[s.corner, s.cornerTR]} />
+                <View style={[s.corner, s.cornerBL]} />
+                <View style={[s.corner, s.cornerBR]} />
+                <View style={s.scanLine} />
+              </View>
+            </View>
+            <View style={{ position: 'absolute', bottom: 14, left: 0, right: 0, alignItems: 'center' }} pointerEvents="none">
+              <Text style={s.cameraHint}>Placez le QR code dans le cadre</Text>
+            </View>
           </View>
-          <Text style={s.cameraHint}>
-            {pkg ? 'Colis détecté — voir résultat ci-dessous' : 'Placez le QR code dans le cadre'}
-          </Text>
-        </TouchableOpacity>
+        )}
+
+        {/* Bouton réactiver caméra si résultat affiché */}
+        {!cameraActive && pkg && (
+          <TouchableOpacity style={s.newScanBtn} onPress={resetScan} activeOpacity={0.85}>
+            <Text style={s.newScanBtnText}>Scanner un autre colis</Text>
+          </TouchableOpacity>
+        )}
 
         {/* SÉPARATEUR */}
         <View style={s.separatorRow}>
@@ -148,7 +215,6 @@ export default function AdminScanner() {
         {/* RÉSULTAT */}
         {pkg && (
           <View style={s.resultCard}>
-            {/* Banner orange */}
             <View style={s.resultBanner}>
               <CheckCircle size={20} color="#1A0D02" strokeWidth={2.4} />
               <View>
@@ -157,7 +223,6 @@ export default function AdminScanner() {
               </View>
             </View>
 
-            {/* Détails */}
             <View style={s.resultBody}>
               <View style={s.detailRow}>
                 <Text style={s.detailLabel}>Client</Text>
@@ -178,7 +243,6 @@ export default function AdminScanner() {
                 </View>
               </View>
 
-              {/* Statut buttons */}
               <Text style={s.statusSectionTitle}>Mettre à jour le statut</Text>
               <View style={s.statusGrid}>
                 {STATUS_KEYS.map((key) => {
@@ -204,7 +268,6 @@ export default function AdminScanner() {
                 <Text style={[s.deliveredBtnText, currentStatus === 'delivered' && s.deliveredBtnTextActive]}>Livré ✓</Text>
               </TouchableOpacity>
 
-              {/* Confirmation */}
               {updated && (
                 <View style={s.updatedBanner}>
                   <CheckCircle size={13} color="#22C55E" strokeWidth={2.5} />
@@ -212,7 +275,6 @@ export default function AdminScanner() {
                 </View>
               )}
 
-              {/* WhatsApp */}
               <TouchableOpacity style={s.waBtn} onPress={notifyWhatsApp} activeOpacity={0.85}>
                 <MessageCircle size={18} color="#052E14" strokeWidth={1.8} />
                 <Text style={s.waBtnText}>Notifier le client WhatsApp</Text>
@@ -265,9 +327,8 @@ const s = StyleSheet.create({
   flashBtnActive: { backgroundColor: ACCENT, borderColor: ACCENT },
 
   cameraZone: {
-    height: 300, borderRadius: 20,
+    height: 300, borderRadius: 20, overflow: 'hidden',
     backgroundColor: '#111111', borderWidth: 1, borderColor: '#2A2A2A',
-    alignItems: 'center', justifyContent: 'center',
   },
   scanFrame: { width: 200, height: 200, position: 'relative' },
   corner: { position: 'absolute', width: 36, height: 36 },
@@ -281,7 +342,14 @@ const s = StyleSheet.create({
     shadowColor: ACCENT, shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8, shadowRadius: 12,
   },
-  cameraHint: { fontSize: 13, color: '#9CA3AF', marginTop: 18 },
+  cameraHint: { fontSize: 13, color: 'rgba(255,255,255,0.8)', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 99 },
+
+  newScanBtn: {
+    height: 50, borderRadius: 14, backgroundColor: '#1A1A1A',
+    borderWidth: 1, borderColor: ACCENT,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  newScanBtnText: { fontSize: 14, fontWeight: '700', color: ACCENT },
 
   separatorRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginVertical: 22 },
   separatorLine: { flex: 1, height: 1, backgroundColor: '#2A2A2A' },

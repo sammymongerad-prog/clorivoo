@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { StatusBadge } from './StatusBadge';
+import { QRCodeMini } from './QRCodeDisplay';
 
 interface Package {
   id: string;
   tracking_number: string;
+  request_number?: string;
   status: string;
   transport_mode?: string;
   destination_city?: string;
@@ -46,11 +48,16 @@ export function PackageCard({ pkg, onPress, variant = 'default' }: Props) {
       style={{ backgroundColor: '#1A1A1A', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: '#2A2A2A' }}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 4, letterSpacing: 0.5, textTransform: 'uppercase' }}>Numéro de suivi</Text>
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#F97316' }}>{pkg.tracking_number}</Text>
         </View>
-        <StatusBadge status={pkg.status} size="md" />
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+          <StatusBadge status={pkg.status} size="md" />
+          {pkg.request_number && (
+            <QRCodeMini type="shipment" referenceNumber={pkg.request_number} id={pkg.id} />
+          )}
+        </View>
       </View>
       <View style={{ flexDirection: 'row', gap: 16 }}>
         <View style={{ flex: 1 }}>

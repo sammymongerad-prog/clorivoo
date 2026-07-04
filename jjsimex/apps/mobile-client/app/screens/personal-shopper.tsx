@@ -10,6 +10,7 @@ import { createShopperRequest, getMyShopperRequests } from '@jjsimex/supabase/sh
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { BackButton } from '@/components/layout/BackButton';
 import { useToast } from '@/components/ui/Toast';
+import { QRCodeMini } from '@/components/ui/QRCodeDisplay';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Request = any;
@@ -265,10 +266,16 @@ export default function PersonalShopperScreen() {
             <View key={req.id} style={styles.reqCard}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <View style={{ flex: 1 }}>
+                  {req.request_number && <Text style={{ fontSize: 11, color: '#F97316', fontWeight: '700', marginBottom: 2 }}>{req.request_number}</Text>}
                   <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>{req.merchant}</Text>
                   <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }} numberOfLines={1}>{req.product_url}</Text>
                 </View>
-                <StatusBadge status={req.status} />
+                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  <StatusBadge status={req.status} />
+                  {req.request_number && (
+                    <QRCodeMini type="shopper" referenceNumber={req.request_number} id={req.id} />
+                  )}
+                </View>
               </View>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <Text style={{ fontSize: 12, color: '#9CA3AF' }}>Qté: {req.quantity}</Text>

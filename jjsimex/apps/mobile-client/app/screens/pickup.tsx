@@ -10,6 +10,7 @@ import { BackButton } from '@/components/layout/BackButton';
 import { createPickupRequest, getMyPickupRequests, subscribeToPickups } from '@jjsimex/supabase/pickup';
 import type { PickupRequest } from '@jjsimex/supabase/pickup';
 import { Truck, MapPin, Calendar, Clock, Package, MessageCircle } from 'lucide-react-native';
+import { QRCodeMini } from '@/components/ui/QRCodeDisplay';
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#F97316';
@@ -397,11 +398,17 @@ export default function PickupScreen() {
                     <Truck size={20} color={ACCENT} strokeWidth={1.8} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
+                    {(r as any).reference_number && <Text style={{ fontSize: 11, color: ACCENT, fontWeight: '700', marginBottom: 1 }}>{(r as any).reference_number}</Text>}
                     <Text style={s.reqAddr} numberOfLines={1}>{r.pickup_address}</Text>
                     <Text style={s.reqWhen}>{formatWhen(r.pickup_date, r.pickup_time)}</Text>
                   </View>
-                  <View style={[s.badge, { backgroundColor: badge.bg }]}>
-                    <Text style={[s.badgeText, { color: badge.color }]}>{badge.label}</Text>
+                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                    <View style={[s.badge, { backgroundColor: badge.bg }]}>
+                      <Text style={[s.badgeText, { color: badge.color }]}>{badge.label}</Text>
+                    </View>
+                    {(r as any).reference_number && (
+                      <QRCodeMini type="pickup" referenceNumber={(r as any).reference_number} id={r.id} />
+                    )}
                   </View>
                 </View>
               );

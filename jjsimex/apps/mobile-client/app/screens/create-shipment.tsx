@@ -15,6 +15,7 @@ import {
   Smartphone, Laptop, Shirt, Footprints, Cpu, Home, Sparkles, MoreHorizontal,
   Plane, Ship, CheckCircle, Copy, ChevronDown, Camera, AlertTriangle, X,
 } from 'lucide-react-native';
+import { QRCodeDisplay } from '@/components/ui/QRCodeDisplay';
 import { Image } from 'react-native';
 import { getClient } from '@jjsimex/supabase/client';
 
@@ -162,8 +163,8 @@ export default function CreateShipmentScreen() {
         client_photo_1_url: photo1Url,
         client_photo_2_url: photo2Url,
       });
-      setRequestNumber(result.request_number);
-      setRequestId(result.id);
+      setRequestNumber((result as any).request_number);
+      setRequestId((result as any).id);
       setStep(5);
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
@@ -497,7 +498,16 @@ export default function CreateShipmentScreen() {
             <View style={{ alignItems: 'center', paddingTop: 40 }}>
               <CheckCircle size={72} color="#22C55E" strokeWidth={1.5} />
               <Text style={[s.confirmTitle, { color: colors.text }]}>{t('request_saved')}</Text>
-              <Text style={s.requestNum}>{requestNumber}</Text>
+
+              <View style={{ marginVertical: 20 }}>
+                <QRCodeDisplay
+                  type="shipment"
+                  referenceNumber={requestNumber}
+                  id={requestId}
+                  label={t('scan_at_dropoff') ?? 'Présentez ce QR au dépôt'}
+                />
+              </View>
+
               <TouchableOpacity
                 style={s.copyBtn}
                 onPress={() => {
