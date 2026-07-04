@@ -29,6 +29,12 @@ module.exports = ({ config }) => ({
   plugins: [
     'expo-router',
     [
+      'expo-camera',
+      {
+        cameraPermission: 'Permettre à JJs IMEX d\'accéder à la caméra pour scanner les QR codes.',
+      },
+    ],
+    [
       'expo-notifications',
       {
         icon: './assets/icon.png',
