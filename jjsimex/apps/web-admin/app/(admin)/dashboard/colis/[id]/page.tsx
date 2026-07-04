@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getPackageDetail, updatePackageStatus, addInternalNote } from '@jjsimex/supabase/packages';
 import type { PackageStatus } from '@jjsimex/supabase/packages';
 import { createClient } from '@/lib/supabase/client';
+import { QRCodeSVG } from 'qrcode.react';
 
 const STATUS_LABELS: Record<PackageStatus, string> = {
   awaiting_arrival: 'En attente d\'arrivée',
@@ -52,6 +53,31 @@ export default function ColisDetailPage() {
   const [statusError, setStatusError] = useState('');
   const [noteText, setNoteText] = useState('');
   const [noteLoading, setNoteLoading] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
+
+  const handlePrintQR = useCallback(() => {
+    if (!pkg || !qrRef.current) return;
+    const ref = pkg.request_number || pkg.tracking_number;
+    const svgEl = qrRef.current.querySelector('svg');
+    if (!svgEl) return;
+    const svgHtml = svgEl.outerHTML;
+    const w = window.open('', '_blank', 'width=400,height=500');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>QR - ${ref}</title>
+      <style>body{font-family:sans-serif;text-align:center;padding:40px}
+      h2{margin:0 0 4px;font-size:18px}p{color:#666;font-size:13px;margin:4px 0}
+      .ref{font-size:22px;font-weight:bold;color:#F97316;margin:12px 0}
+      svg{width:200px;height:200px;margin:20px auto;display:block}
+      @media print{button{display:none}}</style></head><body>
+      <h2>JJ&apos;s IMEX</h2><p>Code QR du colis</p>
+      ${svgHtml}
+      <div class="ref">${ref}</div>
+      <p>${pkg.destination_city || ''}, ${pkg.destination_country === 'haiti' ? 'Haïti' : 'Rép. Dom.'}</p>
+      <p>${pkg.users ? pkg.users.first_name + ' ' + pkg.users.last_name : ''}</p>
+      <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#F97316;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer">Imprimer</button>
+      </body></html>`);
+    w.document.close();
+  }, [pkg]);
 
   useEffect(() => {
     async function load() {
@@ -144,12 +170,35 @@ export default function ColisDetailPage() {
             Créé le {new Date(pkg.created_at).toLocaleDateString('fr-FR')}
           </p>
         </div>
-        <button
-          onClick={() => setStatusModal(true)}
-          className="bg-brand-orange text-white px-4 py-2 rounded-btn font-semibold text-sm hover:bg-brand-orange-dark transition-colors"
-        >
-          Changer statut
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => handlePrintQR()}
+            className="bg-brand-card border border-brand-border text-white px-4 py-2 rounded-btn font-semibold text-sm hover:border-brand-orange transition-colors"
+          >
+            Imprimer QR
+          </button>
+          <button
+            onClick={() => setStatusModal(true)}
+            className="bg-brand-orange text-white px-4 py-2 rounded-btn font-semibold text-sm hover:bg-brand-orange-dark transition-colors"
+          >
+            Changer statut
+          </button>
+        </div>
+      </div>
+
+      {/* QR Code */}
+      <div className="bg-brand-card border border-brand-border rounded-card p-5 flex items-center gap-6">
+        <div ref={qrRef} className="bg-white p-3 rounded-lg flex-shrink-0">
+          <QRCodeSVG
+            value={JSON.stringify({ app: 'jjsimex', type: 'shipment', ref: pkg.request_number || pkg.tracking_number, id: pkg.id })}
+            size={120}
+          />
+        </div>
+        <div className="space-y-1">
+          <p className="text-white font-semibold text-sm">QR Code du colis</p>
+          <p className="text-brand-gray text-xs">Réf: {pkg.request_number || pkg.tracking_number}</p>
+          <p className="text-brand-gray text-xs">Scannez ce code avec l&apos;app mobile pour identifier ce colis instantanément.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
